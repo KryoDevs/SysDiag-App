@@ -1,3 +1,12 @@
-bin/ 
-obj/ 
-publish/ 
+**/bin/
+**/obj/
+publish/
+release/
+TestResults/
+.vs/
+*.user
+*.suo
+*.log
+sysdiag-*.zip
+sysdiag-*.exe
+*.tmp

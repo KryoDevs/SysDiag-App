@@ -1,11 +1,2 @@
-using System.Reflection;
-using System.Runtime.InteropServices;
-
-[assembly: AssemblyTitle("SysDiag - Diagnostico y optimizacion de Windows")]
-[assembly: AssemblyProduct("SysDiag")]
-[assembly: AssemblyCompany("SysDiag")]
-[assembly: AssemblyCopyright("2026")]
-[assembly: AssemblyVersion("5.7.0")]
-[assembly: AssemblyFileVersion("5.7.0")]
-[assembly: AssemblyInformationalVersion("5.7.0")]
-// No TargetFrameworkAttribute: lo genera el SDK automáticamente.
+// Los atributos de versión y producto se generan desde SysDiag.csproj.
+// Mantener una sola fuente evita discrepancias entre UI, instalador y release.

@@ -1,4 +1,4 @@
-﻿namespace SysDiag.Models;
+namespace SysDiag.Models;
 
 /// <summary>
 /// Parámetros ajustables. Antes vivían fijos como campos estáticos en cada
@@ -27,6 +27,17 @@ public class AppSettings
     public int LogsMaximo { get; set; } = 30;
 
     public static AppSettings PorDefecto() => new();
+
+    /// <summary>También valida JSON cargado o llamadas directas, no solo los campos de la UI.</summary>
+    public AppSettings Normalizar() => new()
+    {
+        SampleSeconds = Math.Clamp(SampleSeconds, 2, 30),
+        PingCount = Math.Clamp(PingCount, 5, 100),
+        EventDays = Math.Clamp(EventDays, 1, 90),
+        WheaDays = Math.Clamp(WheaDays, 1, 90),
+        HistorialMaximo = Math.Clamp(HistorialMaximo, 5, 500),
+        LogsMaximo = Math.Clamp(LogsMaximo, 5, 200)
+    };
 
     /// <summary>
     /// Interpreta el texto de un campo de Ajustes: si no es un número válido

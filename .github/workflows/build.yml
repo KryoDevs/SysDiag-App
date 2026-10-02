@@ -5,10 +5,17 @@ name: Compilar y probar
 # que nadie del proyecto tocó a mano.
 "on":
   push:
-    branches: [ main ]
+    branches: [ main, "arena/**" ]
   pull_request:
     branches: [ main ]
   workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -30,7 +37,15 @@ jobs:
         run: dotnet build SysDiag.sln -c Release --no-restore
 
       - name: Ejecutar la suite de pruebas
-        run: dotnet test SysDiag.sln -c Release --no-build --verbosity minimal
+        run: dotnet test SysDiag.sln -c Release --no-build --verbosity minimal --logger "trx;LogFileName=tests.trx" --results-directory TestResults
+
+      - name: Guardar resultados de pruebas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.sha }}
+          path: TestResults/*.trx
+          if-no-files-found: ignore
 
       - name: Publicar el ejecutable autocontenido
         run: dotnet publish SysDiag.csproj -c Release -o publish

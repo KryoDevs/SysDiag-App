@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -342,20 +342,10 @@ public partial class MainWindow : Window
             $"SHA-256: {res.Sha256}\n\n" +
             string.Join("\n\n", res.Notas);
 
-        if (res.AptoParaInstalar)
-        {
-            bool instalar = Dialog.Confirm("Verificación superada", informe, "Instalar ahora");
-            if (instalar)
-            {
-                if (!RequiereAdmin()) return;
-                string r2 = DriverVerifier.Instalar(ruta);
-                Dialog.Info("Instalación de driver", r2);
-            }
-        }
+        if (DriverVerifier.VerificacionSatisfactoria(res))
+            Dialog.Info("Verificación informativa completada", informe);
         else
-        {
-            Dialog.Error("No conviene instalarlo", informe);
-        }
+            Dialog.Error("Verificación incompleta o no válida", informe);
     }
 
     private void PropiedadesDispositivo_Click(object sender, RoutedEventArgs e)
