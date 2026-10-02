@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -18,7 +18,7 @@ public partial class CleanupWindow : Window
 
         var o = CleanupModule.Opts;
 
-        Add("TempUsuario", "Temporales del usuario", "Lo que dejan los instaladores y las aplicaciones al trabajar.", o.TempUsuario, "BOk");
+        Add("TempUsuario", "Temporales del usuario", "Solo archivos con más de 24 horas; se conservan los temporales recientes y los de solo lectura.", o.TempUsuario, "BOk");
         Add("TempWindows", "Temporales de Windows", "Equivalente del sistema. Requiere administrador para vaciarlo entero.", o.TempWindows, "BOk");
         Add("CacheInternet", "Caché de Internet", "Archivos temporales de navegación del sistema.", o.CacheInternet, "BOk");
         Add("VolcadosApp", "Volcados de aplicaciones", "Restos de programas que se cerraron con error.", o.VolcadosApp, "BOk");

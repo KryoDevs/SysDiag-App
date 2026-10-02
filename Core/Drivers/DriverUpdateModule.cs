@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.IO;
 using System.Runtime.Versioning;
 using SysDiag.Models;
 
@@ -53,7 +54,7 @@ public static class DriverUpdateModule
     private static List<DriverUpdateRow> BuscarInterno(DiagnosticReport r)
     {
         var filas = new List<DriverUpdateRow>();
-
+        _resultado = null;
         var tipo = Type.GetTypeFromProgID("Microsoft.Update.Session");
         if (tipo == null)
         {
@@ -137,6 +138,7 @@ public static class DriverUpdateModule
 
                 AppLog.Write($"Drivers disponibles ({nombre}): {filas.Count}", "WARN");
 
+                UltimoError = "";
                 r.Add(Severity.Warn, "Drivers", $"{filas.Count} driver(s) con versión más reciente disponible.",
                     "Vienen firmados por Microsoft y validados contra el hardware de este equipo. Instálalos desde el botón «Instalar seleccionado».");
 
@@ -144,6 +146,8 @@ public static class DriverUpdateModule
             }
             catch (Exception ex)
             {
+                filas.Clear();
+                _resultado = null;
                 AppLog.Write($"  {nombre}: {ex.Message}", "WARN");
                 UltimoError = Explicar(ex);
             }
@@ -294,22 +298,32 @@ public static class DriverUpdateModule
         if (!AppEnv.IsAdmin)
             return "Instalar drivers requiere ejecutar SysDiag como administrador.";
 
-        var elegidos = seleccion?.ToList() ?? new List<DriverUpdateRow>();
+        var elegidos = seleccion?.DistinctBy(row => row.UpdateId).ToList() ?? new List<DriverUpdateRow>();
         if (elegidos.Count == 0) return "No se seleccionó ninguna actualización.";
-        if (_resultado == null) return "Vuelve a buscar antes de instalar.";
-
         return Worker.Run(() => InstalarInterno(elegidos, progreso));
     }
 
+    public static bool MatchesUpdate(DriverUpdateRow row, string currentId, int count) => row != null
+        && row.Indice >= 0 && row.Indice < count && Guid.TryParse(row.UpdateId, out var selected)
+        && selected != Guid.Empty && Guid.TryParse(currentId, out var current) && selected == current;
+
     private static string InstalarInterno(List<DriverUpdateRow> elegidos, Action<string> progreso)
     {
+        if (_resultado == null) throw new InvalidOperationException("Vuelve a buscar antes de instalar.");
+        int count = _resultado.Updates.Count;
+        foreach (var row in elegidos)
+        {
+            if (row.Indice < 0 || row.Indice >= count
+                || !MatchesUpdate(row, SafeId(_resultado.Updates.Item(row.Indice)), count))
+                throw new InvalidOperationException("La selección ya no corresponde al resultado actual. Vuelve a buscar drivers.");
+        }
         // Un punto de restauración por driver instalado sería ruidoso; se
         // crea uno solo cubriendo el lote completo de esta instalación.
         progreso?.Invoke("Creando punto de restauración...");
         var punto = SysDiag.Core.Windows.RestorePointModule.Crear(
             elegidos.Count == 1 ? $"Antes de instalar {elegidos[0].Titulo}" : $"Antes de instalar {elegidos.Count} drivers");
-        AppLog.Write(punto.Exito ? punto.Mensaje : $"Sin punto de restauración: {punto.Mensaje}",
-            punto.Exito ? "OK" : "WARN");
+        if (!punto.Exito) throw new InvalidOperationException("No se instalaron drivers porque no se pudo crear un punto de restauración. " + punto.Mensaje);
+        AppLog.Write(punto.Mensaje, "OK");
 
         try
         {
@@ -322,11 +336,7 @@ public static class DriverUpdateModule
 
                 // Las licencias hay que aceptarlas explícitamente; sin esto la
                 // instalación falla en silencio.
-                try
-                {
-                    if (u.EulaAccepted == false) u.AcceptEula();
-                }
-                catch { }
+                if (u.EulaAccepted == false) u.AcceptEula();
 
                 aDescargar.Add(u);
             }
@@ -346,7 +356,7 @@ public static class DriverUpdateModule
             if (codigoDescarga != 2 && codigoDescarga != 3)
             {
                 AppLog.Write($"La descarga terminó con código {codigoDescarga}.", "ERROR");
-                return "No se pudo descargar. Revisa el registro para el detalle.";
+                throw new InvalidOperationException("No se pudo descargar. Revisa el registro para el detalle.");
             }
 
             dynamic aInstalar = Activator.CreateInstance(tipoCol);
@@ -356,7 +366,7 @@ public static class DriverUpdateModule
                 if (u.IsDownloaded) aInstalar.Add(u);
             }
 
-            if (aInstalar.Count == 0) return "Ningún paquete quedó descargado correctamente.";
+            if (aInstalar.Count == 0) throw new InvalidOperationException("Ningún paquete quedó descargado correctamente.");
 
             progreso?.Invoke("Instalando...");
             AppLog.Write($"Instalando {aInstalar.Count} driver(s)...", "STEP");
@@ -378,11 +388,19 @@ public static class DriverUpdateModule
                 _ => $"La instalación terminó con código {codigo}."
             };
 
+            int succeeded = 0;
+            for (int index = 0; index < aInstalar.Count; index++)
+            {
+                dynamic item = resInstalar.GetUpdateResult(index);
+                int itemCode = Convert.ToInt32(item.ResultCode);
+                if (itemCode == 2) succeeded++;
+                AppLog.Write($"Driver {index + 1}: resultado {itemCode}, HRESULT 0x{Convert.ToInt32(item.HResult):X8}", itemCode == 2 ? "OK" : "WARN");
+            }
+            if (codigo is not 2 and not 3 || succeeded != elegidos.Count)
+                throw new InvalidOperationException($"Instalación incompleta: {succeeded}/{elegidos.Count} drivers confirmados. {estado} " +
+                    (reinicio ? "Es necesario reiniciar. " : "") + "Revisa el registro y el punto de restauración antes de reintentar.");
             AppLog.Write(estado, codigo == 2 ? "OK" : "WARN");
-
-            estado = (punto.Exito
-                ? "Se creó un punto de restauración antes de instalar. "
-                : "No se pudo crear un punto de restauración (ver Registro); se instaló igual. ") + estado;
+            estado = "Se creó un punto de restauración antes de instalar. " + estado;
 
             if (reinicio)
             {
@@ -395,7 +413,7 @@ public static class DriverUpdateModule
         catch (Exception ex)
         {
             AppLog.Write($"Error al instalar drivers: {ex.Message}", "ERROR");
-            return "No se pudo completar la instalación.\n\n" + Explicar(ex);
+            throw new InvalidOperationException("No se pudo completar la instalación. " + ex.Message + "\n\n" + Explicar(ex), ex);
         }
     }
 
@@ -409,11 +427,11 @@ public static class DriverUpdateModule
     {
         try
         {
-            string args = string.IsNullOrWhiteSpace(deviceId)
-                ? "devmgr.dll DeviceProperties_RunDLL"
-                : $"devmgr.dll DeviceProperties_RunDLL /DeviceID \"{deviceId}\"";
-
-            Process.Start(new ProcessStartInfo("rundll32.exe", args) { UseShellExecute = true });
+            var info = new ProcessStartInfo(AppEnv.SystemTool("rundll32")) { UseShellExecute = true };
+            info.ArgumentList.Add(Path.Combine(Environment.SystemDirectory, "devmgr.dll"));
+            info.ArgumentList.Add("DeviceProperties_RunDLL");
+            if (!string.IsNullOrWhiteSpace(deviceId)) { info.ArgumentList.Add("/DeviceID"); info.ArgumentList.Add(deviceId); }
+            using var process = Process.Start(info);
         }
         catch (Exception ex)
         {

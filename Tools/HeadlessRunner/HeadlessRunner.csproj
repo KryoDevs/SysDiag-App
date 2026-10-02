@@ -2,12 +2,15 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <DisableWinExeOutputInference>true</DisableWinExeOutputInference>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PlatformTarget>x64</PlatformTarget>
+    <SelfContained>true</SelfContained>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="SysDiag">
-      <HintPath>..\..\bin\Debug\net8.0-windows\win-x64\SysDiag.dll</HintPath>
-    </Reference>
+    <ProjectReference Include="..\..\SysDiag.csproj" />
   </ItemGroup>
 </Project>

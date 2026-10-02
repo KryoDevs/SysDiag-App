@@ -1,14 +1,20 @@
 name: Compilar y probar
 
-# Se ejecuta en una máquina Windows real que administra GitHub, no la mía
-# ni la de Kryo: es la primera verificación de este proyecto en un equipo
-# que nadie del proyecto tocó a mano.
+# Windows valida WPF, interop de archivos y los artefactos publicados.
+# No se instalan drivers ni se alteran DNS, registro o energía del runner.
 "on":
   push:
-    branches: [ main ]
+    branches: [ main, "arena/**" ]
   pull_request:
     branches: [ main ]
   workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -16,10 +22,10 @@ jobs:
 
     steps:
       - name: Descargar el código
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Instalar .NET 8
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '8.0.x'
 
@@ -30,7 +36,27 @@ jobs:
         run: dotnet build SysDiag.sln -c Release --no-restore
 
       - name: Ejecutar la suite de pruebas
-        run: dotnet test SysDiag.sln -c Release --no-build --verbosity minimal
+        run: dotnet test SysDiag.sln -c Release --no-build --verbosity minimal --logger "trx;LogFileName=tests.trx" --results-directory TestResults
+
+      - name: Resumir y verificar todas las regresiones
+        if: always()
+        shell: pwsh
+        run: |
+          .\Tools\validate_tests.ps1
+
+      - name: Verificar el runner compartido
+        shell: pwsh
+        run: |
+          & .\Tools\HeadlessRunner\bin\Release\net8.0-windows\win-x64\HeadlessRunner.exe --self-test
+          if ($LASTEXITCODE -ne 0) { throw "Falló el autotest del runner compartido" }
+
+      - name: Guardar resultados de pruebas
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results-${{ github.sha }}
+          path: TestResults/*.trx
+          if-no-files-found: ignore
 
       - name: Publicar el ejecutable autocontenido
         run: dotnet publish SysDiag.csproj -c Release -o publish
@@ -39,6 +65,7 @@ jobs:
         shell: pwsh
         run: |
           .\Tools\validate_release.ps1 -Root .\publish
+          .\Tools\validate_version.ps1 -Root .\publish
 
       - name: Empaquetar el release para descarga
         shell: pwsh
@@ -47,7 +74,7 @@ jobs:
           Compress-Archive -Path .\publish\* -DestinationPath .\release\SysDiag-${{ github.sha }}.zip -Force
 
       - name: Subir el artefacto de release
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: SysDiag-${{ github.sha }}
           path: |

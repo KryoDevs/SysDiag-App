@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -45,7 +45,18 @@ public partial class MainWindow : Window
         _reloj = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _reloj.Tick += (_, _) => _vm.HoraSistema = DateTime.Now.ToString("HH:mm:ss");
         _reloj.Start();
-        Closed += (_, _) => _reloj.Stop();
+        Closed += (_, _) => { _reloj.Stop(); _vm.Dispose(); };
+        Closing += (_, e) =>
+        {
+            if (!_vm.Ocupado) return;
+            e.Cancel = true;
+            if (_vm.PuedeCancelar)
+            {
+                if (Dialog.Confirm("Hay una operación en curso", "Cancélala y espera a que termine antes de cerrar.", "Cancelar operación"))
+                    _vm.Cancelar();
+            }
+            else Dialog.Info("Operación no interrumpible", "Espera a que termine. Cerrar durante una instalación o restauración puede dejar el sistema en un estado parcial.");
+        };
 
         StateChanged += (_, _) =>
         {
@@ -120,98 +131,113 @@ public partial class MainWindow : Window
 
     private async void Nav_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (Nav.SelectedItem is not ListBoxItem item || item.Tag is not string clave) return;
-
-        // La selección marca el módulo activo; se limpia al terminar para que
-        // volver a pulsar el mismo vuelva a ejecutarlo.
-        switch (clave)
+        if (_vm.Ocupado || Nav.SelectedItem is not ListBoxItem item || item.Tag is not string clave) return;
+        try
         {
-            case "completo":
-                await _vm.RunAsync("Diagnóstico completo",
-                    ("red", PasoRed),
-                    ("rendimiento", PasoRendimiento),
-                    ("termicas", PasoTermicas),
-                    ("almacenamiento", PasoAlmacenamiento),
-                    ("seguridad", PasoSeguridad),
-                    ("estabilidad", PasoEstabilidad));
-                break;
 
-            case "red":
-                await _vm.RunAsync("Red y latencia", ("red", PasoRed));
-                break;
+            // La selección marca el módulo activo; se limpia al terminar para que
+            // volver a pulsar el mismo vuelva a ejecutarlo.
+            switch (clave)
+            {
+                case "completo":
+                    _vm.BusquedaDriversHecha = false;
+                    await _vm.RunAsync("Diagnóstico completo",
+                        ("red", PasoRed),
+                        ("rendimiento", PasoRendimiento),
+                        ("termicas", PasoTermicas),
+                        ("almacenamiento", PasoAlmacenamiento),
+                        ("seguridad", PasoSeguridad),
+                        ("estabilidad", PasoEstabilidad),
+                        ("drivers", PasoDrivers),
+                        ("actualizaciones", PasoActualizaciones),
+                        ("arranque", PasoArranque),
+                        ("limpieza", PasoAnalisisLimpieza));
+                    break;
 
-            case "rendimiento":
-                await _vm.RunAsync("Rendimiento", ("rendimiento", PasoRendimiento));
-                break;
+                case "red":
+                    await _vm.RunAsync("Red y latencia", ("red", PasoRed));
+                    break;
 
-            case "termicas":
-                await _vm.RunAsync("Térmicas y energía", ("termicas", PasoTermicas));
-                break;
+                case "rendimiento":
+                    await _vm.RunAsync("Rendimiento", ("rendimiento", PasoRendimiento));
+                    break;
 
-            case "estabilidad":
-                await _vm.RunAsync("Estabilidad", ("estabilidad", PasoEstabilidad));
-                break;
+                case "termicas":
+                    await _vm.RunAsync("Térmicas y energía", ("termicas", PasoTermicas));
+                    break;
 
-            case "limpieza":
-                await Limpieza();
-                break;
+                case "estabilidad":
+                    await _vm.RunAsync("Estabilidad", ("estabilidad", PasoEstabilidad));
+                    break;
 
-            case "drivers":
-                await _vm.RunAsync("Drivers", ("drivers", PasoDrivers));
-                break;
+                case "limpieza":
+                    await Limpieza();
+                    break;
 
-            case "actualizaciones":
-                await _vm.RunAsync("Actualizaciones", ("actualizaciones", PasoActualizaciones));
-                break;
+                case "drivers":
+                    _vm.BusquedaDriversHecha = false;
+                    await _vm.RunAsync("Drivers", ("drivers", PasoDrivers));
+                    break;
 
-            case "almacenamiento":
-                await _vm.RunAsync("Almacenamiento", ("almacenamiento", PasoAlmacenamiento));
-                break;
+                case "actualizaciones":
+                    await _vm.RunAsync("Actualizaciones", ("actualizaciones", PasoActualizaciones));
+                    break;
 
-            case "seguridad":
-                await _vm.RunAsync("Seguridad", ("seguridad", PasoSeguridad));
-                break;
+                case "almacenamiento":
+                    await _vm.RunAsync("Almacenamiento", ("almacenamiento", PasoAlmacenamiento));
+                    break;
 
-            case "arranque":
-                await _vm.RunAsync("Arranque y software", ("arranque", PasoArranque));
-                break;
+                case "seguridad":
+                    await _vm.RunAsync("Seguridad", ("seguridad", PasoSeguridad));
+                    break;
 
-            case "optimizar":
-                await Optimizar();
-                break;
+                case "arranque":
+                    await _vm.RunAsync("Arranque y software", ("arranque", PasoArranque));
+                    break;
 
-            case "perfiles":
-                new ProfilesWindow { Owner = this }.ShowDialog();
-                break;
+                case "optimizar":
+                    await Optimizar();
+                    break;
 
-            case "restaurar":
-                if (RequiereAdmin())
-                    Dialog.Info("Restaurar estado previo", OptimizeModule.Restore());
-                break;
+                case "perfiles":
+                    new ProfilesWindow { Owner = this }.ShowDialog();
+                    break;
 
-            case "punto-restauracion":
-                if (RequiereAdmin())
-                {
-                    var punto = RestorePointModule.Crear("Punto manual desde SysDiag");
-                    if (punto.Exito)
-                        Dialog.Info("Punto de restauración creado", punto.Mensaje);
-                    else
-                        Dialog.Error("No se pudo crear el punto de restauración", punto.Mensaje);
-                }
-                break;
+                case "restaurar":
+                    if (RequiereAdmin())
+                    {
+                        string result = null;
+                        if (await _vm.RunActionAsync("Restaurando estado", (r, t) => Task.Run(() => result = OptimizeModule.Restore(), t)))
+                            Dialog.Info("Restaurar estado previo", result);
+                    }
+                    break;
 
-            case "historial":
-                new HistoryWindow { Owner = this }.ShowDialog();
-                break;
+                case "punto-restauracion":
+                    if (RequiereAdmin())
+                    {
+                        RestorePointModule.Resultado punto = null;
+                        if (!await _vm.RunActionAsync("Creando punto de restauración", (r, t) => Task.Run(() => punto = RestorePointModule.Crear("Punto manual desde SysDiag"), t))) break;
+                        if (punto.Exito)
+                            Dialog.Info("Punto de restauración creado", punto.Mensaje);
+                        else
+                            Dialog.Error("No se pudo crear el punto de restauración", punto.Mensaje);
+                    }
+                    break;
 
-            case "ping-monitor":
-                new PingMonitorWindow { Owner = this }.ShowDialog();
-                break;
+                case "historial":
+                    new HistoryWindow { Owner = this }.ShowDialog();
+                    break;
 
-            case "ajustes":
-                new SettingsWindow { Owner = this }.ShowDialog();
-                break;
+                case "ping-monitor":
+                    new PingMonitorWindow { Owner = this }.ShowDialog();
+                    break;
+
+                case "ajustes":
+                    new SettingsWindow { Owner = this }.ShowDialog();
+                    break;
+            }
         }
+        finally { Nav.SelectedIndex = -1; }
     }
 
     // Cada paso delega en su servicio de dominio (Services/), no en el
@@ -243,7 +269,9 @@ public partial class MainWindow : Window
         new SecurityService().EjecutarAsync(r, t);
 
     private static Task PasoActualizaciones(DiagnosticReport r, CancellationToken t)
-        => Task.Run(() => { SystemModule.Run(r); UpdateModule.Run(r); }, t);
+        => new UpdateService().EjecutarAsync(r, t);
+    private static Task PasoAnalisisLimpieza(DiagnosticReport r, CancellationToken t)
+        => new CleanupService().EjecutarAsync(r, t);
 
     // Solo abren el navegador o los ajustes del sistema en los canales
     // oficiales. La app nunca descarga ni ejecuta un instalador de driver.
@@ -253,23 +281,20 @@ public partial class MainWindow : Window
         catch (Exception ex) { Dialog.Error("No se pudo abrir Windows Update", ex.Message); }
     }
 
-    private async void BuscarDrivers_Click(object sender, RoutedEventArgs e)
+    private async void BuscarDrivers_Click(object sender, RoutedEventArgs e) => await BuscarDrivers();
+
+    private async Task BuscarDrivers()
     {
-        // La consulta al catálogo tarda: va al grupo de hilos para no congelar
-        // la ventana, y el módulo escribe su avance en el registro.
+        if (_vm.Ocupado) return;
         _vm.BusquedaDriversHecha = true;
-
-        await _vm.RunAsync("Drivers disponibles",
-            ("drivers", (r, t) => Task.Run(() =>
-            {
-                SystemModule.Run(r);
-                DriverModule.Run(r);
-                DriverUpdateModule.Buscar(r);
-            }, t)));
-
-        // Siempre se abre la tabla, con datos o sin ellos: el vacío también es
-        // un resultado y lleva su explicación en el panel.
-        _vm.TablaSeleccionada = "Drivers disponibles";
+        // La llamada COM síncrona no puede abortarse con seguridad. No anunciar una cancelación ficticia.
+        bool success = await _vm.RunActionAsync("Drivers disponibles", (r, t) => Task.Run(() =>
+        {
+            SystemModule.Run(r, token: t);
+            DriverModule.Run(r);
+            DriverUpdateModule.Buscar(r);
+        }, t), modulo: "drivers");
+        if (success) _vm.TablaSeleccionada = "Drivers disponibles";
     }
 
     private async void InstalarDriver_Click(object sender, RoutedEventArgs e)
@@ -307,14 +332,12 @@ public partial class MainWindow : Window
         if (!ok) return;
 
         string resultado = null;
-        await _vm.RunAsync("Instalando drivers",
-            ("drivers", (r, t) => Task.Run(() =>
-            {
-                resultado = DriverUpdateModule.Instalar(seleccion);
-            }, t)));
-
-        Dialog.Info("Instalación de drivers", resultado ?? "Sin resultado.");
-        _vm.TablaSeleccionada = "Drivers disponibles";
+        if (await _vm.RunActionAsync("Instalando drivers", (r, t) => Task.Run(() =>
+            resultado = DriverUpdateModule.Instalar(seleccion), t)))
+        {
+            Dialog.Info("Instalación de drivers", resultado ?? "Sin resultado.");
+            await BuscarDrivers();
+        }
     }
 
     private async void VerificarDriver_Click(object sender, RoutedEventArgs e)
@@ -329,8 +352,7 @@ public partial class MainWindow : Window
         string ruta = dlg.FileName;
         DriverVerifier.Resultado res = null;
 
-        await _vm.RunAsync("Verificando driver",
-            ("verificacion", (r, t) => Task.Run(() => { res = DriverVerifier.Verificar(ruta); }, t)));
+        await _vm.RunActionAsync("Verificando driver", (r, t) => Task.Run(() => res = DriverVerifier.Verificar(ruta), t));
 
         if (res == null) return;
 
@@ -342,20 +364,10 @@ public partial class MainWindow : Window
             $"SHA-256: {res.Sha256}\n\n" +
             string.Join("\n\n", res.Notas);
 
-        if (res.AptoParaInstalar)
-        {
-            bool instalar = Dialog.Confirm("Verificación superada", informe, "Instalar ahora");
-            if (instalar)
-            {
-                if (!RequiereAdmin()) return;
-                string r2 = DriverVerifier.Instalar(ruta);
-                Dialog.Info("Instalación de driver", r2);
-            }
-        }
+        if (DriverVerifier.VerificacionSatisfactoria(res))
+            Dialog.Info("Verificación informativa completada", informe);
         else
-        {
-            Dialog.Error("No conviene instalarlo", informe);
-        }
+            Dialog.Error("Verificación incompleta o no válida", informe);
     }
 
     private void PropiedadesDispositivo_Click(object sender, RoutedEventArgs e)
@@ -370,21 +382,18 @@ public partial class MainWindow : Window
 
     private void AbrirDeviceManager_Click(object sender, RoutedEventArgs e)
     {
-        try { Process.Start(new ProcessStartInfo("devmgmt.msc") { UseShellExecute = true }); }
+        try { var info = ProcessRunner.CreateStartInfo(AppEnv.SystemTool("mmc"), new[] { System.IO.Path.Combine(Environment.SystemDirectory, "devmgmt.msc") });
+            info.UseShellExecute = true;
+            using var process = Process.Start(info); }
         catch (Exception ex) { Dialog.Error("No se pudo abrir el Administrador de dispositivos", ex.Message); }
     }
 
-    private void EscanearHardware_Click(object sender, RoutedEventArgs e)
+    private async void EscanearHardware_Click(object sender, RoutedEventArgs e)
     {
-        try
-        {
-            // pnputil reinstala los drivers que Windows ya tiene en su almacén
-            // para dispositivos sin controlador. No descarga nada de internet.
-            AppEnv.RunConsole("pnputil", "/scan-devices");
-            Dialog.Info("Búsqueda completada",
-                "Windows volvió a revisar los dispositivos conectados. Si faltaba algún driver que ya estuviera en el almacén del sistema, se instaló.");
-        }
-        catch (Exception ex) { Dialog.Error("No se pudo ejecutar la búsqueda", ex.Message); }
+        if (_vm.Ocupado || !RequiereAdmin()) return;
+        if (await _vm.RunActionAsync("Buscando cambios de hardware", (r, t) => Task.Run(() =>
+            AppEnv.RunRequired("pnputil", new[] { "/scan-devices" }, 120000, t), t)))
+            Dialog.Info("Búsqueda completada", "Windows volvió a revisar los dispositivos conectados. Repite el inventario de drivers para comprobar el resultado.");
     }
 
     private void ActualizarTodo_Click(object sender, RoutedEventArgs e)
@@ -394,7 +403,7 @@ public partial class MainWindow : Window
             "Cierra los programas que estén en uso antes de continuar.",
             "Abrir winget");
 
-        if (ok) UpdateModule.LanzarActualizacion();
+        if (ok && !UpdateModule.LanzarActualizacion()) Dialog.Error("No se pudo abrir winget", "Revisa Registro y la instalación de winget.");
     }
 
     private void ActualizarUno_Click(object sender, RoutedEventArgs e)
@@ -409,7 +418,7 @@ public partial class MainWindow : Window
             $"Se actualizará de {fila.Actual} a {fila.Disponible} mediante winget, en una consola visible.",
             "Actualizar");
 
-        if (ok) UpdateModule.LanzarActualizacion(fila.Id);
+        if (ok && !UpdateModule.LanzarActualizacion(fila.Id)) Dialog.Error("No se pudo abrir winget", "El identificador o la instalación de winget no son válidos. Revisa Registro.");
     }
 
     private void AbrirSoporteAsus_Click(object sender, RoutedEventArgs e)
@@ -440,10 +449,10 @@ public partial class MainWindow : Window
                 "Los destinos del sistema que marcaste necesitan administrador. Se analizarán igual, pero es probable que no se puedan borrar.");
         }
 
-        await _vm.RunAsync("Limpieza",
-            ("limpieza", (r, t) => Task.Run(() => CleanupModule.Analyze(r, t), t)));
+        if (!await _vm.RunAsync("Limpieza",
+            ("limpieza", (r, t) => Task.Run(() => CleanupModule.Analyze(r, t), t)))) return;
 
-        if (_vm.Report.Limpieza.Count == 0) return;
+        if (_vm.Report.Limpieza.Count == 0 && !CleanupModule.Opts.Papelera) return;
 
         var filas = _vm.Report.Limpieza;
         long total = filas.Sum(x => x.Bytes);
@@ -454,7 +463,7 @@ public partial class MainWindow : Window
 
         bool borrar = Dialog.Confirm("Borrar archivos temporales",
             $"Se pueden liberar {AppEnv.FormatBytes(total)}.\n\n" +
-            "Windows y las aplicaciones los regeneran cuando los necesitan." + aviso,
+            "Solo se borrarán los archivos analizados de las categorías seleccionadas. El borrado no se puede deshacer; los temporales recientes, protegidos o en uso se omiten." + aviso,
             "Borrar ahora");
 
         if (borrar)
@@ -470,8 +479,7 @@ public partial class MainWindow : Window
         if (dlg.ShowDialog() != true) return;
 
         var opciones = dlg.Options;
-        await _vm.RunAsync("Optimización",
-            ("optimizacion", (r, t) => Task.Run(() => OptimizeModule.Run(r, opciones), t)));
+        await _vm.RunActionAsync("Optimización", (r, t) => Task.Run(() => OptimizeModule.Run(r, opciones, t), t));
     }
 
     private bool RequiereAdmin()
@@ -488,6 +496,7 @@ public partial class MainWindow : Window
 
     private void Elevar_Click(object sender, RoutedEventArgs e)
     {
+        if (_vm.Ocupado) return;
         if (AppEnv.RelaunchElevated()) Application.Current.Shutdown();
     }
 
@@ -507,7 +516,7 @@ public partial class MainWindow : Window
                 await Limpieza();
                 return;
             case "buscar-drivers":
-                BuscarDrivers_Click(sender, e);
+                await BuscarDrivers();
                 return;
         }
 
@@ -516,16 +525,15 @@ public partial class MainWindow : Window
         if (!Dialog.Confirm(accion.Titulo, accion.Descripcion, "Aplicar")) return;
 
         string resultado = null;
-        await _vm.RunAsync(accion.Titulo,
-            ("reparacion", (r, t) => Task.Run(() => { resultado = Remediation.Ejecutar(accion.Id, r); }, t)));
-
-        Dialog.Info(accion.Titulo, resultado ?? "Sin resultado.");
+        if (await _vm.RunActionAsync(accion.Titulo, (r, t) => Task.Run(() => resultado = Remediation.Ejecutar(accion.Id, r), t)))
+            Dialog.Info(accion.Titulo, resultado ?? "Sin resultado.");
     }
 
     private void Cancelar_Click(object sender, RoutedEventArgs e) => _vm.Cancelar();
 
     private void Informe_Click(object sender, RoutedEventArgs e)
     {
+        if (!_vm.PuedeExportar) return;
         try
         {
             string archivo = ReportBuilder.Build(_vm.Report);
@@ -539,6 +547,7 @@ public partial class MainWindow : Window
 
     private void ExportarCsv_Click(object sender, RoutedEventArgs e)
     {
+        if (!_vm.PuedeExportar) return;
         try
         {
             if (_vm.FilasTabla == null || _vm.FilasTabla.Count == 0)
@@ -559,6 +568,7 @@ public partial class MainWindow : Window
 
     private void ExportarJson_Click(object sender, RoutedEventArgs e)
     {
+        if (!_vm.PuedeExportar) return;
         try
         {
             string archivo = Exporter.ToJson(_vm.Report);

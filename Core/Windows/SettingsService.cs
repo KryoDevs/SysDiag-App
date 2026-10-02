@@ -1,11 +1,9 @@
-﻿using System;
 using System.IO;
 using System.Text.Json;
 using SysDiag.Models;
 
 namespace SysDiag.Core.Windows;
 
-/// <summary>Carga y guarda la configuración en un JSON dentro de Documentos\SysDiag.</summary>
 public static class SettingsService
 {
     private static string Archivo => Path.Combine(AppEnv.OutputPath, "settings.json");
@@ -15,42 +13,41 @@ public static class SettingsService
         try
         {
             if (!File.Exists(Archivo)) return AppSettings.PorDefecto();
-
-            var s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(Archivo));
-            return s ?? AppSettings.PorDefecto();
+            return (JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(Archivo))
+                    ?? AppSettings.PorDefecto()).Normalizar();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             AppLog.Write($"No se pudo leer la configuración, se usan los valores por defecto: {ex.Message}", "WARN");
             return AppSettings.PorDefecto();
         }
     }
 
-    public static void Guardar(AppSettings s)
+    public static bool Guardar(AppSettings settings)
     {
+        ArgumentNullException.ThrowIfNull(settings);
         try
         {
-            Directory.CreateDirectory(AppEnv.OutputPath);
-            File.WriteAllText(Archivo, JsonSerializer.Serialize(s, new JsonSerializerOptions { WriteIndented = true }));
+            AtomicFile.WriteAllText(Archivo, JsonSerializer.Serialize(settings.Normalizar(),
+                new JsonSerializerOptions { WriteIndented = true }));
+            return true;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            AppLog.Write($"No se pudo guardar la configuración: {ex.Message}", "WARN");
+            AppLog.Write($"No se pudo guardar la configuración: {ex.Message}", "ERROR");
+            return false;
         }
     }
 
-    /// <summary>
-    /// Aplica los valores cargados a los módulos que los usan. Se llama una
-    /// vez al arrancar; los módulos ya exponían estos campos como estáticos
-    /// ajustables, así que aplicar la configuración es solo asignarlos.
-    /// </summary>
-    public static void Aplicar(AppSettings s)
+    public static void Aplicar(AppSettings settings)
     {
-        Performance.PerformanceModule.SampleSeconds = s.SampleSeconds;
-        Network.NetworkModule.PingCount = s.PingCount;
-        Diagnostics.StabilityModule.EventDays = s.EventDays;
-        Diagnostics.StabilityModule.WheaDays = s.WheaDays;
-        Diagnostics.Exporter.HistorialMaximo = s.HistorialMaximo;
-        AppEnv.LogsMaximo = s.LogsMaximo;
+        var valid = (settings ?? AppSettings.PorDefecto()).Normalizar();
+        Performance.PerformanceModule.SampleSeconds = valid.SampleSeconds;
+        Network.NetworkModule.PingCount = valid.PingCount;
+        Diagnostics.StabilityModule.EventDays = valid.EventDays;
+        Diagnostics.StabilityModule.WheaDays = valid.WheaDays;
+        Diagnostics.Exporter.HistorialMaximo = valid.HistorialMaximo;
+        AppEnv.LogsMaximo = valid.LogsMaximo;
+        AppEnv.RotarLogs();
     }
 }

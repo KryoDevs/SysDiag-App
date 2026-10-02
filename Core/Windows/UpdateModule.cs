@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -16,33 +16,14 @@ namespace SysDiag.Core.Windows;
 /// </summary>
 public static class UpdateModule
 {
-    public static bool Disponible()
-    {
-        try
-        {
-            var psi = new ProcessStartInfo("winget", "--version")
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            using var p = Process.Start(psi);
-            if (p == null) return false;
-            p.WaitForExit(6000);
-            return p.ExitCode == 0;
-        }
-        catch
-        {
-            return false;
-        }
-    }
+    public static bool Disponible(CancellationToken token = default) =>
+        AppEnv.RunCommand("winget", new[] { "--version" }, 6000, token).Success;
 
-    public static void Run(DiagnosticReport r)
+    public static void Run(DiagnosticReport r, CancellationToken token = default)
     {
         AppLog.Write("Actualizaciones de programas (winget)", "STEP");
 
-        if (!Disponible())
+        if (!Disponible(token))
         {
             AppLog.Write("winget no está disponible en este equipo.", "WARN");
             r.Add(Severity.Warn, "Actualizaciones", "winget no está instalado.",
@@ -50,10 +31,23 @@ public static class UpdateModule
             return;
         }
 
-        string salida = AppEnv.RunConsole("winget",
-            "upgrade --include-unknown --accept-source-agreements", 90000);
-
-        var filas = Parse(salida);
+        var result = AppEnv.RunCommand("winget", new[] { "upgrade", "--source", "winget", "--include-unknown",
+            "--accept-source-agreements", "--disable-interactivity" }, 90000, token);
+        if (!result.Success)
+        {
+            r.Add(Severity.Warn, "Actualizaciones", "No se pudo consultar winget.", result.Describe("winget"));
+            return;
+        }
+        string salida = result.StandardOutput;
+        if (!TryParseTable(salida, out var filas))
+        {
+            if (Regex.IsMatch(salida, "No available upgrade found|No applicable upgrade found|No (?:se encontraron|hay) actualizaciones (?:disponibles|aplicables)", RegexOptions.IgnoreCase))
+                r.Add(Severity.Ok, "Actualizaciones", "winget no ofrece actualizaciones aplicables en su catálogo comunitario.");
+            else
+                r.Add(Severity.Warn, "Actualizaciones", "La salida de winget no pudo interpretarse.",
+                    "No se asumirá que los programas están al día. Revisa la consulta en una consola visible.");
+            return;
+        }
         r.Actualizaciones = filas;
 
         AppLog.Write($"Programas con actualización disponible: {filas.Count}");
@@ -74,14 +68,15 @@ public static class UpdateModule
     /// idioma, así que las columnas se ubican por la posición de la línea de
     /// guiones en vez de por el nombre del encabezado.
     /// </summary>
-    private static List<UpdateRow> Parse(string salida)
+    public static bool TryParseTable(string salida, out List<UpdateRow> filas)
     {
-        var filas = new List<UpdateRow>();
-        if (string.IsNullOrWhiteSpace(salida)) return filas;
+        filas = new List<UpdateRow>();
+        if (string.IsNullOrWhiteSpace(salida)) return false;
+        salida = Regex.Replace(salida, @"\x1B\[[0-?]*[ -/]*[@-~]", "");
 
         var lineas = salida.Split('\n').Select(l => l.TrimEnd('\r')).ToList();
         int sep = lineas.FindIndex(l => l.StartsWith("---") || Regex.IsMatch(l, @"^-{5,}"));
-        if (sep <= 0) return filas;
+        if (sep <= 0) return false;
 
         string encabezado = lineas[sep - 1];
 
@@ -90,13 +85,18 @@ public static class UpdateModule
             .Select(m => m.Index)
             .ToList();
 
-        if (inicios.Count < 4) return filas;
+        if (inicios.Count < 4 || inicios.Count > 5) return false;
+        var names = Regex.Matches(encabezado, @"\S+").Select(match => match.Value).ToList();
+        if (!names[1].Equals("Id", StringComparison.OrdinalIgnoreCase)
+            || !Regex.IsMatch(names[2], "^(Version|Versión)$", RegexOptions.IgnoreCase)
+            || !Regex.IsMatch(names[3], "^(Available|Disponible)$", RegexOptions.IgnoreCase)) return false;
+        bool invalidRows = false;
 
         foreach (string linea in lineas.Skip(sep + 1))
         {
             if (string.IsNullOrWhiteSpace(linea)) continue;
             if (linea.StartsWith(" ")) continue;
-            if (Regex.IsMatch(linea, @"^\d+\s")) continue;   // línea de resumen final
+
 
             string Campo(int i)
             {
@@ -108,8 +108,9 @@ public static class UpdateModule
 
             string nombre = Campo(0);
             string id = Campo(1);
-            if (string.IsNullOrWhiteSpace(nombre) || string.IsNullOrWhiteSpace(id)) continue;
-            if (nombre.Contains("upgrade") || nombre.Contains("actualiz")) continue;
+            if (Regex.IsMatch(linea, @"^\d+\s.*(?:upgrades?|actualiz|packages?)", RegexOptions.IgnoreCase)) continue;
+            if (string.IsNullOrWhiteSpace(nombre) || !IsSafePackageId(id) || string.IsNullOrWhiteSpace(Campo(3)))
+            { invalidRows = true; continue; }
 
             filas.Add(new UpdateRow
             {
@@ -120,28 +121,37 @@ public static class UpdateModule
             });
         }
 
-        return filas;
+        return !invalidRows;
     }
+
+    public static bool IsSafePackageId(string id) => !string.IsNullOrEmpty(id) && id.Length <= 200
+        && Regex.IsMatch(id, @"^[A-Za-z0-9][A-Za-z0-9._-]*$");
 
     /// <summary>
     /// Lanza winget en una consola visible. A propósito NO se ejecuta oculto:
     /// el usuario ve qué se está instalando y puede cortarlo. La app no
     /// descarga ni ejecuta nada por su cuenta.
     /// </summary>
-    public static void LanzarActualizacion(string id = null)
+    public static bool LanzarActualizacion(string id = null)
     {
-        string args = string.IsNullOrEmpty(id)
-            ? "/k winget upgrade --all --include-unknown"
-            : $"/k winget upgrade --id \"{id}\"";
-
         try
         {
-            Process.Start(new ProcessStartInfo("cmd.exe", args) { UseShellExecute = true });
-            AppLog.Write($"winget lanzado en consola: {args}", "OK");
+            if (id != null && !IsSafePackageId(id)) throw new ArgumentException("El identificador del paquete no es válido.");
+            var arguments = new List<string> { "upgrade", "--source", "winget", "--include-unknown" };
+            if (id == null) arguments.Add("--all");
+            else { arguments.Add("--id"); arguments.Add(id); arguments.Add("--exact"); }
+            // No cmd.exe ni interpolación de texto externo en una orden de shell.
+            var info = ProcessRunner.CreateStartInfo(AppEnv.SystemTool("winget"), arguments);
+            info.UseShellExecute = true;
+            using var process = Process.Start(info);
+            if (process == null) return false;
+            AppLog.Write("winget abierto en una consola visible, usando solo el origen comunitario oficial.", "OK");
+            return true;
         }
         catch (Exception ex)
         {
             AppLog.Write($"No se pudo lanzar winget: {ex.Message}", "ERROR");
+            return false;
         }
     }
 }

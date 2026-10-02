@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,34 +11,28 @@ public static class StabilityModule
 {
     public static int EventDays = 30;
 
-    private static readonly Dictionary<int, string> Catalogo = new()
-    {
-        [41] = "Kernel-Power 41 — el equipo se reinició sin apagarse correctamente",
-        [1001] = "BugCheck — pantalla azul registrada",
-        [6008] = "Apagado inesperado",
-        [18] = "WHEA — error de hardware",
-        [19] = "WHEA — error de hardware corregido",
-        [7] = "Error de disco — bloque defectuoso",
-        [11] = "Controladora de disco — error de paridad",
-        [51] = "Error de paginación en disco",
-        [129] = "Reinicio de la controladora de almacenamiento"
-    };
+    private const int EventosMaximo = 50000;
 
-    public static void Run(DiagnosticReport r)
+    public static void Run(DiagnosticReport r, CancellationToken token = default)
     {
+        token.ThrowIfCancellationRequested();
         AppLog.Write($"Estabilidad (últimos {EventDays} días)", "STEP");
 
         if (!AppEnv.IsAdmin)
             AppLog.Write("Sin privilegios de administrador: el registro puede venir incompleto.", "WARN");
 
-        var eventos = LeerEventos();
+        var eventos = LeerEventos(token, out bool complete);
+        if (!complete)
+            r.Add(Severity.Warn, "Estabilidad", "La consulta del registro de eventos quedó incompleta.",
+                "Revisa permisos y Registro. No se puede concluir que no hubo fallos.");
 
         r.EventosResumen = eventos
-            .GroupBy(e => e.Id)
+            .GroupBy(e => (e.Id, e.Origen))
             .Select(g => new EventSummaryRow
             {
-                Id = g.Key,
-                Descripcion = Catalogo.TryGetValue(g.Key, out string d) ? d : "Evento del sistema",
+                Id = g.Key.Id,
+                Origen = g.Key.Origen,
+                Descripcion = SystemEventCatalog.Description(g.Key.Id, g.Key.Origen),
                 Ocurrencias = g.Count(),
                 Ultimo = g.Max(e => e.Cuando).ToString("yyyy-MM-dd HH:mm")
             })
@@ -87,6 +81,7 @@ public static class StabilityModule
                              .OrderByDescending(f => f.LastWriteTime)
                              .Take(15))
                 {
+                    token.ThrowIfCancellationRequested();
                     dumps.Add(new DumpRow
                     {
                         Archivo = f.Name,
@@ -95,9 +90,11 @@ public static class StabilityModule
                     });
                 }
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
                 AppLog.Write($"No se pudo leer {dumpDir}: {ex.Message}", "WARN");
+                r.Add(Severity.Warn, "Estabilidad", "No se pudieron consultar los minidumps.", "Revisa permisos antes de concluir que no hay volcados de memoria.");
             }
         }
         r.Minidumps = dumps;
@@ -113,8 +110,8 @@ public static class StabilityModule
                 "Eso refuerza la hipótesis de corte de energía por hardware: no hubo pantalla azul que volcar.");
         }
 
-        if (eventos.Count == 0 && dumps.Count == 0)
-            r.Add(Severity.Ok, "Estabilidad", $"Sin eventos críticos en {EventDays} días.");
+        if (complete && eventos.Count == 0 && dumps.Count == 0)
+            r.Add(Severity.Ok, "Estabilidad", $"Sin eventos del catálogo de estabilidad en {EventDays} días.");
 
         // Un pantallazo azul real es la señal más directa para sugerir
         // sfc/DISM: a diferencia de un corte de energía (Kernel-Power 41
@@ -127,7 +124,7 @@ public static class StabilityModule
                 "Vale la pena comprobar la integridad de los archivos de sistema. Si sigue pasando después de eso, el minidump correspondiente suele nombrar al driver responsable.",
                 "sfc");
 
-        RunWheaScan(r);
+        RunWheaScan(r, token);
     }
 
     /// <summary>
@@ -139,10 +136,10 @@ public static class StabilityModule
     /// </summary>
     public static int WheaDays = 15;
 
-    private static void RunWheaScan(DiagnosticReport r)
+    private static void RunWheaScan(DiagnosticReport r, CancellationToken token)
     {
         var eventos = new List<EventRow>();
-        long ms = (long)WheaDays * 24 * 60 * 60 * 1000;
+        long ms = (long)Math.Clamp(WheaDays, 1, 90) * 24 * 60 * 60 * 1000;
         string xpath = $"*[System[Provider[@Name='Microsoft-Windows-WHEA-Logger'] and TimeCreated[timediff(@SystemTime) <= {ms}]]]";
 
         try
@@ -156,6 +153,12 @@ public static class StabilityModule
             {
                 using (rec)
                 {
+                    token.ThrowIfCancellationRequested();
+                    if (eventos.Count >= EventosMaximo)
+                    {
+                        r.Add(Severity.Warn, "Hardware", "Consulta WHEA truncada a 50.000 eventos.", "Los conteos son un límite inferior; revisa el registro completo de Windows.");
+                        break;
+                    }
                     string detalle = "";
 
                     if (formateados < DetalleMaximo)
@@ -178,9 +181,11 @@ public static class StabilityModule
                 }
             }
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             AppLog.Write($"No se pudo consultar el proveedor WHEA-Logger: {ex.Message}", "WARN");
+            r.Add(Severity.Warn, "Hardware", "No se pudo comprobar el registro WHEA.", "La falta de acceso no demuestra ausencia de errores de hardware.");
             return;
         }
 
@@ -202,13 +207,11 @@ public static class StabilityModule
 
     private record Evento(int Id, DateTime Cuando, string Origen, string Detalle);
 
-    private static List<Evento> LeerEventos()
+    private static List<Evento> LeerEventos(CancellationToken token, out bool complete)
     {
+        complete = false;
         var lista = new List<Evento>();
-
-        string ids = string.Join(" or ", Catalogo.Keys.Select(i => $"EventID={i}"));
-        long ms = (long)EventDays * 24 * 60 * 60 * 1000;
-        string xpath = $"*[System[({ids}) and TimeCreated[timediff(@SystemTime) <= {ms}]]]";
+        string xpath = SystemEventCatalog.QueryXml(EventDays);
 
         try
         {
@@ -220,11 +223,19 @@ public static class StabilityModule
             // de cada evento es caro y solo hace falta en esos: con miles de
             // registros, hacerlo en todos multiplicaba el tiempo del módulo.
             int formateados = 0;
-
+            complete = true;
             for (EventRecord rec = reader.ReadEvent(); rec != null; rec = reader.ReadEvent())
             {
                 using (rec)
                 {
+                    token.ThrowIfCancellationRequested();
+                    if (!SystemEventCatalog.IsKnownEvent(rec.Id, rec.ProviderName)) continue;
+                    if (lista.Count >= EventosMaximo)
+                    {
+                        complete = false;
+                        AppLog.Write("Consulta de estabilidad truncada a 50.000 eventos.", "WARN");
+                        break;
+                    }
                     string detalle = "";
 
                     if (formateados < DetalleMaximo)
@@ -245,12 +256,15 @@ public static class StabilityModule
                 }
             }
         }
+        catch (OperationCanceledException) { throw; }
         catch (UnauthorizedAccessException)
         {
+            complete = false;
             AppLog.Write("Acceso denegado al registro de eventos. Ejecuta como administrador.", "ERROR");
         }
         catch (Exception ex)
         {
+            complete = false;
             AppLog.Write($"No se pudo consultar el registro de eventos: {ex.Message}", "WARN");
         }
 

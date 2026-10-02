@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -54,10 +54,11 @@ public static class NetworkModule
     /// </summary>
     public static async Task<double?> PingUnaVez(string host, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         try
         {
             using var ping = new Ping();
-            var reply = await ping.SendPingAsync(host, 1200);
+            var reply = await ping.SendPingAsync(host, 1200).WaitAsync(token);
             return reply?.Status == IPStatus.Success ? reply.RoundtripTime : (double?)null;
         }
         catch (OperationCanceledException) { throw; }
@@ -69,10 +70,11 @@ public static class NetworkModule
 
     public static async Task RunAsync(DiagnosticReport r, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         AppLog.Write("Calidad de red", "STEP");
 
-        ReadWifi(r);
-        ScanChannels(r);
+        ReadWifi(r, token);
+        ScanChannels(r, token);
 
         var objetivos = ObjetivosDisponibles();
 
@@ -110,6 +112,8 @@ public static class NetworkModule
     public static async Task<LatencyResult> MeasureAsync(
         string target, string label, int count, CancellationToken token)
     {
+        if (count is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(count));
+        token.ThrowIfCancellationRequested();
         IPAddress ip = await ResolveAsync(target, token);
         if (ip == null)
         {
@@ -129,7 +133,7 @@ public static class NetworkModule
                 token.ThrowIfCancellationRequested();
                 try
                 {
-                    var reply = await ping.SendPingAsync(ip, 1000);
+                    var reply = await ping.SendPingAsync(ip, 1000).WaitAsync(token);
                     if (reply != null && reply.Status == IPStatus.Success)
                         rtts.Add(reply.RoundtripTime);
                     else
@@ -153,8 +157,8 @@ public static class NetworkModule
 
         if (rtts.Count == 0)
         {
-            res.Estado = Severity.Bad;
-            AppLog.Write($"{label} ({target}): 100% de pérdida.", "ERROR");
+            res.Estado = Severity.Warn;
+            AppLog.Write($"{label} ({target}): no responde a ICMP; puede estar filtrado, no demuestra que el servicio esté caído.", "WARN");
             return res;
         }
 
@@ -187,6 +191,8 @@ public static class NetworkModule
     public static async Task<List<TraceHop>> TracerouteAsync(
         string target, CancellationToken token, int maxHops = 24)
     {
+        if (maxHops is < 1 or > 64) throw new ArgumentOutOfRangeException(nameof(maxHops));
+        token.ThrowIfCancellationRequested();
         var vacio = new List<TraceHop>();
 
         IPAddress destino = await ResolveAsync(target, token);
@@ -239,7 +245,7 @@ public static class NetworkModule
                     // así que el tiempo se mide acá con un cronómetro propio
                     // en vez de leer ese campo.
                     var cronometro = System.Diagnostics.Stopwatch.StartNew();
-                    var reply = await ping.SendPingAsync(destino, 1200, buffer, opciones);
+                    var reply = await ping.SendPingAsync(destino, 1200, buffer, opciones).WaitAsync(token);
                     cronometro.Stop();
                     if (reply == null) continue;
 
@@ -288,6 +294,7 @@ public static class NetworkModule
                                        .WaitAsync(TimeSpan.FromSeconds(4), token);
             return direcciones.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork);
         }
+        catch (OperationCanceledException) { throw; }
         catch
         {
             return null;
@@ -302,6 +309,7 @@ public static class NetworkModule
                                  .WaitAsync(TimeSpan.FromSeconds(2), token);
             hop.Nombre = entry.HostName;
         }
+        catch (OperationCanceledException) { throw; }
         catch
         {
             hop.Nombre = "";
@@ -310,6 +318,9 @@ public static class NetworkModule
 
     private static void Analyze(DiagnosticReport r, List<LatencyResult> resultados)
     {
+        foreach (var result in resultados.Where(x => x.PerdidaPct >= 100))
+            r.Add(Severity.Warn, "Red", $"{result.Destino} no respondió a ICMP.",
+                "Puede bloquear ping. No equivale por sí solo a una caída de internet; contrasta con otra prueba y otro destino.");
         var local = resultados.FirstOrDefault(x => x.Destino.StartsWith("Router"));
         var remoto = resultados.FirstOrDefault(x => x.Destino == "Salida a internet");
 
@@ -393,9 +404,9 @@ public static class NetworkModule
     /// netsh devuelve texto localizado, así que normalizamos las etiquetas
     /// (sin acentos, en minúsculas) y aceptamos español e inglés.
     /// </summary>
-    private static void ReadWifi(DiagnosticReport r)
+    private static void ReadWifi(DiagnosticReport r, CancellationToken token)
     {
-        string raw = AppEnv.RunConsole("netsh", "wlan show interfaces");
+        string raw = AppEnv.RunConsole("netsh", "wlan show interfaces", token: token);
         if (string.IsNullOrWhiteSpace(raw))
         {
             AppLog.Write("Sin adaptador Wi-Fi activo (o conexión por cable).");
@@ -460,7 +471,8 @@ public static class NetworkModule
                     "Suficiente para navegar, justo para juego competitivo.");
         }
 
-        if (canal > 0 && canal <= 14)
+        string banda = datos.FirstOrDefault(d => d.Clave == "Banda")?.Valor?.Replace(',', '.') ?? "";
+        if (canal > 0 && banda.Contains("2.4", StringComparison.OrdinalIgnoreCase))
             r.Add(Severity.Warn, "Wi-Fi", $"Conectado en 2.4 GHz (canal {canal}).",
                 "Esa banda comparte espectro con microondas, Bluetooth y las redes vecinas. Si el equipo y el router soportan 5 GHz, cambia de banda.");
 
@@ -474,9 +486,9 @@ public static class NetworkModule
     /// mismo; en 2.4 GHz además se solapan entre sí, y por eso ahí cualquier
     /// vecino cuenta como interferencia.
     /// </summary>
-    private static void ScanChannels(DiagnosticReport r)
+    private static void ScanChannels(DiagnosticReport r, CancellationToken token)
     {
-        string raw = AppEnv.RunConsole("netsh", "wlan show networks mode=bssid");
+        string raw = AppEnv.RunConsole("netsh", "wlan show networks mode=bssid", token: token);
         if (string.IsNullOrWhiteSpace(raw)) return;
 
         var redes = new List<WifiNetworkRow>();

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Windows;
 using SysDiag.Core.Windows;
 using SysDiag.Models;
@@ -49,11 +49,15 @@ public partial class SettingsWindow : Window
             LogsMaximo = AppSettings.LeerCampo(TxtLogs.Text, 5, 200, 30),
         };
 
-        SettingsService.Guardar(nuevo);
+        if (!SettingsService.Guardar(nuevo))
+        {
+            Dialog.Error("No se guardaron los ajustes", "Revisa los permisos de la carpeta de salida. La configuración anterior sigue activa.");
+            return;
+        }
         SettingsService.Aplicar(nuevo);
         _actual = nuevo;
 
-        Dialog.Info("Ajustes guardados", "Los cambios ya están activos, salvo el de registros a conservar, que aplica en el próximo arranque.");
+        Dialog.Info("Ajustes guardados", "Los cambios ya están activos. La retención de registros también se ha aplicado.");
         Close();
     }
 }

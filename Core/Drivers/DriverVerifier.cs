@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -35,6 +35,7 @@ public static class DriverVerifier
         public string Emisor = "";
         public string ValidoHasta = "";
         public bool CadenaValida;
+        public bool IntegridadValida;
         public string EstadoFirma = "";
         public string Antivirus = "";
         public Severity Nivel = Severity.Warn;
@@ -57,8 +58,7 @@ public static class DriverVerifier
             return r;
         }
 
-        var info = new FileInfo(ruta);
-        r.Tamano = AppEnv.FormatBytes(info.Length);
+        ruta = Path.GetFullPath(ruta);
 
         string ext = Path.GetExtension(ruta).ToLowerInvariant();
         if (!ExtensionesValidas.Contains(ext))
@@ -69,8 +69,8 @@ public static class DriverVerifier
         try
         {
             using var stream = File.OpenRead(ruta);
-            using var sha = SHA256.Create();
-            r.Sha256 = Convert.ToHexString(sha.ComputeHash(stream));
+            r.Tamano = AppEnv.FormatBytes(stream.Length);
+            r.Sha256 = Convert.ToHexString(SHA256.HashData(stream));
             AppLog.Write($"SHA-256: {r.Sha256}");
         }
         catch (Exception ex)
@@ -99,54 +99,34 @@ public static class DriverVerifier
     {
         try
         {
-            // Extrae el certificado con el que se firmó el archivo. Si el
-            // contenido fue alterado después de firmarlo, esto ya falla.
-            var cert = X509Certificate.CreateFromSignedFile(ruta);
-            var cert2 = new X509Certificate2(cert);
-
-            r.Firmado = true;
-            r.Editor = NombreComun(cert2.Subject);
-            r.Emisor = NombreComun(cert2.Issuer);
-            r.ValidoHasta = cert2.NotAfter.ToString("yyyy-MM-dd");
-
-            // La cadena confirma que el certificado lo emitió una autoridad en
-            // la que Windows confía, y que no está revocado.
-            using var cadena = new X509Chain();
-            cadena.ChainPolicy.RevocationMode = X509RevocationMode.Online;
-            cadena.ChainPolicy.RevocationFlag = X509RevocationFlag.ExcludeRoot;
-            cadena.ChainPolicy.UrlRetrievalTimeout = TimeSpan.FromSeconds(15);
-            // Un driver viejo puede estar firmado con un certificado ya
-            // caducado y aun así ser legítimo: eso se evalúa aparte.
-            cadena.ChainPolicy.VerificationFlags = X509VerificationFlags.IgnoreNotTimeValid;
-
-            r.CadenaValida = cadena.Build(cert2);
-
-            if (!r.CadenaValida)
+            int status = AuthenticodeVerifier.VerifyFile(ruta);
+            if (status != 0)
             {
-                var motivos = cadena.ChainStatus
-                    .Where(s => s.Status != X509ChainStatusFlags.NoError)
-                    .Select(s => s.StatusInformation.Trim())
-                    .Distinct();
-                foreach (var m in motivos) r.Notas.Add($"Cadena de certificados: {m}");
+                r.EstadoFirma = $"Firma Authenticode no válida (0x{status:X8})";
+                r.Notas.Add("Windows no pudo validar la integridad, la confianza, la fecha o la revocación de la firma. " +
+                            "Extraer un certificado no es prueba de integridad. Los INF/ZIP y drivers firmados solo mediante catálogo requieren el canal oficial de Windows Update.");
+                return;
             }
-
-            if (cert2.NotAfter < DateTime.Now)
-                r.Notas.Add($"El certificado caducó el {r.ValidoHasta}. En drivers antiguos es normal si la firma llevaba marca de tiempo.");
-
-            r.EstadoFirma = r.CadenaValida
-                ? $"Firmado por {r.Editor}"
-                : $"Firmado por {r.Editor}, pero la cadena no valida";
-
-            AppLog.Write($"Firma: {r.EstadoFirma}");
-            AppLog.Write($"Emisor: {r.Emisor}");
+            r.Firmado = r.CadenaValida = r.IntegridadValida = true;
+            // Solo metadatos: la decisión de confianza YA la tomó WinVerifyTrust.
+            try
+            {
+                using var certificate = X509Certificate.CreateFromSignedFile(ruta);
+                using var cert = new X509Certificate2(certificate);
+                r.Editor = NombreComun(cert.Subject);
+                r.Emisor = NombreComun(cert.Issuer);
+                r.ValidoHasta = cert.NotAfter.ToString("yyyy-MM-dd");
+            }
+            catch (System.Security.Cryptography.CryptographicException)
+            {
+                r.Editor = "validado por Windows (catálogo)";
+            }
+            r.EstadoFirma = $"Integridad Authenticode validada por Windows · {r.Editor}";
         }
         catch (Exception ex)
         {
-            r.Firmado = false;
-            r.EstadoFirma = "Sin firma digital válida";
-            r.Notas.Add("El archivo no tiene firma digital, o fue modificado después de firmarse. " +
-                        "Un driver de un fabricante conocido siempre viene firmado: si este no lo está, no lo instales.");
-            AppLog.Write($"Sin firma verificable: {ex.Message}", "WARN");
+            r.EstadoFirma = "No se pudo verificar Authenticode";
+            r.Notas.Add(ex.Message);
         }
     }
 
@@ -166,99 +146,51 @@ public static class DriverVerifier
             return "no analizado (Defender no disponible)";
         }
 
-        try
+        var result = ProcessRunner.Run(ProcessRunner.CreateStartInfo(mpcmd,
+            new[] { "-Scan", "-ScanType", "3", "-File", Path.GetFullPath(ruta) }), 180000);
+        if (!result.Success)
         {
-            var psi = new ProcessStartInfo(mpcmd, $"-Scan -ScanType 3 -File \"{ruta}\"")
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using var p = Process.Start(psi);
-            if (p == null) return "no analizado";
-
-            string salida = p.StandardOutput.ReadToEnd();
-            p.WaitForExit(180000);
-
-            // 0 = sin amenazas; 2 = encontró y trató amenazas.
-            return p.ExitCode switch
-            {
-                0 => "sin amenazas",
-                2 => "AMENAZA DETECTADA",
-                _ => $"resultado no concluyente (código {p.ExitCode})"
-            };
+            AppLog.Write(result.Describe("Microsoft Defender"), "WARN");
+            return result.TimedOut ? "no analizado (tiempo agotado)"
+                : result.ExitCode == 2 ? "AMENAZA O ERROR DE ANÁLISIS (código 2)"
+                : "no analizado o resultado no concluyente";
         }
-        catch (Exception ex)
-        {
-            AppLog.Write($"No se pudo analizar con Defender: {ex.Message}", "WARN");
-            return "no analizado";
-        }
+        // Defender puede remediar una amenaza y devolver 0: no dar por apto un archivo retirado.
+        return File.Exists(ruta) ? "sin amenazas pendientes" : "AMENAZA: el archivo fue retirado durante el análisis";
     }
+
+    /// <summary>La falta de antivirus, hash o confianza es un resultado NO concluyente, nunca verde.</summary>
+    public static bool VerificacionSatisfactoria(Resultado result) =>
+        result.Firmado && result.CadenaValida && result.IntegridadValida
+        && result.Sha256.Length == 64 && result.Antivirus == "sin amenazas pendientes";
 
     private static void Concluir(Resultado r)
     {
-        if (r.Antivirus.Contains("AMENAZA"))
+        r.AptoParaInstalar = false; // No ejecutar archivos locales sin validar hardware/paquete completo.
+        if (r.Antivirus.Contains("AMENAZA", StringComparison.Ordinal))
         {
             r.Nivel = Severity.Bad;
-            r.AptoParaInstalar = false;
-            r.Notas.Insert(0, "Defender detectó una amenaza. No lo instales y borra el archivo.");
-            return;
+            r.Notas.Insert(0, "El análisis detectó una amenaza o falló. No ejecutes el archivo.");
         }
-
-        if (!r.Firmado)
-        {
+        else if (!r.IntegridadValida || !r.Firmado)
             r.Nivel = Severity.Bad;
-            r.AptoParaInstalar = false;
-            return;
-        }
-
-        if (!r.CadenaValida)
+        else if (!VerificacionSatisfactoria(r))
         {
             r.Nivel = Severity.Warn;
-            r.AptoParaInstalar = false;
-            r.Notas.Insert(0, "La firma existe pero Windows no puede validar quién la emitió. " +
-                              "Descárgalo de nuevo desde el sitio oficial del fabricante antes de instalarlo.");
-            return;
+            r.Notas.Insert(0, "La verificación está incompleta. No se confirmó un análisis antivirus satisfactorio y la identidad del archivo.");
         }
-
-        r.Nivel = Severity.Ok;
-        r.AptoParaInstalar = true;
-        r.Notas.Insert(0, "Firma válida y sin amenazas. Comprueba además que el driver corresponda " +
-                          "a tu modelo exacto de hardware: la firma garantiza el origen, no la compatibilidad.");
-    }
-
-    /// <summary>Instala un .inf con la herramienta que trae Windows.</summary>
-    public static string Instalar(string ruta)
-    {
-        if (!AppEnv.IsAdmin) return "Instalar un driver requiere ejecutar SysDiag como administrador.";
-
-        string ext = Path.GetExtension(ruta).ToLowerInvariant();
-
-        if (ext != ".inf")
+        else
         {
-            // Los .exe y .msi traen su propio instalador: se abre y el usuario
-            // decide, en vez de ejecutarlo en silencio a sus espaldas.
-            try
-            {
-                Process.Start(new ProcessStartInfo(ruta) { UseShellExecute = true });
-                return "Se abrió el instalador del fabricante. Sigue sus pasos.";
-            }
-            catch (Exception ex)
-            {
-                return $"No se pudo abrir el instalador: {ex.Message}";
-            }
+            r.Nivel = Severity.Ok;
+            r.Notas.Insert(0, "Firma e integridad validadas por Windows y sin amenazas pendientes en el análisis. " +
+                              "Esto NO demuestra compatibilidad con tu hardware ni ausencia de malware desconocido.");
         }
-
-        string salida = AppEnv.RunConsole("pnputil", $"/add-driver \"{ruta}\" /install", 120000);
-        AppLog.Write(salida);
-
-        return salida.Contains("correctamente", StringComparison.OrdinalIgnoreCase)
-            || salida.Contains("successfully", StringComparison.OrdinalIgnoreCase)
-            ? "Driver instalado. Puede hacer falta reiniciar."
-            : "pnputil terminó sin confirmar la instalación. Revisa el registro para el detalle.";
+        r.Notas.Add("SysDiag no ejecuta instaladores de drivers descargados. Instala por Windows Update o sigue las instrucciones del fabricante para tu modelo exacto.");
     }
+
+    /// <summary>Se conserva el contrato, pero se cierra la ejecución privilegiada de archivos locales.</summary>
+    public static string Instalar(string ruta) =>
+        "Por seguridad SysDiag no ejecuta instaladores locales de drivers. Usa Windows Update o el soporte oficial de tu modelo.";
 
     private static string NombreComun(string dn)
     {

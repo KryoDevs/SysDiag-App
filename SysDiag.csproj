@@ -10,7 +10,7 @@
 
     <RootNamespace>SysDiag</RootNamespace>
     <AssemblyName>SysDiag</AssemblyName>
-    <Version>5.7.0</Version>
+    <Version>5.7.1</Version>
     <Product>SysDiag</Product>
     <AssemblyTitle>SysDiag - Diagnostico y optimizacion de Windows</AssemblyTitle>
     <Company>SysDiag</Company>
@@ -22,7 +22,8 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PlatformTarget>x64</PlatformTarget>
     <SelfContained>true</SelfContained>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <PublishSingleFile>true</PublishSingleFile>
     <PublishReadyToRun>true</PublishReadyToRun>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
@@ -33,6 +34,7 @@
   <ItemGroup>
     <PackageReference Include="System.Management" Version="8.0.0" />
     <PackageReference Include="System.Diagnostics.EventLog" Version="8.0.1" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>

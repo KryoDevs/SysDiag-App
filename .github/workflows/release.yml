@@ -1,57 +1,87 @@
 name: Release
 
-on:
+"on":
   push:
-    tags:
-      - 'v*.*.*'
+    tags: ['v*.*.*']
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Etiqueta de release a publicar'
+        description: 'Etiqueta existente que coincide con SysDiag.csproj (vX.Y.Z)'
         required: true
-        default: 'v5.7.0'
+        type: string
+
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   publish-release:
     runs-on: windows-latest
     permissions:
       contents: write
-
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
     steps:
-      - name: Descargar el código
-        uses: actions/checkout@v4
-
+      - name: Descargar la etiqueta solicitada
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref }}
+          fetch-depth: 0
+      - name: Validar que la etiqueta existe y corresponde al checkout
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+$') { throw 'Etiqueta inválida' }
+          $tagSha = git rev-parse "$($env:RELEASE_TAG)^{commit}"
+          if ($LASTEXITCODE -ne 0 -or $tagSha -ne (git rev-parse HEAD)) { throw 'Etiqueta ausente o checkout incorrecto' }
       - name: Instalar .NET 8
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '8.0.x'
-
-      - name: Restaurar dependencias
-        run: dotnet restore SysDiag.sln
-
-      - name: Publicar el ejecutable autocontenido
-        run: dotnet publish SysDiag.csproj -c Release -o publish
-
-      - name: Validar el paquete publicado
+      - name: Restaurar, compilar y probar antes de publicar
         shell: pwsh
         run: |
+          dotnet restore SysDiag.sln
+          if ($LASTEXITCODE -ne 0) { throw 'Restore falló' }
+          dotnet build SysDiag.sln -c Release --no-restore
+          if ($LASTEXITCODE -ne 0) { throw 'Build falló' }
+          dotnet test SysDiag.sln -c Release --no-build --logger 'trx;LogFileName=tests.trx' --results-directory TestResults
+          if ($LASTEXITCODE -ne 0) { throw 'Tests fallaron' }
+          .\Tools\validate_tests.ps1
+          & .\Tools\HeadlessRunner\bin\Release\net8.0-windows\win-x64\HeadlessRunner.exe --self-test
+          if ($LASTEXITCODE -ne 0) { throw 'Runner falló' }
+      - name: Publicar y arrancar el ejecutable autocontenido
+        shell: pwsh
+        run: |
+          dotnet publish SysDiag.csproj -c Release -o publish
+          if ($LASTEXITCODE -ne 0) { throw 'Publish falló' }
           .\Tools\validate_release.ps1 -Root .\publish
-
-      - name: Preparar ZIP de entrega
+          .\Tools\validate_version.ps1 -Root .\publish -Tag $env:RELEASE_TAG
+      - name: Preparar ZIP y checksums
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
-          if ([string]::IsNullOrWhiteSpace($tag) -or $tag -eq 'refs/heads/main') {
-            $tag = "${{ github.event.inputs.tag_name }}"
-          }
-          New-Item -ItemType Directory -Force -Path release | Out-Null
-          Compress-Archive -Path .\publish\* -DestinationPath "release\SysDiag-$tag.zip" -Force
-
-      - name: Publicar release en GitHub
-        uses: softprops/action-gh-release@v2
+          New-Item -ItemType Directory -Force release | Out-Null
+          $zip = "release\SysDiag-$($env:RELEASE_TAG).zip"
+          Compress-Archive -Path .\publish\* -DestinationPath $zip -Force
+          $files = @((Resolve-Path $zip).Path, (Resolve-Path '.\publish\SysDiag.exe').Path)
+          $lines = $files | ForEach-Object { $hash = Get-FileHash $_ -Algorithm SHA256; "$($hash.Hash.ToLower())  $(Split-Path $_ -Leaf)" }
+          $lines | Set-Content .\release\SHA256SUMS.txt -Encoding ascii
+      - name: Conservar pruebas incluso si hay fallos
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
+          name: tests-release-${{ github.run_id }}
+          path: TestResults/*.trx
+          if-no-files-found: ignore
+      - name: Crear solo un borrador para revisión humana
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
           draft: true
           generate_release_notes: true
           files: |
-            release/SysDiag-${{ github.ref_name }}.zip
+            release/*.zip
+            release/SHA256SUMS.txt
             publish/SysDiag.exe
+          fail_on_unmatched_files: true

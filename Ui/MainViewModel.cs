@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -80,21 +80,19 @@ public class MetricCard
     }
 }
 
-public class MainViewModel : INotifyPropertyChanged
+public class MainViewModel : INotifyPropertyChanged, IDisposable
 {
     public ObservableCollection<LogLine> Registro { get; } = new();
     public ObservableCollection<Finding> Hallazgos { get; } = new();
     public ObservableCollection<MetricCard> Tarjetas { get; } = new();
     public ObservableCollection<string> Tablas { get; } = new();
 
-    private readonly Dictionary<string, DiagnosticReport> _partials = new();
+    private readonly IScanService _scan = new ScanService();
+    private bool _disposed;
+    private bool _cancelable = true;
+    private int _previousScore = -1;
+    private List<(DateTime Fecha, int Puntaje)> _history = new();
     private readonly Dictionary<string, IList> _tablas = new();
-
-    private string _sistemaEquipo = "";
-    private List<KeyValueRow> _sistemaInfo;
-    private List<DiskRow> _sistemaDiscos;
-    private List<MemoryRow> _sistemaMemoria;
-    private List<Finding> _sistemaHallazgos = new();
 
     private CancellationTokenSource _cts;
     private string _moduloActivo = "completo";
@@ -143,10 +141,14 @@ public class MainViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(Libre));
             OnPropertyChanged(nameof(BarraVisible));
             OnPropertyChanged(nameof(ContenidoOpacidad));
+            OnPropertyChanged(nameof(PuedeCancelar));
+            OnPropertyChanged(nameof(PuedeExportar));
         }
     }
 
     public bool Libre => !_ocupado;
+    public bool PuedeCancelar => _ocupado && _cancelable;
+    public bool PuedeExportar => Libre && HayDatos;
     public Visibility BarraVisible => _ocupado ? Visibility.Visible : Visibility.Hidden;
 
     /// <summary>
@@ -157,7 +159,11 @@ public class MainViewModel : INotifyPropertyChanged
     public double ContenidoOpacidad => _ocupado ? 0.4 : 1.0;
 
     private bool _hayDatos;
-    public bool HayDatos { get => _hayDatos; set => Set(ref _hayDatos, value); }
+    public bool HayDatos
+    {
+        get => _hayDatos;
+        set { Set(ref _hayDatos, value); OnPropertyChanged(nameof(PuedeExportar)); }
+    }
 
     public string TextoVacio => AppEnv.IsAdmin
         ? "Elige un módulo del panel izquierdo. Si es la primera vez, «Diagnóstico completo» recopila red, rendimiento, térmicas, almacenamiento y estabilidad en una sola pasada."
@@ -281,99 +287,91 @@ public class MainViewModel : INotifyPropertyChanged
 
     // ---- Ejecución --------------------------------------------------------
 
-    public void Cancelar() => _cts?.Cancel();
+    public void Cancelar() { if (PuedeCancelar) _cts?.Cancel(); }
 
-    public async Task RunAsync(string titulo,
+    public Task<bool> RunAsync(string titulo,
+        params (string Clave, Func<DiagnosticReport, CancellationToken, Task> Trabajo)[] pasos)
+        => RunCoreAsync(titulo, true, pasos);
+
+    public Task<bool> RunActionAsync(string titulo, Func<DiagnosticReport, CancellationToken, Task> trabajo,
+        bool permiteCancelar = false, string modulo = "accion")
+        => RunCoreAsync(titulo, permiteCancelar, (modulo, trabajo));
+
+    private async Task<bool> RunCoreAsync(string titulo, bool permiteCancelar,
         params (string Clave, Func<DiagnosticReport, CancellationToken, Task> Trabajo)[] pasos)
     {
-        if (Ocupado) return;
-
+        if (Ocupado || _disposed || pasos.Length == 0) return false;
         _cts = new CancellationTokenSource();
-        // Con varios pasos es un diagnóstico completo; con uno solo, ese módulo.
+        _cancelable = permiteCancelar;
         _moduloActivo = pasos.Length > 1 ? "completo" : pasos[0].Clave;
         Ocupado = true;
         Titulo = titulo;
-        Subtitulo = "Midiendo. El detalle va apareciendo en Registro.";
-        var token = _cts.Token;
-
+        Subtitulo = permiteCancelar ? "Midiendo. El detalle va apareciendo en Registro."
+            : "Operación en curso. No se puede interrumpir de forma segura; revisa Registro.";
+        bool diagnostic = pasos.Any(p => DiagnosticReport.NombresModulos.ContainsKey(p.Clave));
+        bool completed = false;
+        bool archived = false;
+        if (diagnostic)
+        {
+            Report.Id = Guid.NewGuid();
+            Report.Inicio = DateTime.Now;
+            Report.Fin = null;
+        }
+        Wmi.ResetAccessState();
         try
         {
-            foreach (var paso in pasos)
+            var services = pasos.Select(p => (IDiagnosticService)new DelegateDiagnosticService(p.Clave, p.Trabajo)).ToArray();
+            Report = await _scan.EjecutarAsync(Report, services, _cts.Token);
+            completed = true;
+            if (diagnostic)
             {
-                var scratch = new DiagnosticReport();
-                await paso.Trabajo(scratch, token);
-                Absorb(scratch, paso.Clave);
+                // JSON y lectura de historial pueden ser grandes: nunca bloquear el dispatcher.
+                var history = await Task.Run(() =>
+                {
+                    int previous = Exporter.PuntajeAnterior(Report.Inicio, modulos: Report.ModulosCompletados.Keys.ToArray());
+                    bool saved = Exporter.Archivar(Report);
+                    return (previous, saved, series: Exporter.Historial());
+                });
+                _previousScore = history.previous;
+                archived = history.saved;
+                _history = history.series;
             }
             AppLog.Write($"{titulo}: completado.", "OK");
+            int bad = Report.Hallazgos.Count(f => f.Severity == Severity.Bad);
+            int warnings = Report.Hallazgos.Count(f => f.Severity == Severity.Warn);
+            Subtitulo = diagnostic
+                ? $"{bad} crítico(s) · {warnings} aviso(s) · finalizado a las {DateTime.Now:HH:mm}. {Report.ResumenEstado()}"
+                : "Operación completada. Repite el módulo correspondiente para verificar el efecto.";
         }
         catch (OperationCanceledException)
         {
-            AppLog.Write($"{titulo}: cancelado.", "WARN");
-            Subtitulo = "Cancelado.";
+            AppLog.Write($"{titulo}: cancelado. Se conservaron únicamente los pasos que terminaron.", "WARN");
+            Subtitulo = "Cancelado: los datos visibles pueden incluir mediciones anteriores. No se archivó como diagnóstico completado.";
         }
         catch (Exception ex)
         {
-            AppLog.Write($"{titulo}: {ex.Message}", "ERROR");
-            Dialog.Error("No se pudo completar el diagnóstico", ex.Message);
+            AppLog.Write($"{titulo}: {ex}", "ERROR");
+            Subtitulo = "No se completó la operación. Revisa Registro; si hubo cambios, usa el respaldo para restaurarlos.";
+            Dialog.Error("No se pudo completar la operación", ex.Message);
         }
         finally
         {
+            if (diagnostic) Report.Fin = DateTime.Now;
+            _cts.Dispose();
+            _cts = null;
             Ocupado = false;
-            RebuildReport();
-            Refresh();
+            Refresh(archived);
         }
-    }
-
-    /// <summary>
-    /// Guarda lo que produjo un módulo en su casillero. El inventario del equipo
-    /// se separa porque todos los módulos lo refrescan de paso: si quedara dentro
-    /// del casillero de cada uno, el módulo más antiguo pisaría el inventario
-    /// más nuevo al fusionar.
-    /// </summary>
-    private void Absorb(DiagnosticReport scratch, string clave)
-    {
-        if (scratch.Sistema.Count > 0)
-        {
-            _sistemaEquipo = scratch.Equipo;
-            _sistemaInfo = scratch.Sistema;
-            _sistemaDiscos = scratch.Discos;
-            _sistemaMemoria = scratch.Memoria;
-            _sistemaHallazgos = scratch.Hallazgos.Where(f => f.Area is "Disco" or "Memoria").ToList();
-
-            scratch.Sistema = new();
-            scratch.Discos = new();
-            scratch.Memoria = new();
-            scratch.Hallazgos.RemoveAll(f => f.Area is "Disco" or "Memoria");
-        }
-
-        foreach (var f in scratch.Hallazgos) f.Modulo = clave;
-        _partials[clave] = scratch;
-    }
-
-    private void RebuildReport()
-    {
-        var merged = new DiagnosticReport();
-
-        if (_sistemaInfo != null)
-        {
-            merged.Equipo = _sistemaEquipo;
-            merged.Sistema = _sistemaInfo;
-            merged.Discos = _sistemaDiscos;
-            merged.Memoria = _sistemaMemoria;
-            merged.Hallazgos.AddRange(_sistemaHallazgos);
-        }
-
-        foreach (var partial in _partials.Values) merged.MergeFrom(partial);
-        Report = merged;
+        return completed;
     }
 
     // ---- Pintado ----------------------------------------------------------
 
-    private void Refresh()
+    private void Refresh(bool archivar)
     {
         if (Report.Sistema.Count > 0) Equipo = Report.Equipo;
 
-        BuildScore();
+        BuildScore(archivar);
         BuildCards();
         BuildCharts();
         BuildFindings();
@@ -382,17 +380,6 @@ public class MainViewModel : INotifyPropertyChanged
         HayDatos = Report.TieneDatosRelevantes();
         BuildSugerencia();
 
-        int criticos = Report.Hallazgos.Count(f => f.Severity == Severity.Bad);
-        int avisos = Report.Hallazgos.Count(f => f.Severity == Severity.Warn);
-
-        if (Report.Hallazgos.Count == 0)
-        {
-            Subtitulo = $"Finalizado a las {DateTime.Now:HH:mm}. {Report.ResumenEstado()}";
-        }
-        else
-        {
-            Subtitulo = $"{criticos} crítico(s) · {avisos} aviso(s) · finalizado a las {DateTime.Now:HH:mm}";
-        }
     }
 
     private void BuildCharts()
@@ -424,7 +411,7 @@ public class MainViewModel : INotifyPropertyChanged
                               Pincel(x.Ocurrencias > 100 ? Severity.Bad : Severity.Warn),
                               x.Descripcion)));
 
-        GraficoHistorial = HistoryChart.Crear(Exporter.Historial());
+        GraficoHistorial = HistoryChart.Crear(_history);
     }
 
     private void BuildSugerencia()
@@ -458,13 +445,14 @@ public class MainViewModel : INotifyPropertyChanged
                      "o vuelve a medir después de un cambio para comparar contra este diagnóstico.";
     }
 
-    private void BuildScore()
+    private void BuildScore(bool archivar)
     {
         int puntaje = HealthScore.Calcular(Report);
         Report.Puntaje = puntaje;
 
         Puntaje = puntaje;
         PuntajeEtiqueta = HealthScore.Etiqueta(puntaje);
+        if (puntaje >= 0 && Report.ModulosFaltantes().Count > 0) PuntajeEtiqueta += " · parcial";
         PuntajeDesglose = puntaje < 0 ? "" : HealthScore.Desglose(Report);
         PuntajeBrush = Pincel(HealthScore.Nivel(puntaje));
 
@@ -484,8 +472,12 @@ public class MainViewModel : INotifyPropertyChanged
 
         // Se archiva y se compara contra la corrida anterior: una medición
         // aislada no dice si algo mejoró o empeoró.
-        int anterior = Exporter.PuntajeAnterior(Report.Inicio);
-        Exporter.Archivar(Report);
+        if (!archivar)
+        {
+            PuntajeTendencia = "No se archivó una nueva medición completada.";
+            return;
+        }
+        int anterior = _previousScore;
 
         PuntajeTendencia = anterior < 0
             ? "Primer diagnóstico guardado. El próximo se comparará contra este."
@@ -520,12 +512,11 @@ public class MainViewModel : INotifyPropertyChanged
         }
 
         var cpu = Report.RendimientoResumen.FirstOrDefault(x => x.Clave == "CPU total");
-        if (cpu != null)
+        if (cpu != null && NumericText.TryRead(cpu.Valor, out double cpuPercent))
         {
-            double pct = Leer(cpu.Valor);
             Tarjetas.Add(MetricCard.Create("Uso de CPU", cpu.Valor,
                 Report.RendimientoResumen.FirstOrDefault(x => x.Clave == "RAM en uso")?.Valor ?? "",
-                Pincel(pct > 85 ? Severity.Bad : pct > 60 ? Severity.Warn : Severity.Ok), pct / 100.0,
+                Pincel(cpuPercent > 85 ? Severity.Bad : cpuPercent > 60 ? Severity.Warn : Severity.Ok), cpuPercent / 100.0,
                 "rendimiento"));
         }
 
@@ -617,11 +608,7 @@ public class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    private static double Leer(string s)
-    {
-        var m = System.Text.RegularExpressions.Regex.Match(s ?? "", @"[\d]+([.,][\d]+)?");
-        return m.Success && double.TryParse(m.Value.Replace('.', ','), out double v) ? v : 0;
-    }
+    private static double Leer(string text) => NumericText.TryRead(text, out double value) ? value : 0;
 
     private void BuildFindings()
     {
@@ -707,7 +694,7 @@ public class MainViewModel : INotifyPropertyChanged
     private void OnLog(string linea, string nivel)
     {
         var app = Application.Current;
-        if (app == null) return;
+        if (_disposed || app == null || app.Dispatcher.HasShutdownStarted || app.Dispatcher.HasShutdownFinished) return;
 
         string clave = nivel switch
         {
@@ -720,6 +707,7 @@ public class MainViewModel : INotifyPropertyChanged
 
         app.Dispatcher.BeginInvoke(new Action(() =>
         {
+            if (_disposed) return;
             _pendientes.Add(new LogLine { Texto = linea, Color = Res(clave) });
 
             // Las líneas llegan en ráfaga (un traceroute suelta decenas de
@@ -736,7 +724,7 @@ public class MainViewModel : INotifyPropertyChanged
     private void Volcar()
     {
         _volcadoProgramado = false;
-        if (_pendientes.Count == 0) return;
+        if (_disposed || _pendientes.Count == 0) return;
 
         foreach (var l in _pendientes) Registro.Add(l);
         _pendientes.Clear();
@@ -750,6 +738,16 @@ public class MainViewModel : INotifyPropertyChanged
 
     /// <summary>Avisa a la vista que hay líneas nuevas, para seguir el final.</summary>
     public event Action LineaAgregada;
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        AppLog.Line -= OnLog;
+        _cts?.Cancel();
+        if (!Ocupado) _cts?.Dispose();
+        _pendientes.Clear();
+    }
 
     // ---- INotifyPropertyChanged ------------------------------------------
 

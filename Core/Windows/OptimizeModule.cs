@@ -1,63 +1,59 @@
-﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text.Json;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
+using System.Security.Principal;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 using SysDiag.Models;
 
 namespace SysDiag.Core.Windows;
 
-public class SavedState
-{
-    public string Fecha { get; set; } = "";
-    public string PlanEnergia { get; set; } = "";
-    public string WlanAutoconfig { get; set; } = "";
-    public string DnsPrevio { get; set; } = "";
-    public string InterfazDns { get; set; } = "";
-    public int EfectosVisuales { get; set; } = -1;
-    public string WifiPowerIndex { get; set; } = "";
-    public string CpuMaxPrevio { get; set; } = "";
-    public int GameModePrevio { get; set; } = -1;
-}
-
 public static class OptimizeModule
 {
-    /// <summary>Acciones que el usuario marcó en la interfaz antes de aplicar.</summary>
     public class Options
     {
-        public bool FlushDns = true;
-        public bool FlushArp = true;
-        public bool FixWlanAutoconfig = true;
-        public bool WifiMaxPerformance = false;
-        public bool WifiPowerSave = false;
-        public bool PublicDns = false;
-        public bool VisualEffects = false;
-        public bool HighPerformancePlan = false;
-        public bool ResetTcpStack = false;
-        /// <summary>0-100, o null para no tocarlo. Topar el máximo de CPU es la
-        /// palanca más directa contra el ruido del ventilador: menos frecuencia
-        /// permitida, menos calor generado, menos necesidad de refrigerar.</summary>
-        public int? CpuMaxPercent = null;
-        public bool GameMode = false;
+        // Solo aplicar lo seleccionado; las reparaciones puntuales no deben activar otros defaults.
+        public bool FlushDns, FlushArp, FixWlanAutoconfig, WifiMaxPerformance, WifiPowerSave;
+        public bool PublicDns, VisualEffects, HighPerformancePlan, ResetTcpStack, GameMode;
+        public int? CpuMaxPercent;
+
+        public void Validate()
+        {
+            if (WifiMaxPerformance && WifiPowerSave)
+                throw new ArgumentException("Máximo rendimiento y ahorro Wi-Fi son opciones excluyentes.");
+            if (CpuMaxPercent is < 1 or > 100)
+                throw new ArgumentOutOfRangeException(nameof(CpuMaxPercent), "El máximo de CPU debe estar entre 1 y 100.");
+        }
     }
 
-    // Subgrupo y ajustes de energía del procesador.
-    private const string SubProcesador = "54533251-82be-4824-96c1-47b60b740d00";
-    private const string SettingCpuMax = "bc5038f7-23e0-4960-96da-33abaf5935ec";
-
-    // Subgrupo y ajuste de energía del adaptador inalámbrico, en GUID: son los
-    // mismos en todo Windows y no dependen del idioma del sistema.
-    private const string SubWireless = "19cbb8fa-5279-450e-9fac-8a3d5fedd0c1";
-    private const string SettingPowerSave = "12bbebe6-58d6-4636-95bb-3217ef867c1a";
+    private const string VisualEffectsKey = @"Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects";
+    private const string GameModeKey = @"Software\Microsoft\GameBar";
+    private static string UserSid
+    {
+        get
+        {
+            using var identity = WindowsIdentity.GetCurrent();
+            return identity.User?.Value ?? throw new InvalidOperationException("No se pudo identificar al usuario del respaldo.");
+        }
+    }
+    private static OptimizationBackupStore Store
+    {
+        get
+        {
+            SecureBackupDirectory.Ensure();
+            return new(AppEnv.BackupFile, Environment.MachineName, UserSid,
+                SecureBackupDirectory.ProtectTemporaryFile, SecureBackupDirectory.VerifyFile);
+        }
+    }
+    private static void RequireAdmin()
+    {
+        if (!AppEnv.IsAdmin) throw new InvalidOperationException("Esta operación necesita privilegios de administrador.");
+    }
 
     public static string ReadWlanAutoconfig()
     {
         string raw = AppEnv.RunConsole("netsh", "wlan show settings");
         if (string.IsNullOrWhiteSpace(raw)) return "desconocido";
-
-        // "deshabilitado" contiene "habilitad", así que se comprueba primero.
         if (Regex.IsMatch(raw, "deshabilitad|disabled", RegexOptions.IgnoreCase)) return "deshabilitado";
         if (Regex.IsMatch(raw, "habilitad|enabled", RegexOptions.IgnoreCase)) return "habilitado";
         return "desconocido";
@@ -65,362 +61,194 @@ public static class OptimizeModule
 
     public static void SaveState()
     {
-        string iface = InterfazPrincipal();
-
-        var estado = new SavedState
-        {
-            Fecha = DateTime.Now.ToString("s"),
-            PlanEnergia = AppEnv.RunConsole("powercfg", "/getactivescheme").Trim(),
-            WlanAutoconfig = ReadWlanAutoconfig(),
-            InterfazDns = iface,
-            DnsPrevio = LeerDns(iface),
-            EfectosVisuales = LeerEfectosVisuales(),
-            WifiPowerIndex = LeerWifiPowerIndex(),
-            CpuMaxPrevio = LeerCpuMaxPercent(),
-            GameModePrevio = LeerGameMode()
-        };
-
-        try
-        {
-            File.WriteAllText(AppEnv.BackupFile,
-                JsonSerializer.Serialize(estado, new JsonSerializerOptions { WriteIndented = true }));
-            AppLog.Write($"Estado previo respaldado en {AppEnv.BackupFile}", "OK");
-        }
-        catch (Exception ex)
-        {
-            AppLog.Write($"No se pudo escribir el respaldo: {ex.Message}", "ERROR");
-        }
+        RequireAdmin();
+        var store = Store;
+        store.Write(store.ReadOrCreate(PowerSettings.ActivePlan()));
     }
 
-    public static void Run(DiagnosticReport r, Options opt)
+    private static SavedState Backup(Options options, Guid active, Guid target)
     {
-        AppLog.Write("Optimización", "STEP");
-
-        if (!AppEnv.IsAdmin)
+        var store = Store;
+        var state = store.ReadOrCreate(active);
+        bool wifi = options.WifiMaxPerformance || options.WifiPowerSave;
+        if (wifi || options.CpuMaxPercent.HasValue)
+            state.CapturePowerPlan(target, wifi, options.CpuMaxPercent.HasValue,
+                () => PowerSettings.ReadAc(target, PowerSettings.WirelessSubgroup, PowerSettings.WirelessSaving),
+                () => PowerSettings.ReadAc(target, PowerSettings.ProcessorSubgroup, PowerSettings.ProcessorMaximum));
+        if (options.HighPerformancePlan) state.RestaurarPlanEnergia = true;
+        if (options.PublicDns)
         {
-            AppLog.Write("Se requieren privilegios de administrador para este módulo.", "ERROR");
-            return;
+            var adapter = MainInterface();
+            if (state.Dns != null && state.Dns.Interfaz != Guid.Parse(adapter.Id))
+                throw new InvalidOperationException("Hay DNS pendiente de restaurar de otra interfaz. Restaura primero el estado anterior.");
+            state.Dns ??= ReadDns(adapter);
         }
+        if (options.VisualEffects && state.EfectosVisuales == null)
+            state.EfectosVisuales = ReadRegistry(VisualEffectsKey, "VisualFXSetting");
+        if (options.GameMode && state.GameMode == null)
+            state.GameMode = ReadRegistry(GameModeKey, "AutoGameModeEnabled");
+        state.ReinicioRedNoReversible |= options.ResetTcpStack;
+        // Si capturar o escribir falla, la excepción aborta ANTES del primer cambio.
+        store.Write(state);
+        AppLog.Write($"Estado original conservado en {AppEnv.BackupFile}", "OK");
+        return state;
+    }
 
-        SaveState();
-
-        if (opt.FlushDns)
+    public static void Run(DiagnosticReport report, Options options, CancellationToken token = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        options.Validate();
+        RequireAdmin();
+        token.ThrowIfCancellationRequested();
+        AppLog.Write("Optimización de las opciones seleccionadas", "STEP");
+        Guid active = PowerSettings.ActivePlan();
+        Guid target = options.HighPerformancePlan ? PowerSettings.HighPerformance : active;
+        if (options.HighPerformancePlan && !PowerSettings.Plans().Contains(target))
+            throw new InvalidOperationException("El plan de alto rendimiento no está disponible; no se aplicaron los ajustes seleccionados.");
+        if (options.ResetTcpStack)
         {
-            AppEnv.RunConsole("ipconfig", "/flushdns");
+            var point = RestorePointModule.Crear("Antes de reiniciar la pila de red");
+            if (!point.Exito) throw new InvalidOperationException("No se reinició la red porque no se pudo crear un punto de restauración. " + point.Mensaje);
+        }
+        var previous = Backup(options, active, target);
+        token.ThrowIfCancellationRequested();
+
+        if (options.FlushDns)
+        {
+            AppEnv.RunRequired("ipconfig", new[] { "/flushdns" }, token: token);
             AppLog.Write("Caché DNS vaciada.", "OK");
         }
-
-        if (opt.FixWlanAutoconfig)
+        if (options.FlushArp)
         {
-            string estado = ReadWlanAutoconfig();
-            if (estado == "deshabilitado")
-            {
-                r.Add(Severity.Bad, "Wi-Fi", "La configuración automática de WLAN estaba deshabilitada.",
-                    "Con eso apagado el equipo no se reconecta solo a las redes guardadas. Se vuelve a habilitar.",
-                    "wlan-autoconfig");
-
-                foreach (string iface in WirelessInterfaces())
-                {
-                    AppEnv.RunConsole("netsh", $"wlan set autoconfig enabled=yes interface=\"{iface}\"");
-                    AppLog.Write($"Configuración automática rehabilitada en «{iface}».", "OK");
-                }
-            }
-            else
-            {
-                AppLog.Write($"Configuración automática de WLAN: {estado}.", "OK");
-            }
-        }
-
-        if (opt.HighPerformancePlan)
-        {
-            string lista = AppEnv.RunConsole("powercfg", "/list");
-            var linea = lista.Split('\n')
-                .FirstOrDefault(l => Regex.IsMatch(l, "alto rendimiento|high performance", RegexOptions.IgnoreCase));
-
-            if (linea != null)
-            {
-                var m = Regex.Match(linea, @"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
-                if (m.Success)
-                {
-                    AppEnv.RunConsole("powercfg", $"/setactive {m.Value}");
-                    AppLog.Write("Plan de energía cambiado a alto rendimiento.", "OK");
-                }
-            }
-            else
-            {
-                AppLog.Write("El plan de alto rendimiento no está disponible en este equipo.", "WARN");
-            }
-        }
-
-        if (opt.FlushArp)
-        {
-            AppEnv.RunConsole("netsh", "interface ip delete arpcache");
+            AppEnv.RunRequired("netsh", new[] { "interface", "ip", "delete", "arpcache" }, token: token);
             AppLog.Write("Caché ARP vaciada.", "OK");
         }
-
-        if (opt.WifiMaxPerformance)
+        if (options.FixWlanAutoconfig)
         {
-            // 0 = máximo rendimiento. El ahorro de energía del adaptador es una
-            // causa habitual de picos de ping en portátiles.
-            AppEnv.RunConsole("powercfg", $"/setacvalueindex SCHEME_CURRENT {SubWireless} {SettingPowerSave} 0");
-            AppEnv.RunConsole("powercfg", "/setactive SCHEME_CURRENT");
-            AppLog.Write("Adaptador inalámbrico en máximo rendimiento (con corriente).", "OK");
+            var interfaces = NetworkInterface.GetAllNetworkInterfaces()
+                .Where(n => n.NetworkInterfaceType == NetworkInterfaceType.Wireless80211).ToList();
+            foreach (var adapter in interfaces)
+                AppEnv.RunRequired("netsh", new[] { "wlan", "set", "autoconfig", "enabled=yes", "interface=" + adapter.Name }, token: token);
+            AppLog.Write(interfaces.Count == 0 ? "No hay interfaz WLAN que rehabilitar." : "Configuración automática WLAN habilitada.",
+                interfaces.Count == 0 ? "WARN" : "OK");
         }
-
-        if (opt.WifiPowerSave)
+        if (options.HighPerformancePlan)
         {
-            // 3 = máximo ahorro. Reduce consumo y calor de la radio a cambio de
-            // algo de latencia; sentido en el perfil silencioso/batería.
-            AppEnv.RunConsole("powercfg", $"/setacvalueindex SCHEME_CURRENT {SubWireless} {SettingPowerSave} 3");
-            AppEnv.RunConsole("powercfg", "/setactive SCHEME_CURRENT");
-            AppLog.Write("Adaptador inalámbrico en ahorro de energía.", "OK");
+            PowerSettings.Activate(target);
+            AppLog.Write("Plan de alto rendimiento activado.", "OK");
         }
-
-        if (opt.CpuMaxPercent is int max)
+        if (options.WifiMaxPerformance || options.WifiPowerSave)
         {
-            AppEnv.RunConsole("powercfg", $"/setacvalueindex SCHEME_CURRENT {SubProcesador} {SettingCpuMax} {max}");
-            AppEnv.RunConsole("powercfg", "/setactive SCHEME_CURRENT");
-            AppLog.Write($"CPU topada a un máximo de {max}% de su frecuencia. Menos calor, menos ventilador.", "OK");
+            PowerSettings.WriteAc(target, PowerSettings.WirelessSubgroup, PowerSettings.WirelessSaving,
+                options.WifiMaxPerformance ? 0u : 3u);
+            AppLog.Write("Política de energía Wi-Fi aplicada para corriente alterna.", "OK");
         }
-
-        if (opt.GameMode)
+        if (options.CpuMaxPercent is int max)
         {
-            EscribirGameMode(1);
-            AppLog.Write("Modo de juego de Windows activado.", "OK");
+            PowerSettings.WriteAc(target, PowerSettings.ProcessorSubgroup, PowerSettings.ProcessorMaximum, (uint)max);
+            AppLog.Write($"Estado máximo del procesador (con corriente) ajustado a {max}%.", "OK");
         }
-
-        if (opt.PublicDns)
+        if (options.HighPerformancePlan || options.WifiMaxPerformance || options.WifiPowerSave || options.CpuMaxPercent.HasValue)
+            PowerSettings.Activate(target);
+        if (options.GameMode) WriteRegistry(GameModeKey, "AutoGameModeEnabled", new() { Existia = true, Valor = 1 });
+        if (options.VisualEffects) WriteRegistry(VisualEffectsKey, "VisualFXSetting", new() { Existia = true, Valor = 2 });
+        if (options.PublicDns)
         {
-            string iface = InterfazPrincipal();
-            if (string.IsNullOrEmpty(iface))
-            {
-                AppLog.Write("No se identificó la interfaz principal; se omite el cambio de DNS.", "WARN");
-            }
-            else
-            {
-                AppEnv.RunConsole("netsh", $"interface ip set dnsservers name=\"{iface}\" source=static addr=1.1.1.1 register=primary validate=no");
-                AppEnv.RunConsole("netsh", $"interface ip add dnsservers name=\"{iface}\" addr=1.0.0.1 index=2 validate=no");
-                AppEnv.RunConsole("ipconfig", "/flushdns");
-                AppLog.Write($"DNS de «{iface}» apuntando a 1.1.1.1 / 1.0.0.1.", "OK");
-                r.Add(Severity.Ok, "Red", "DNS cambiado a un resolutor público.",
-                    "Suele resolver nombres más rápido que el del proveedor. Se revierte a DHCP desde «Restaurar estado».");
-            }
+            var adapter = FindInterface(previous.Dns.Interfaz);
+            SetDns(adapter, new() { Interfaz = Guid.Parse(adapter.Id), Servidores = new() { "1.1.1.1", "1.0.0.1" } }, token);
+            AppLog.Write("DNS público aplicado. Se conserva el origen DHCP/estático y los servidores previos.", "OK");
         }
-
-        if (opt.VisualEffects)
+        if (options.ResetTcpStack)
         {
-            EscribirEfectosVisuales(2);   // 2 = ajustar para obtener el mejor rendimiento
-            AppLog.Write("Efectos visuales ajustados a rendimiento. Cierra sesión para verlo aplicado.", "OK");
+            AppEnv.RunRequired("netsh", new[] { "winsock", "reset" }, token: token);
+            AppEnv.RunRequired("netsh", new[] { "int", "ip", "reset" }, token: token);
+            report.Add(Severity.Warn, "Red", "Se reinició la pila de red. Es necesario reiniciar el equipo.",
+                "El respaldo de SysDiag NO restaura IP fija, rutas ni VPN. Reconfigúralas manualmente si corresponde.");
         }
-
-        if (opt.ResetTcpStack)
-        {
-            AppEnv.RunConsole("netsh", "winsock reset");
-            AppEnv.RunConsole("netsh", "int ip reset");
-            AppLog.Write("Winsock y pila TCP/IP reiniciados. Hay que REINICIAR el equipo.", "WARN");
-            r.Add(Severity.Warn, "Red", "Se reinició la pila de red.",
-                "Los cambios no surten efecto hasta que reinicies el equipo. Si tenías IP fija, DNS personalizados o VPN, hay que reconfigurarlos.");
-        }
+        AppLog.Write("Opciones seleccionadas aplicadas. Si hay ajustes de registro, puede hacer falta cerrar sesión.", "OK");
     }
 
     public static string Restore()
     {
-        if (!File.Exists(AppEnv.BackupFile))
-            return "No hay ningún respaldo guardado todavía.";
-
-        try
+        RequireAdmin();
+        if (!File.Exists(AppEnv.BackupFile)) return "No hay respaldo protegido pendiente. Los antiguos respaldos en Documentos no se importan automáticamente; revisa los ajustes de aquella versión manualmente.";
+        var store = Store;
+        var state = store.Read();
+        var available = PowerSettings.Plans();
+        if ((state.RestaurarPlanEnergia && !available.Contains(state.PlanEnergia)) || state.Planes.Any(p => !available.Contains(p.Plan)))
+            throw new InvalidDataException("Un plan respaldado ya no existe. No se aplicará una restauración incompleta.");
+        var dnsAdapter = state.Dns == null ? null : FindInterface(state.Dns.Interfaz);
+        Guid current = PowerSettings.ActivePlan();
+        AppLog.Write($"Restaurando ajustes originales del {state.Fecha}", "STEP");
+        foreach (var plan in state.Planes)
         {
-            var estado = JsonSerializer.Deserialize<SavedState>(File.ReadAllText(AppEnv.BackupFile));
-            if (estado == null) return "El respaldo está vacío o dañado.";
-
-            AppLog.Write($"Restaurando el estado del {estado.Fecha}", "STEP");
-
-            var m = Regex.Match(estado.PlanEnergia,
-                @"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
-            if (m.Success)
-            {
-                AppEnv.RunConsole("powercfg", $"/setactive {m.Value}");
-                AppLog.Write("Plan de energía restaurado.", "OK");
-            }
-
-            if (!string.IsNullOrEmpty(estado.InterfazDns))
-            {
-                if (string.IsNullOrWhiteSpace(estado.DnsPrevio) || estado.DnsPrevio == "dhcp")
-                {
-                    AppEnv.RunConsole("netsh", $"interface ip set dnsservers name=\"{estado.InterfazDns}\" source=dhcp");
-                    AppLog.Write("DNS devuelto a automático (DHCP).", "OK");
-                }
-                else
-                {
-                    var servidores = estado.DnsPrevio.Split(',', StringSplitOptions.RemoveEmptyEntries);
-                    AppEnv.RunConsole("netsh", $"interface ip set dnsservers name=\"{estado.InterfazDns}\" source=static addr={servidores[0]} register=primary validate=no");
-                    for (int i = 1; i < servidores.Length; i++)
-                        AppEnv.RunConsole("netsh", $"interface ip add dnsservers name=\"{estado.InterfazDns}\" addr={servidores[i]} index={i + 1} validate=no");
-                    AppLog.Write("DNS previo restaurado.", "OK");
-                }
-                AppEnv.RunConsole("ipconfig", "/flushdns");
-            }
-
-            if (estado.EfectosVisuales >= 0)
-            {
-                EscribirEfectosVisuales(estado.EfectosVisuales);
-                AppLog.Write("Efectos visuales restaurados.", "OK");
-            }
-
-            if (!string.IsNullOrEmpty(estado.WifiPowerIndex))
-            {
-                AppEnv.RunConsole("powercfg", $"/setacvalueindex SCHEME_CURRENT {SubWireless} {SettingPowerSave} {estado.WifiPowerIndex}");
-                AppEnv.RunConsole("powercfg", "/setactive SCHEME_CURRENT");
-                AppLog.Write("Energía del adaptador inalámbrico restaurada.", "OK");
-            }
-
-            if (!string.IsNullOrEmpty(estado.CpuMaxPrevio))
-            {
-                AppEnv.RunConsole("powercfg", $"/setacvalueindex SCHEME_CURRENT {SubProcesador} {SettingCpuMax} {estado.CpuMaxPrevio}");
-                AppEnv.RunConsole("powercfg", "/setactive SCHEME_CURRENT");
-                AppLog.Write($"Tope de CPU restaurado a {estado.CpuMaxPrevio}%.", "OK");
-            }
-
-            if (estado.GameModePrevio >= 0)
-            {
-                EscribirGameMode(estado.GameModePrevio);
-                AppLog.Write("Modo de juego restaurado.", "OK");
-            }
-
-            if (estado.WlanAutoconfig == "deshabilitado")
-            {
-                AppLog.Write("El respaldo indica que la autoconfiguración de WLAN estaba deshabilitada.", "WARN");
-                AppLog.Write("No se revierte a propósito: dejarla apagada rompe la reconexión automática.", "INFO");
-            }
-
-            return $"Estado del {estado.Fecha} restaurado.";
+            if (plan.WifiPowerIndex is uint wifi)
+                PowerSettings.WriteAc(plan.Plan, PowerSettings.WirelessSubgroup, PowerSettings.WirelessSaving, wifi);
+            if (plan.CpuMaxPercent is uint cpu)
+                PowerSettings.WriteAc(plan.Plan, PowerSettings.ProcessorSubgroup, PowerSettings.ProcessorMaximum, cpu);
         }
-        catch (Exception ex)
-        {
-            AppLog.Write($"Fallo al restaurar: {ex.Message}", "ERROR");
-            return "No se pudo leer el respaldo.";
-        }
+        if (state.Dns != null) SetDns(dnsAdapter!, state.Dns);
+        if (state.EfectosVisuales != null) WriteRegistry(VisualEffectsKey, "VisualFXSetting", state.EfectosVisuales);
+        if (state.GameMode != null) WriteRegistry(GameModeKey, "AutoGameModeEnabled", state.GameMode);
+        // Activar al FINAL; nunca escribir índices de otro plan sobre SCHEME_CURRENT.
+        PowerSettings.Activate(state.RestaurarPlanEnergia ? state.PlanEnergia : current);
+        store.CompleteRestore();
+        string warning = state.ReinicioRedNoReversible
+            ? "\n\nEl reinicio de TCP/IP, las IP fijas, rutas y VPN NO se revierten mediante este respaldo."
+            : "";
+        return $"Ajustes respaldados del {state.Fecha} restaurados. WLAN automático se mantiene habilitado por seguridad." + warning;
     }
 
-    /// <summary>Nombre de la interfaz activa con puerta de enlace: la que usa el equipo para salir.</summary>
-    private static string InterfazPrincipal()
-    {
-        try
-        {
-            foreach (var ni in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
-            {
-                if (ni.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up) continue;
-                if (ni.NetworkInterfaceType == System.Net.NetworkInformation.NetworkInterfaceType.Loopback) continue;
+    private static NetworkInterface MainInterface() => NetworkInterface.GetAllNetworkInterfaces().FirstOrDefault(n =>
+        n.OperationalStatus == OperationalStatus.Up && n.NetworkInterfaceType != NetworkInterfaceType.Loopback
+        && n.GetIPProperties().GatewayAddresses.Any(g => g.Address.AddressFamily == AddressFamily.InterNetwork
+            && g.Address.ToString() != "0.0.0.0"))
+        ?? throw new InvalidOperationException("No se identificó una interfaz IPv4 principal; no se cambiará DNS.");
 
-                foreach (var g in ni.GetIPProperties().GatewayAddresses)
-                {
-                    if (g?.Address == null) continue;
-                    if (g.Address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork) continue;
-                    if (g.Address.ToString() == "0.0.0.0") continue;
-                    return ni.Name;
-                }
-            }
-        }
-        catch { }
-        return null;
+    private static NetworkInterface FindInterface(Guid id) => NetworkInterface.GetAllNetworkInterfaces()
+        .FirstOrDefault(n => Guid.TryParse(n.Id, out var value) && value == id)
+        ?? throw new InvalidDataException("La interfaz DNS del respaldo ya no existe.");
+
+    private static DnsSnapshot ReadDns(NetworkInterface adapter)
+    {
+        using var key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\" + Guid.Parse(adapter.Id).ToString("B"))
+            ?? throw new IOException("No se pudo leer el origen DHCP/estático del DNS; el cambio se abortó.");
+        string configured = key.GetValue("NameServer") as string ?? "";
+        return new DnsSnapshot
+        {
+            Interfaz = Guid.Parse(adapter.Id), Automatico = string.IsNullOrWhiteSpace(configured),
+            Servidores = configured.Split(new[] { ',', ';', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries).ToList()
+        };
     }
 
-    /// <summary>DNS actuales de la interfaz, o «dhcp» si los recibe automáticamente.</summary>
-    private static string LeerDns(string iface)
+    private static void SetDns(NetworkInterface adapter, DnsSnapshot state, CancellationToken token = default)
     {
-        if (string.IsNullOrEmpty(iface)) return "";
-
-        string raw = AppEnv.RunConsole("netsh", $"interface ip show dnsservers name=\"{iface}\"");
-        if (string.IsNullOrWhiteSpace(raw)) return "";
-
-        if (Regex.IsMatch(raw, "(?i)dhcp|autom")) return "dhcp";
-
-        var ips = Regex.Matches(raw, @"\b\d{1,3}(?:\.\d{1,3}){3}\b")
-            .Select(m => m.Value)
-            .Distinct()
-            .ToList();
-
-        return string.Join(",", ips);
+        string name = "name=" + (adapter.GetIPProperties().GetIPv4Properties()?.Index
+            ?? throw new InvalidDataException("La interfaz no tiene configuración IPv4."));
+        if (state.Automatico)
+            AppEnv.RunRequired("netsh", new[] { "interface", "ipv4", "set", "dnsservers", name, "source=dhcp" }, token: token);
+        else
+        {
+            AppEnv.RunRequired("netsh", new[] { "interface", "ipv4", "set", "dnsservers", name, "source=static", "address=" + state.Servidores[0], "validate=no" }, token: token);
+            for (int index = 1; index < state.Servidores.Count; index++)
+                AppEnv.RunRequired("netsh", new[] { "interface", "ipv4", "add", "dnsservers", name, "address=" + state.Servidores[index], "index=" + (index + 1), "validate=no" }, token: token);
+        }
+        AppEnv.RunRequired("ipconfig", new[] { "/flushdns" }, token: token);
     }
 
-    private static int LeerEfectosVisuales()
+    private static RegistrySettingSnapshot ReadRegistry(string keyPath, string name)
     {
-        try
-        {
-            using var k = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
-                @"Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects");
-            return k?.GetValue("VisualFXSetting") is int v ? v : 0;
-        }
-        catch { return -1; }
+        using var key = Registry.CurrentUser.OpenSubKey(keyPath);
+        object value = key?.GetValue(name);
+        if (value != null && value is not int) throw new InvalidDataException($"El valor {name} no es un DWORD válido.");
+        return new() { Existia = value != null, Valor = value is int number ? number : 0 };
     }
 
-    private static void EscribirEfectosVisuales(int valor)
+    private static void WriteRegistry(string keyPath, string name, RegistrySettingSnapshot snapshot)
     {
-        try
-        {
-            using var k = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(
-                @"Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects");
-            k?.SetValue("VisualFXSetting", valor, Microsoft.Win32.RegistryValueKind.DWord);
-        }
-        catch (Exception ex)
-        {
-            AppLog.Write($"No se pudo ajustar los efectos visuales: {ex.Message}", "WARN");
-        }
-    }
-
-    private static string LeerWifiPowerIndex()
-    {
-        string raw = AppEnv.RunConsole("powercfg", $"/query SCHEME_CURRENT {SubWireless} {SettingPowerSave}");
-        var m = Regex.Match(raw, @"(?i)AC Power Setting Index:\s*0x([0-9a-f]+)");
-        return m.Success ? Convert.ToInt32(m.Groups[1].Value, 16).ToString() : "";
-    }
-
-    private static string LeerCpuMaxPercent()
-    {
-        string raw = AppEnv.RunConsole("powercfg", $"/query SCHEME_CURRENT {SubProcesador} {SettingCpuMax}");
-        var m = Regex.Match(raw, @"(?i)AC Power Setting Index:\s*0x([0-9a-f]+)");
-        return m.Success ? Convert.ToInt32(m.Groups[1].Value, 16).ToString() : "";
-    }
-
-    /// <summary>1 activo, 0 desactivado, -1 si la clave no existe (Windows lo trata como activo por defecto).</summary>
-    private static int LeerGameMode()
-    {
-        try
-        {
-            using var k = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\GameBar");
-            return k?.GetValue("AutoGameModeEnabled") is int v ? v : -1;
-        }
-        catch { return -1; }
-    }
-
-    private static void EscribirGameMode(int valor)
-    {
-        try
-        {
-            using var k = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\GameBar");
-            k?.SetValue("AutoGameModeEnabled", valor, RegistryValueKind.DWord);
-        }
-        catch (Exception ex)
-        {
-            AppLog.Write($"No se pudo ajustar el Modo de juego: {ex.Message}", "WARN");
-        }
-    }
-
-    private static IEnumerable<string> WirelessInterfaces()
-    {
-        var nombres = new List<string>();
-        try
-        {
-            foreach (var ni in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
-            {
-                if (ni.NetworkInterfaceType == System.Net.NetworkInformation.NetworkInterfaceType.Wireless80211)
-                    nombres.Add(ni.Name);
-            }
-        }
-        catch (Exception ex)
-        {
-            AppLog.Write($"No se pudieron listar las interfaces: {ex.Message}", "WARN");
-        }
-        return nombres;
+        using var key = Registry.CurrentUser.CreateSubKey(keyPath)
+            ?? throw new IOException($"No se pudo abrir {keyPath} para escribir.");
+        if (snapshot.Existia) key.SetValue(name, snapshot.Valor, RegistryValueKind.DWord);
+        else key.DeleteValue(name, throwOnMissingValue: false);
     }
 }

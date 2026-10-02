@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Management;
@@ -27,19 +27,26 @@ public static class SystemModule
     private static Snapshot _cache;
     private static readonly TimeSpan Vigencia = TimeSpan.FromMinutes(3);
 
-    public static void Run(DiagnosticReport r, bool forzar = false)
+    private static readonly object Gate = new();
+    public static void Run(DiagnosticReport r, bool forzar = false, CancellationToken token = default)
+    {
+        token.ThrowIfCancellationRequested();
+        lock (Gate) RunCore(r, forzar, token);
+    }
+
+    private static void RunCore(DiagnosticReport r, bool forzar, CancellationToken token)
     {
         if (!forzar && _cache != null && DateTime.Now - _cache.Momento < Vigencia)
         {
             r.Equipo = _cache.Equipo;
-            r.Sistema = _cache.Info;
-            r.Discos = _cache.Discos;
-            r.Memoria = _cache.Memoria;
+            r.Sistema = new(_cache.Info);
+            r.Discos = new(_cache.Discos);
+            r.Memoria = new(_cache.Memoria);
 
             // Copias, no las mismas instancias: quien las reciba les asigna
             // módulo de origen y no debe alterar lo guardado en caché.
             foreach (var f in _cache.Hallazgos)
-                r.Add(f.Severity, f.Area, f.Message, f.Action);
+                r.Add(f.Severity, f.Area, f.Message, f.Action, f.AccionId, "equipo");
 
             AppLog.Write("Inventario del equipo (en caché)", "STEP");
             return;
@@ -50,10 +57,10 @@ public static class SystemModule
 
         var info = new List<KeyValueRow>();
 
-        var os = Wmi.First("Win32_OperatingSystem");
-        var cs = Wmi.First("Win32_ComputerSystem");
-        var cpu = Wmi.First("Win32_Processor");
-        var bios = Wmi.First("Win32_BIOS");
+        var os = Wmi.First("Win32_OperatingSystem", token);
+        var cs = Wmi.First("Win32_ComputerSystem", token);
+        var cpu = Wmi.First("Win32_Processor", token);
+        var bios = Wmi.First("Win32_BIOS", token);
 
         string equipo = $"{Wmi.Str(cs, "Manufacturer")} {Wmi.Str(cs, "Model")}".Trim();
         r.Equipo = string.IsNullOrWhiteSpace(equipo) ? Environment.MachineName : equipo;
@@ -78,7 +85,7 @@ public static class SystemModule
 
         // ---- Discos --------------------------------------------------------
         var discos = new List<DiskRow>();
-        foreach (var d in Wmi.Query("SELECT * FROM Win32_LogicalDisk WHERE DriveType=3"))
+        foreach (var d in Wmi.Query("SELECT * FROM Win32_LogicalDisk WHERE DriveType=3", token: token))
         {
             double size = Wmi.Num(d, "Size");
             double free = Wmi.Num(d, "FreeSpace");
@@ -96,17 +103,17 @@ public static class SystemModule
 
             if (pct < 10)
                 r.Add(Severity.Bad, "Disco", $"La unidad {unidad} tiene solo {pct}% libre.",
-                    "Windows necesita espacio para el archivo de paginación y las actualizaciones. Libera espacio cuanto antes.");
+                    "Windows necesita espacio para el archivo de paginación y las actualizaciones. Libera espacio cuanto antes.", modulo: "equipo");
             else if (pct < 20)
                 r.Add(Severity.Warn, "Disco", $"La unidad {unidad} tiene {pct}% libre.",
-                    "Conviene mantener al menos un 20% libre en el disco del sistema.");
+                    "Conviene mantener al menos un 20% libre en el disco del sistema.", modulo: "equipo");
         }
         r.Discos = discos;
 
         // ---- Módulos de memoria -------------------------------------------
         var memoria = new List<MemoryRow>();
         var velocidades = new HashSet<string>();
-        foreach (var m in Wmi.Query("SELECT * FROM Win32_PhysicalMemory"))
+        foreach (var m in Wmi.Query("SELECT * FROM Win32_PhysicalMemory", token: token))
         {
             string vel = Wmi.Num(m, "ConfiguredClockSpeed").ToString("0");
             velocidades.Add(vel);
@@ -123,7 +130,7 @@ public static class SystemModule
 
         if (velocidades.Count > 1)
             r.Add(Severity.Warn, "Memoria", "Los módulos de RAM no corren a la misma frecuencia.",
-                "Con módulos mixtos el sistema iguala hacia abajo. Revisa el perfil XMP/DOCP en la BIOS.");
+                "Con módulos mixtos el sistema iguala hacia abajo. Revisa el perfil XMP/DOCP en la BIOS.", modulo: "equipo");
 
         foreach (var row in info)
             AppLog.Write($"{row.Clave,-18}: {row.Valor}");

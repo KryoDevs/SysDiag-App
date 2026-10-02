@@ -1,5 +1,6 @@
-﻿using System.Linq;
+using System.Linq;
 using SysDiag.Models;
+using SysDiag.Core;
 
 namespace SysDiag.Diagnostics;
 
@@ -14,11 +15,10 @@ public class MemoryRules : IDiagnosticRule
         var fila = reporte.RendimientoResumen.FirstOrDefault(x => x.Clave == "RAM en uso");
         if (fila == null) return;
 
-        var m = System.Text.RegularExpressions.Regex.Match(fila.Valor, @"[\d]+([.,][\d]+)?");
-        if (!m.Success || !double.TryParse(m.Value.Replace('.', ','), out double pct)) return;
+        if (!NumericText.TryRead(fila.Valor, out double pct)) return;
         if (pct <= 85) return;
 
         reporte.Add(Severity.Warn, "Memoria", $"RAM al {pct}%.",
-            "Con la memoria tan ocupada Windows empieza a paginar a disco y aparecen microtirones.");
+            "Con la memoria tan ocupada Windows empieza a paginar a disco y aparecen microtirones.", modulo: "rendimiento");
     }
 }
