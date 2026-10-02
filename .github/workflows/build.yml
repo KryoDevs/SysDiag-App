@@ -38,10 +38,15 @@ jobs:
       - name: Ejecutar la suite de pruebas
         run: dotnet test SysDiag.sln -c Release --no-build --verbosity minimal --logger "trx;LogFileName=tests.trx" --results-directory TestResults
 
-      - name: Verificar conteo de regresiones y runner
+      - name: Resumir y verificar todas las regresiones
+        if: always()
         shell: pwsh
         run: |
           .\Tools\validate_tests.ps1
+
+      - name: Verificar el runner compartido
+        shell: pwsh
+        run: |
           & .\Tools\HeadlessRunner\bin\Release\net8.0-windows\win-x64\HeadlessRunner.exe --self-test
           if ($LASTEXITCODE -ne 0) { throw "Falló el autotest del runner compartido" }
 
