@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.InteropServices;
 
 namespace SysDiag.Core.Windows;
@@ -38,7 +38,8 @@ public static class RestorePointModule
         public long llSequenceNumber;
     }
 
-    [DllImport("srclient.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    [DllImport("srclient.dll", CharSet = CharSet.Unicode, SetLastError = true, ExactSpelling = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SRSetRestorePointW(ref RESTOREPOINTINFO info, out STATEMGRSTATUS status);
 
     public class Resultado
@@ -62,6 +63,7 @@ public static class RestorePointModule
         // Windows recorta la descripción a 64 caracteres visibles en la UI
         // de Restaurar sistema; se acorta antes para que no quede truncada
         // a la mitad de una palabra.
+        descripcion = "SysDiag: " + (descripcion ?? "Cambio de configuración");
         if (descripcion.Length > 64) descripcion = descripcion.Substring(0, 61) + "...";
 
         var inicio = new RESTOREPOINTINFO
@@ -69,14 +71,15 @@ public static class RestorePointModule
             dwEventType = BEGIN_SYSTEM_CHANGE,
             dwRestorePtType = MODIFY_SETTINGS,
             llSequenceNumber = 0,
-            szDescription = $"SysDiag: {descripcion}"
+            szDescription = descripcion
         };
 
         AppLog.Write($"Creando punto de restauración: «{inicio.szDescription}»", "STEP");
 
-        if (!SRSetRestorePointW(ref inicio, out STATEMGRSTATUS estado))
+        bool started = SRSetRestorePointW(ref inicio, out STATEMGRSTATUS estado);
+        if (!started || estado.nStatus != 0 || estado.llSequenceNumber <= 0)
         {
-            int err = Marshal.GetLastWin32Error();
+            int err = estado.nStatus != 0 ? estado.nStatus : Marshal.GetLastWin32Error();
             string motivo = Explicar(err);
             AppLog.Write($"No se pudo iniciar el punto de restauración (0x{err:X8}): {motivo}", "ERROR");
             return new Resultado { Exito = false, Mensaje = motivo };
@@ -91,9 +94,10 @@ public static class RestorePointModule
             szDescription = inicio.szDescription
         };
 
-        if (!SRSetRestorePointW(ref fin, out STATEMGRSTATUS estadoFinal))
+        bool ended = SRSetRestorePointW(ref fin, out STATEMGRSTATUS estadoFinal);
+        if (!ended || estadoFinal.nStatus != 0)
         {
-            int err = Marshal.GetLastWin32Error();
+            int err = estadoFinal.nStatus != 0 ? estadoFinal.nStatus : Marshal.GetLastWin32Error();
             string motivo = Explicar(err);
             AppLog.Write($"El punto de restauración quedó a medio crear (0x{err:X8}): {motivo}", "ERROR");
             return new Resultado { Exito = false, Mensaje = motivo };

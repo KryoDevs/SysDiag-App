@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Management;
@@ -27,19 +27,25 @@ public static class SystemModule
     private static Snapshot _cache;
     private static readonly TimeSpan Vigencia = TimeSpan.FromMinutes(3);
 
+    private static readonly object Gate = new();
     public static void Run(DiagnosticReport r, bool forzar = false)
+    {
+        lock (Gate) RunCore(r, forzar);
+    }
+
+    private static void RunCore(DiagnosticReport r, bool forzar)
     {
         if (!forzar && _cache != null && DateTime.Now - _cache.Momento < Vigencia)
         {
             r.Equipo = _cache.Equipo;
-            r.Sistema = _cache.Info;
-            r.Discos = _cache.Discos;
-            r.Memoria = _cache.Memoria;
+            r.Sistema = new(_cache.Info);
+            r.Discos = new(_cache.Discos);
+            r.Memoria = new(_cache.Memoria);
 
             // Copias, no las mismas instancias: quien las reciba les asigna
             // módulo de origen y no debe alterar lo guardado en caché.
             foreach (var f in _cache.Hallazgos)
-                r.Add(f.Severity, f.Area, f.Message, f.Action);
+                r.Add(f.Severity, f.Area, f.Message, f.Action, f.AccionId, "equipo");
 
             AppLog.Write("Inventario del equipo (en caché)", "STEP");
             return;
@@ -96,10 +102,10 @@ public static class SystemModule
 
             if (pct < 10)
                 r.Add(Severity.Bad, "Disco", $"La unidad {unidad} tiene solo {pct}% libre.",
-                    "Windows necesita espacio para el archivo de paginación y las actualizaciones. Libera espacio cuanto antes.");
+                    "Windows necesita espacio para el archivo de paginación y las actualizaciones. Libera espacio cuanto antes.", modulo: "equipo");
             else if (pct < 20)
                 r.Add(Severity.Warn, "Disco", $"La unidad {unidad} tiene {pct}% libre.",
-                    "Conviene mantener al menos un 20% libre en el disco del sistema.");
+                    "Conviene mantener al menos un 20% libre en el disco del sistema.", modulo: "equipo");
         }
         r.Discos = discos;
 
@@ -123,7 +129,7 @@ public static class SystemModule
 
         if (velocidades.Count > 1)
             r.Add(Severity.Warn, "Memoria", "Los módulos de RAM no corren a la misma frecuencia.",
-                "Con módulos mixtos el sistema iguala hacia abajo. Revisa el perfil XMP/DOCP en la BIOS.");
+                "Con módulos mixtos el sistema iguala hacia abajo. Revisa el perfil XMP/DOCP en la BIOS.", modulo: "equipo");
 
         foreach (var row in info)
             AppLog.Write($"{row.Clave,-18}: {row.Valor}");

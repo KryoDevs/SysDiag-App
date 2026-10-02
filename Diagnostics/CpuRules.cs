@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using SysDiag.Models;
 
 namespace SysDiag.Diagnostics;
@@ -21,6 +21,6 @@ public class CpuRules : IDiagnosticRule
 
         reporte.Add(Severity.Warn, "CPU",
             $"{top.Proceso} consumió {top.CpuPct}% de CPU durante la medición.",
-            "Comprueba si es esperable. Un proceso sostenido por encima del 40% deja poco margen para el resto.");
+            "Comprueba si es esperable. Un proceso sostenido por encima del 40% deja poco margen para el resto.", modulo: "rendimiento");
     }
 }

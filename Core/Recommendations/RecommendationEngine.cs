@@ -13,7 +13,7 @@ public static class RecommendationEngine
         var recomendaciones = new List<Recommendation>();
         if (report == null) return recomendaciones;
 
-        if (report.Hallazgos.Any(h => h.Area == "Red" && h.Severity != Severity.Ok))
+        if (report.Hallazgos.Any(h => (h.Area is "Red" or "Wi-Fi" or "Juego") && h.Severity != Severity.Ok))
         {
             recomendaciones.Add(new Recommendation
             {
@@ -75,7 +75,26 @@ public static class RecommendationEngine
             });
         }
 
-        if (!recomendaciones.Any())
+        var urgentes = report.Hallazgos.Where(h => h.Severity != Severity.Ok).ToList();
+        if (urgentes.Count > 0 && recomendaciones.Count == 0)
+        {
+            var principal = urgentes.OrderByDescending(h => h.Severity).First();
+            recomendaciones.Add(new Recommendation
+            {
+                Prioridad = principal.Severity == Severity.Bad ? "Alta" : "Media",
+                Titulo = $"Revisar hallazgos de {principal.Area}",
+                Descripcion = string.IsNullOrWhiteSpace(principal.Action) ? principal.Message : principal.Action
+            });
+        }
+        if (!report.TieneDatosRelevantes())
+        {
+            recomendaciones.Add(new Recommendation
+            {
+                Prioridad = "Alta", Titulo = "Completar diagnóstico",
+                Descripcion = "No hay mediciones suficientes para evaluar el estado. Ejecuta los módulos pendientes; un diagnóstico vacío no prueba que el equipo esté sano."
+            });
+        }
+        if (recomendaciones.Count == 0)
         {
             recomendaciones.Add(new Recommendation
             {
@@ -97,16 +116,6 @@ public static class RecommendationEngine
 
     private static bool TryParsePercent(string valor, out double percentage)
     {
-        percentage = 0d;
-        if (string.IsNullOrWhiteSpace(valor)) return false;
-
-        var texto = valor.Trim();
-        var idx = texto.IndexOf('%');
-        if (idx >= 0) texto = texto.Substring(0, idx).Trim();
-
-        var match = System.Text.RegularExpressions.Regex.Match(texto, @"([0-9]+(?:[.,][0-9]+)?)");
-        if (!match.Success) return false;
-
-        return double.TryParse(match.Groups[1].Value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out percentage);
+        return NumericText.TryRead(valor, out percentage);
     }
 }

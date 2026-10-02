@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using SysDiag.Models;
@@ -14,7 +14,7 @@ public static class HealthScore
 {
     public static int Calcular(DiagnosticReport r)
     {
-        if (r.Hallazgos.Count == 0 && r.Sistema.Count == 0) return -1;
+        if (!r.TieneDatosRelevantes()) return -1;
 
         int puntaje = 100;
 

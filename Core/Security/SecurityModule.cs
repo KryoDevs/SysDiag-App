@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
@@ -255,7 +255,7 @@ public static class SecurityModule
         return fila;
     }
 
-    private static bool LeerBool(System.Management.ManagementObject obj, string prop)
+    private static bool LeerBool(WmiRow obj, string prop)
     {
         try { return Convert.ToBoolean(obj[prop]); }
         catch { return false; }

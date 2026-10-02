@@ -1,3 +1,4 @@
+using System.IO;
 using System.Diagnostics;
 using System.Globalization;
 using System.Security.Principal;
@@ -95,7 +96,7 @@ public static class AppEnv
     {
         if (!OperatingSystem.IsWindows() || Path.IsPathRooted(name)) return name;
         string exe = Path.GetFileNameWithoutExtension(name).ToLowerInvariant();
-        if (new[] { "netsh", "powercfg", "ipconfig", "net", "pnputil", "cmd", "taskmgr", "rundll32", "msiexec" }.Contains(exe))
+        if (new[] { "netsh", "powercfg", "ipconfig", "net", "pnputil", "cmd", "taskmgr", "rundll32", "msiexec", "sfc" }.Contains(exe))
             return Path.Combine(Environment.SystemDirectory, exe + ".exe");
         if (exe == "winget")
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

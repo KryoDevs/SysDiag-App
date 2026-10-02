@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using SysDiag.Core;
 using SysDiag.Core.Recommendations;
+using System.Text.Json.Serialization;
 
 namespace SysDiag.Models;
 
@@ -38,11 +39,15 @@ public class Finding
     };
 }
 /// <summary>Contenedor de todo lo que produce una ejecución.</summary>
-public class DiagnosticReport
+public class DiagnosticReport : IJsonOnDeserialized
 {
+    public Guid Id { get; set; } = Guid.NewGuid();
     public DateTime Inicio { get; set; } = DateTime.Now;
+    public DateTime? Fin { get; set; }
+    public Dictionary<string, DateTime> ModulosCompletados { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public string Equipo { get; set; } = Environment.MachineName;
 
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public List<Finding> Hallazgos { get; } = new();
     public List<KeyValueRow> Sistema { get; set; } = new();
     public List<DiskRow> Discos { get; set; } = new();
@@ -139,11 +144,13 @@ public class DiagnosticReport
         };
 
         var existentes = new HashSet<string>(ModulosConDatos(), StringComparer.OrdinalIgnoreCase);
+        foreach (var key in ModulosCompletados.Keys)
+            if (NombresModulos.TryGetValue(key, out var nombre)) existentes.Add(nombre);
         return todos.Where(m => !existentes.Contains(m)).ToList();
     }
 
     public void Add(Severity severity, string area, string message, string action = "",
-                    string accionId = "")
+                    string accionId = "", string modulo = "")
     {
         var finding = new Finding
         {
@@ -151,7 +158,8 @@ public class DiagnosticReport
             Area = area,
             Message = message,
             Action = action,
-            AccionId = accionId
+            AccionId = accionId,
+            Modulo = modulo
         };
 
         if (!ContainsFinding(finding))
@@ -181,6 +189,15 @@ public class DiagnosticReport
     /// </summary>
     public void MergeFrom(DiagnosticReport other)
     {
+        ArgumentNullException.ThrowIfNull(other);
+        if (other.Sistema.Count > 0)
+        {
+            Equipo = other.Equipo;
+            Sistema = other.Sistema;
+            Discos = other.Discos;
+            Memoria = other.Memoria;
+        }
+        foreach (var (module, date) in other.ModulosCompletados) ModulosCompletados[module] = date;
         if (other.WiFi.Count > 0) WiFi = other.WiFi;
         if (other.Red.Count > 0) Red = other.Red;
         if (other.Traceroute.Count > 0) { Traceroute = other.Traceroute; TracerouteDestino = other.TracerouteDestino; }
@@ -204,7 +221,6 @@ public class DiagnosticReport
         if (other.Servicios.Count > 0) Servicios = other.Servicios;
         if (other.Programas.Count > 0) Programas = other.Programas;
         if (other.RedesCercanas.Count > 0) RedesCercanas = other.RedesCercanas;
-        if (other.Recomendaciones.Count > 0) Recomendaciones = other.Recomendaciones;
 
         foreach (var hallazgo in other.Hallazgos)
         {
@@ -212,7 +228,61 @@ public class DiagnosticReport
                 Hallazgos.Add(hallazgo);
         }
 
-        if (Recomendaciones.Count == 0)
-            ActualizarRecomendaciones();
+        ActualizarRecomendaciones();
+    }
+
+    public static IReadOnlyDictionary<string, string> NombresModulos { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["red"] = "Red y latencia", ["rendimiento"] = "Rendimiento", ["termicas"] = "Térmicas y energía",
+        ["almacenamiento"] = "Almacenamiento", ["estabilidad"] = "Estabilidad", ["seguridad"] = "Seguridad",
+        ["drivers"] = "Drivers", ["actualizaciones"] = "Actualizaciones", ["limpieza"] = "Limpieza",
+        ["arranque"] = "Arranque y software"
+    };
+
+    /// <summary>Un módulo terminado sustituye también sus resultados vacíos; no deja datos obsoletos.</summary>
+    public void ReplaceModuleFrom(DiagnosticReport other, string module)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        if (other.Sistema.Count > 0)
+        {
+            Hallazgos.RemoveAll(f => f.Modulo == "equipo");
+            Equipo = other.Equipo; Sistema = other.Sistema; Discos = other.Discos; Memoria = other.Memoria;
+        }
+        Hallazgos.RemoveAll(f => string.Equals(f.Modulo, module, StringComparison.OrdinalIgnoreCase));
+        switch (module)
+        {
+            case "red": WiFi = other.WiFi; Red = other.Red; RedesCercanas = other.RedesCercanas;
+                Traceroute = other.Traceroute; TracerouteDestino = other.TracerouteDestino; break;
+            case "rendimiento": RendimientoResumen = other.RendimientoResumen; TopCpu = other.TopCpu; TopRam = other.TopRam; break;
+            case "termicas": Termicas = other.Termicas; Bateria = other.Bateria; Gpus = other.Gpus; break;
+            case "estabilidad": EventosResumen = other.EventosResumen; EventosDetalle = other.EventosDetalle;
+                Whea = other.Whea; Minidumps = other.Minidumps; break;
+            case "almacenamiento": Almacenamiento = other.Almacenamiento; break;
+            case "seguridad": Seguridad = other.Seguridad; break;
+            case "drivers": Drivers = other.Drivers; DriversDisponibles = other.DriversDisponibles; break;
+            case "actualizaciones": Actualizaciones = other.Actualizaciones; break;
+            case "arranque": Arranque = other.Arranque; Servicios = other.Servicios; Programas = other.Programas; break;
+            case "limpieza": Limpieza = other.Limpieza; EspacioLiberado = other.EspacioLiberado; break;
+        }
+        foreach (var finding in other.Hallazgos)
+        {
+            if (string.IsNullOrWhiteSpace(finding.Modulo)) finding.Modulo = module;
+            if (!ContainsFinding(finding)) Hallazgos.Add(finding);
+        }
+        if (NombresModulos.ContainsKey(module)) ModulosCompletados[module] = DateTime.Now;
+        ActualizarRecomendaciones();
+    }
+
+    void IJsonOnDeserialized.OnDeserialized()
+    {
+        // Un archivo antiguo o un JSON con null no debe tumbar la vista de historial.
+        Sistema ??= new(); Discos ??= new(); Memoria ??= new(); WiFi ??= new(); Red ??= new();
+        RendimientoResumen ??= new(); TopCpu ??= new(); TopRam ??= new(); Termicas ??= new(); Bateria ??= new();
+        EventosResumen ??= new(); EventosDetalle ??= new(); Whea ??= new(); Minidumps ??= new(); Traceroute ??= new();
+        Limpieza ??= new(); Drivers ??= new(); Seguridad ??= new(); Gpus ??= new(); Actualizaciones ??= new();
+        DriversDisponibles ??= new(); Almacenamiento ??= new(); Arranque ??= new(); Servicios ??= new();
+        Programas ??= new(); RedesCercanas ??= new(); Recomendaciones ??= new(); ModulosCompletados ??= new();
+        Hallazgos.RemoveAll(f => f == null);
+        ActualizarRecomendaciones();
     }
 }
