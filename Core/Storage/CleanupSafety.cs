@@ -61,8 +61,8 @@ public static class CleanupSafety
         if (!OperatingSystem.IsWindows())
         {
             // Los diagnósticos de Windows no usan esta rama; permite probar contención en otros SO.
-            var info = new FileInfo(path);
-            bytes = info.Length;
+            var file = new FileInfo(path);
+            bytes = file.Length;
             File.Delete(path);
             return true;
         }
