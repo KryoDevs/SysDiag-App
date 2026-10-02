@@ -239,7 +239,7 @@ public class AuditRegressionTests
         string html = File.ReadAllText(ReportBuilder.Build(report, folder.Path));
         Assert.Contains("7 s", html);
         Assert.Contains("Cancelado", html);
-        Assert.Contains("Diagnóstico parcial", html);
+        Assert.Contains("Diagnóstico parcial", System.Net.WebUtility.HtmlDecode(html));
         Assert.Contains("&lt;script&gt;", html);
         Assert.DoesNotContain("<script>", html);
         Assert.Equal(report.Hallazgos.Count, Exporter.Cargar(first).Hallazgos.Count);
