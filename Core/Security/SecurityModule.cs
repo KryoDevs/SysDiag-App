@@ -1,5 +1,8 @@
+using System.Runtime.InteropServices;
+
 using System;
 using System.Linq;
+using System.IO;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 using SysDiag.Models;
@@ -29,7 +32,13 @@ public static class SecurityModule
         filas.Add(LeerUac(r));
 
         r.Seguridad = filas;
-        foreach (var f in filas) AppLog.Write($"{f.Componente,-14}: {f.Estado}  ({f.Detalle})");
+        foreach (var f in filas)
+        {
+            AppLog.Write($"{f.Componente,-14}: {f.Estado}  ({f.Detalle})");
+            if (f.Nivel == Severity.Warn && (f.Estado.StartsWith("No ") || f.Estado.StartsWith("Consulta incompleta")))
+                r.Add(Severity.Warn, "Seguridad", $"{f.Componente}: {f.Estado}.",
+                    "No se confirmó el estado de protección. Revisa permisos y Seguridad de Windows; no equivale a un resultado sano.");
+        }
     }
 
     /// <summary>MSFT_MpComputerStatus: la misma fuente que consulta el propio Centro de seguridad de Windows.</summary>
@@ -49,29 +58,43 @@ public static class SecurityModule
             };
         }
 
-        bool tiempoReal = LeerBool(d, "RealTimeProtectionEnabled");
-        bool antivirusActivo = LeerBool(d, "AntivirusEnabled");
-        string firmas = Wmi.Str(d, "AntivirusSignatureLastUpdated");
+        if (!Wmi.TryBool(d, "RealTimeProtectionEnabled", out bool tiempoReal)
+            || !Wmi.TryBool(d, "AntivirusEnabled", out bool antivirusActivo))
+            return new SecurityCheckRow { Componente = "Windows Defender", Estado = "No se pudo consultar",
+                Detalle = "Faltan propiedades verificables del motor de protección.", Nivel = Severity.Warn };
 
-        var fila = new SecurityCheckRow { Componente = "Windows Defender" };
-
-        if (!tiempoReal)
+        uint? health = null;
+        try { if (WscGetSecurityProviderHealth(4 /* ANTIVIRUS */, out uint value) == 0) health = value; }
+        catch (Exception ex) { AppLog.Write($"Centro de seguridad no disponible: {ex.Message}", "WARN"); }
+        var fila = AssessDefender(tiempoReal, antivirusActivo, health);
+        if (fila.Nivel == Severity.Warn)
+            r.Add(Severity.Warn, "Seguridad", "No se confirmó protección antivirus completa.", fila.Detalle);
+        if (fila.Nivel == Severity.Bad)
+            r.Add(Severity.Bad, "Seguridad", "Defender no informa protección activa y el Centro de seguridad reporta antivirus sin protección suficiente.",
+                "Revisa Seguridad de Windows. No se asumirá que la protección de otro producto está activa.");
+        if (tiempoReal && antivirusActivo && Wmi.TryNum(d, "AntivirusSignatureAge", out double age) && age >= 3)
         {
-            fila.Estado = "Protección en tiempo real desactivada";
-            fila.Detalle = "Puede ser intencional si usas otro antivirus, o un problema real si no.";
-            fila.Nivel = Severity.Bad;
-            r.Add(Severity.Bad, "Seguridad", "La protección en tiempo real de Windows Defender está desactivada.",
-                "Si no tienes otro antivirus activo, el equipo queda expuesto. Revísalo en Seguridad de Windows ▸ Protección antivirus y contra amenazas.");
+            fila.Nivel = fila.Nivel == Severity.Bad ? Severity.Bad : Severity.Warn;
+            fila.Detalle += $" · Firmas con {age:0} días de antigüedad";
+            r.Add(Severity.Warn, "Seguridad", "Las firmas de Windows Defender no están actualizadas.",
+                "Actualízalas desde Seguridad de Windows antes de confiar en el análisis antivirus.");
         }
-        else
-        {
-            fila.Estado = "Activo";
-            fila.Detalle = antivirusActivo ? "Protección en tiempo real activa" : "Motor activo, verificar estado completo";
-            fila.Nivel = Severity.Ok;
-        }
-
         return fila;
     }
+
+    public static SecurityCheckRow AssessDefender(bool realTime, bool engine, uint? centerHealth)
+    {
+        var row = new SecurityCheckRow { Componente = "Windows Defender" };
+        if (realTime && engine) { row.Estado = "Activo"; row.Detalle = "Motor y tiempo real activos"; row.Nivel = Severity.Ok; }
+        else if (centerHealth == 0)
+        { row.Estado = "Protección informada por el Centro de seguridad"; row.Detalle = "Defender no informa protección completa; Windows informa salud antivirus correcta (puede ser otro producto)."; row.Nivel = Severity.Ok; }
+        else
+        { row.Estado = "Protección incompleta o no confirmada"; row.Detalle = "Consulta Seguridad de Windows; no se infiere protección de terceros."; row.Nivel = centerHealth == 2 ? Severity.Bad : Severity.Warn; }
+        return row;
+    }
+
+    [DllImport("wscapi.dll", ExactSpelling = true)]
+    private static extern int WscGetSecurityProviderHealth(uint providers, out uint health);
 
     // Nombre del perfil y estado de "ON": netsh devuelve el texto en el
     // idioma de la interfaz de Windows, no en el del sistema operativo en
@@ -88,8 +111,15 @@ public static class SecurityModule
     /// <summary>netsh, porque HNetCfg.FwPolicy2 exige interoperabilidad COM más pesada para un solo dato.</summary>
     private static SecurityCheckRow LeerFirewall(DiagnosticReport r)
     {
-        string salida = AppEnv.RunConsole("netsh", "advfirewall show allprofiles state");
+        var row = ParseFirewall(AppEnv.RunConsole("netsh", "advfirewall show allprofiles state"));
+        if (row.Nivel == Severity.Bad)
+            r.Add(Severity.Bad, "Seguridad", $"Firewall: {row.Estado}.",
+                "Actívalo en Seguridad de Windows salvo que un firewall de terceros gestione esos perfiles.");
+        return row;
+    }
 
+    public static SecurityCheckRow ParseFirewall(string salida)
+    {
         var perfiles = new System.Collections.Generic.Dictionary<string, bool>();
         string perfilActual = null;
 
@@ -131,10 +161,15 @@ public static class SecurityModule
         if (apagados.Count > 0)
         {
             fila.Estado = $"Desactivado en: {string.Join(", ", apagados)}";
-            fila.Detalle = "El resto de los perfiles sí lo tiene activo.";
+            fila.Detalle = perfiles.Count == 3 ? "Se consultaron los 3 perfiles." : $"Consulta parcial: solo {perfiles.Count}/3 perfiles.";
             fila.Nivel = Severity.Bad;
-            r.Add(Severity.Bad, "Seguridad", $"El firewall está desactivado en el perfil {string.Join(", ", apagados)}.",
-                "Actívalo en Firewall de Windows Defender, salvo que tengas un firewall de terceros gestionando ese perfil.");
+
+        }
+        else if (perfiles.Count != 3)
+        {
+            fila.Estado = $"Consulta incompleta ({perfiles.Count}/3 perfiles)";
+            fila.Detalle = "No se puede confirmar protección en los perfiles no consultados.";
+            fila.Nivel = Severity.Warn;
         }
         else
         {
@@ -148,10 +183,11 @@ public static class SecurityModule
 
     private static SecurityCheckRow LeerBitLocker(DiagnosticReport r)
     {
-        var v = Wmi.Query("SELECT * FROM Win32_EncryptableVolume WHERE DriveLetter='C:'",
-                          @"root\cimv2\security\MicrosoftVolumeEncryption").FirstOrDefault();
-
-        var fila = new SecurityCheckRow { Componente = "BitLocker (C:)" };
+        string drive = Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.Windows))?.TrimEnd('\\') ?? "";
+        var fila = new SecurityCheckRow { Componente = $"BitLocker ({drive})" };
+        var v = Regex.IsMatch(drive, @"^[A-Za-z]:$")
+            ? Wmi.Query($"SELECT * FROM Win32_EncryptableVolume WHERE DriveLetter='{drive}'",
+                @"root\cimv2\security\MicrosoftVolumeEncryption").FirstOrDefault() : null;
 
         if (v == null)
         {
@@ -161,7 +197,7 @@ public static class SecurityModule
             return fila;
         }
 
-        double estado = Wmi.Num(v, "ProtectionStatus"); // 0 desactivado, 1 activado, 2 desconocido
+        double estado = Wmi.TryNum(v, "ProtectionStatus", out double protection) ? protection : 2;
 
         fila.Estado = estado switch { 1 => "Activado", 0 => "Desactivado", _ => "Desconocido" };
         fila.Detalle = "Unidad del sistema";
@@ -188,8 +224,13 @@ public static class SecurityModule
             return fila;
         }
 
-        bool presente = LeerBool(t, "IsActivated_InitialValue");
-        bool habilitado = LeerBool(t, "IsEnabled_InitialValue");
+        if (!Wmi.TryBool(t, "IsActivated_InitialValue", out bool presente)
+            || !Wmi.TryBool(t, "IsEnabled_InitialValue", out bool habilitado))
+        {
+            fila.Estado = "No se pudo consultar";
+            fila.Nivel = Severity.Warn;
+            return fila;
+        }
         string version = Wmi.Str(t, "SpecVersion");
 
         fila.Estado = (presente && habilitado) ? "Activo" : "Inactivo";
@@ -237,7 +278,13 @@ public static class SecurityModule
         {
             using var k = Registry.LocalMachine.OpenSubKey(
                 @"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System");
-            int valor = k?.GetValue("EnableLUA") is int v ? v : 1;
+            if (k?.GetValue("EnableLUA") is not int valor)
+            {
+                fila.Estado = "No se pudo consultar";
+                fila.Detalle = "No se leyó el valor EnableLUA; no se asumirá que UAC está activo.";
+                fila.Nivel = Severity.Warn;
+                return fila;
+            }
 
             fila.Estado = valor == 1 ? "Activo" : "Desactivado";
             fila.Nivel = valor == 1 ? Severity.Ok : Severity.Bad;
@@ -255,9 +302,4 @@ public static class SecurityModule
         return fila;
     }
 
-    private static bool LeerBool(WmiRow obj, string prop)
-    {
-        try { return Convert.ToBoolean(obj[prop]); }
-        catch { return false; }
-    }
 }

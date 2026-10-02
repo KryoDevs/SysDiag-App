@@ -90,6 +90,8 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
     private readonly IScanService _scan = new ScanService();
     private bool _disposed;
     private bool _cancelable = true;
+    private int _previousScore = -1;
+    private List<(DateTime Fecha, int Puntaje)> _history = new();
     private readonly Dictionary<string, IList> _tablas = new();
 
     private CancellationTokenSource _cts;
@@ -292,8 +294,8 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         => RunCoreAsync(titulo, true, pasos);
 
     public Task<bool> RunActionAsync(string titulo, Func<DiagnosticReport, CancellationToken, Task> trabajo,
-        bool permiteCancelar = false)
-        => RunCoreAsync(titulo, permiteCancelar, ("accion", trabajo));
+        bool permiteCancelar = false, string modulo = "accion")
+        => RunCoreAsync(titulo, permiteCancelar, (modulo, trabajo));
 
     private async Task<bool> RunCoreAsync(string titulo, bool permiteCancelar,
         params (string Clave, Func<DiagnosticReport, CancellationToken, Task> Trabajo)[] pasos)
@@ -308,6 +310,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
             : "Operación en curso. No se puede interrumpir de forma segura; revisa Registro.";
         bool diagnostic = pasos.Any(p => DiagnosticReport.NombresModulos.ContainsKey(p.Clave));
         bool completed = false;
+        bool archived = false;
         if (diagnostic)
         {
             Report.Id = Guid.NewGuid();
@@ -320,6 +323,19 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
             var services = pasos.Select(p => (IDiagnosticService)new DelegateDiagnosticService(p.Clave, p.Trabajo)).ToArray();
             Report = await _scan.EjecutarAsync(Report, services, _cts.Token);
             completed = true;
+            if (diagnostic)
+            {
+                // JSON y lectura de historial pueden ser grandes: nunca bloquear el dispatcher.
+                var history = await Task.Run(() =>
+                {
+                    int previous = Exporter.PuntajeAnterior(Report.Inicio, modulos: Report.ModulosCompletados.Keys.ToArray());
+                    bool saved = Exporter.Archivar(Report);
+                    return (previous, saved, series: Exporter.Historial());
+                });
+                _previousScore = history.previous;
+                archived = history.saved;
+                _history = history.series;
+            }
             AppLog.Write($"{titulo}: completado.", "OK");
             int bad = Report.Hallazgos.Count(f => f.Severity == Severity.Bad);
             int warnings = Report.Hallazgos.Count(f => f.Severity == Severity.Warn);
@@ -344,7 +360,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
             _cts.Dispose();
             _cts = null;
             Ocupado = false;
-            Refresh(completed && diagnostic);
+            Refresh(archived);
         }
         return completed;
     }
@@ -395,7 +411,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
                               Pincel(x.Ocurrencias > 100 ? Severity.Bad : Severity.Warn),
                               x.Descripcion)));
 
-        GraficoHistorial = HistoryChart.Crear(Exporter.Historial());
+        GraficoHistorial = HistoryChart.Crear(_history);
     }
 
     private void BuildSugerencia()
@@ -436,6 +452,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
 
         Puntaje = puntaje;
         PuntajeEtiqueta = HealthScore.Etiqueta(puntaje);
+        if (puntaje >= 0 && Report.ModulosFaltantes().Count > 0) PuntajeEtiqueta += " · parcial";
         PuntajeDesglose = puntaje < 0 ? "" : HealthScore.Desglose(Report);
         PuntajeBrush = Pincel(HealthScore.Nivel(puntaje));
 
@@ -460,8 +477,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
             PuntajeTendencia = "No se archivó una nueva medición completada.";
             return;
         }
-        int anterior = Exporter.PuntajeAnterior(Report.Inicio, modulos: Report.ModulosCompletados.Keys.ToArray());
-        Exporter.Archivar(Report);
+        int anterior = _previousScore;
 
         PuntajeTendencia = anterior < 0
             ? "Primer diagnóstico guardado. El próximo se comparará contra este."
@@ -496,9 +512,8 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         }
 
         var cpu = Report.RendimientoResumen.FirstOrDefault(x => x.Clave == "CPU total");
-        if (cpu != null)
+        if (cpu != null && NumericText.TryRead(cpu.Valor, out double pct))
         {
-            double pct = Leer(cpu.Valor);
             Tarjetas.Add(MetricCard.Create("Uso de CPU", cpu.Valor,
                 Report.RendimientoResumen.FirstOrDefault(x => x.Clave == "RAM en uso")?.Valor ?? "",
                 Pincel(pct > 85 ? Severity.Bad : pct > 60 ? Severity.Warn : Severity.Ok), pct / 100.0,

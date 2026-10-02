@@ -1,69 +1,68 @@
-﻿using System;
 using System.Collections.Concurrent;
 using System.Runtime.Versioning;
 using System.Threading;
 
 namespace SysDiag.Core;
 
-/// <summary>
-/// Hilo único y persistente donde viven todos los objetos COM del Agente de
-/// Windows Update.
-///
-/// Es necesario porque los resultados de una búsqueda son punteros COM que solo
-/// valen dentro del apartamento donde se crearon: si la búsqueda corre en un
-/// hilo del grupo y la instalación en otro, el acceso cruza apartamentos y
-/// falla. Manteniendo un solo hilo STA propietario, buscar e instalar comparten
-/// contexto y los punteros siguen siendo válidos entre una llamada y otra.
-/// </summary>
+/// <summary>Todos los objetos del Agente de Windows Update pertenecen a un único apartamento STA.</summary>
 [SupportedOSPlatform("windows")]
 public sealed class ComWorker : IDisposable
 {
-    private readonly BlockingCollection<Action> _cola = new();
-    private readonly Thread _hilo;
+    private readonly BlockingCollection<Action> _queue = new();
+    private readonly object _gate = new();
+    private readonly Thread _thread;
+    private bool _disposed;
 
-    public ComWorker(string nombre = "SysDiag.COM")
+    public ComWorker(string name = "SysDiag.COM")
     {
-        _hilo = new Thread(Bucle)
-        {
-            IsBackground = true,
-            Name = nombre
-        };
-        _hilo.SetApartmentState(ApartmentState.STA);
-        _hilo.Start();
+        _thread = new Thread(Loop) { IsBackground = true, Name = name };
+        _thread.SetApartmentState(ApartmentState.STA);
+        _thread.Start();
     }
 
-    private void Bucle()
+    private void Loop()
     {
-        foreach (var trabajo in _cola.GetConsumingEnumerable())
+        try
         {
-            try { trabajo(); }
-            catch (Exception ex) { AppLog.Write($"Fallo en el hilo COM: {ex.Message}", "ERROR"); }
+            foreach (var work in _queue.GetConsumingEnumerable())
+            {
+                try { work(); }
+                catch (Exception ex) { AppLog.Write($"Fallo en el hilo COM: {ex}", "ERROR"); }
+            }
         }
+        finally { _queue.Dispose(); } // no disponer mientras el consumidor todavía la usa
     }
 
-    /// <summary>Ejecuta el trabajo en el hilo COM y espera el resultado.</summary>
-    public T Run<T>(Func<T> trabajo)
+    public T Run<T>(Func<T> work)
     {
-        T resultado = default;
-        Exception error = null;
-
-        using var listo = new ManualResetEventSlim(false);
-
-        _cola.Add(() =>
+        ArgumentNullException.ThrowIfNull(work);
+        if (Thread.CurrentThread == _thread)
         {
-            try { resultado = trabajo(); }
-            catch (Exception ex) { error = ex; }
-            finally { listo.Set(); }
-        });
-
-        listo.Wait();
-        if (error != null) throw error;
-        return resultado;
+            lock (_gate) if (_disposed) throw new ObjectDisposedException(nameof(ComWorker));
+            return work(); // una llamada reentrante no debe esperar a sí misma
+        }
+        var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_gate)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(ComWorker));
+            _queue.Add(() =>
+            {
+                try { completion.SetResult(work()); }
+                catch (Exception ex) { completion.SetException(ex); }
+            });
+        }
+        return completion.Task.GetAwaiter().GetResult();
     }
 
     public void Dispose()
     {
-        _cola.CompleteAdding();
-        _cola.Dispose();
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _queue.CompleteAdding();
+        }
+        // COM no se puede abortar de manera segura. El consumidor termina y libera su cola por sí mismo.
+        if (Thread.CurrentThread != _thread) _thread.Join(TimeSpan.FromSeconds(5));
     }
 }

@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using System.Threading.Tasks;
 using SysDiag.Core.Diagnostics;
 using SysDiag.Core.Hardware;
@@ -13,7 +13,10 @@ public class StabilityService : IDiagnosticService
 
     public Task EjecutarAsync(DiagnosticReport reporte, CancellationToken token) => Task.Run(() =>
     {
-        SystemModule.Run(reporte);
-        StabilityModule.Run(reporte);
+        token.ThrowIfCancellationRequested();
+        SystemModule.Run(reporte, token: token);
+        token.ThrowIfCancellationRequested();
+        token.ThrowIfCancellationRequested();
+        StabilityModule.Run(reporte, token);
     }, token);
 }

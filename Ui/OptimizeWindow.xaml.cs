@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Windows;
 using SysDiag.Core.Windows;
 
@@ -29,12 +29,15 @@ public partial class OptimizeWindow : Window
         Options.HighPerformancePlan = ChkPlan.IsChecked == true;
         Options.ResetTcpStack = ChkReset.IsChecked == true;
 
-        // El reinicio de la pila es el único destructivo: se confirma aparte.
+        try { Options.Validate(); }
+        catch (ArgumentException ex) { Dialog.Error("Opciones incompatibles", ex.Message); return; }
+
+        // El reinicio TCP/IP no es restaurable por el respaldo de SysDiag: se confirma aparte.
         if (Options.ResetTcpStack)
         {
             bool ok = Dialog.Confirm("Confirmar reinicio de la pila de red",
                 "Se borrará la configuración manual de IP, DNS y VPN. Los cambios no surten " +
-                "efecto hasta reiniciar el equipo.",
+                "efecto hasta reiniciar el equipo. SysDiag NO los revierte: tendrás que reconfigurar IP fija, rutas y VPN manualmente. Se exige un punto de restauración antes de ejecutar.",
                 "Reiniciar la pila");
 
             if (!ok) return;

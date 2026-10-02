@@ -6,7 +6,7 @@ namespace SysDiag.Core;
 /// <summary>Escribe en un temporal del mismo directorio y reemplaza el destino solo al terminar.</summary>
 public static class AtomicFile
 {
-    public static void WriteAllText(string path, string content, Encoding encoding = null)
+    public static void WriteAllText(string path, string content, Encoding encoding = null, Action<string> beforeReplace = null)
     {
         path = Path.GetFullPath(path);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -21,6 +21,7 @@ public static class AtomicFile
                     writer.Write(content);
                 stream.Flush(flushToDisk: true);
             }
+            beforeReplace?.Invoke(temporary);
             File.Move(temporary, path, overwrite: true);
         }
         finally

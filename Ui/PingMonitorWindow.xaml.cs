@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -26,6 +26,8 @@ public partial class PingMonitorWindow : Window
     private DispatcherTimer _timer;
     private CancellationTokenSource _cts;
     private bool _corriendo;
+    private int _generacion;
+    private bool _midiendo;
     private double? _ultimoValido;
 
     public PingMonitorWindow()
@@ -56,6 +58,7 @@ public partial class PingMonitorWindow : Window
 
         _muestras.Clear();
         _ultimoValido = null;
+        _generacion++;
         _cts = new CancellationTokenSource();
         _corriendo = true;
         BtnIniciar.Content = "Detener";
@@ -73,9 +76,11 @@ public partial class PingMonitorWindow : Window
     private void Detener()
     {
         _corriendo = false;
+        _generacion++;
         _timer?.Stop();
         _timer = null;
         _cts?.Cancel();
+        _cts?.Dispose();
         _cts = null;
         BtnIniciar.Content = "Iniciar";
         ComboDestino.IsEnabled = true;
@@ -83,7 +88,9 @@ public partial class PingMonitorWindow : Window
 
     private async System.Threading.Tasks.Task Medir(string host)
     {
-        if (_cts == null) return;
+        if (_cts == null || _midiendo) return;
+        _midiendo = true;
+        int generation = _generacion;
         var token = _cts.Token;
 
         double? ms;
@@ -95,8 +102,8 @@ public partial class PingMonitorWindow : Window
         {
             return;
         }
-
-        if (token.IsCancellationRequested) return;
+        finally { _midiendo = false; }
+        if (token.IsCancellationRequested || generation != _generacion || !_corriendo) return;
 
         _muestras.Add(ms);
         if (ms.HasValue) _ultimoValido = ms;

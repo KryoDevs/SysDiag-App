@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using System.Threading.Tasks;
 using SysDiag.Core.Hardware;
 using SysDiag.Core.Security;
@@ -13,7 +13,9 @@ public class SecurityService : ISecurityService
 
     public Task EjecutarAsync(DiagnosticReport reporte, CancellationToken token) => Task.Run(() =>
     {
-        SystemModule.Run(reporte);
+        token.ThrowIfCancellationRequested();
+        SystemModule.Run(reporte, token: token);
+        token.ThrowIfCancellationRequested();
         SecurityModule.Run(reporte);
     }, token);
 }

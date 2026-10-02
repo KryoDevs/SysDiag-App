@@ -13,20 +13,35 @@ public class ScanService : IScanService
     {
         ArgumentNullException.ThrowIfNull(pasos);
         var result = acumulado ?? new DiagnosticReport();
-        foreach (var step in pasos)
+        bool diagnostic = pasos.Any(p => DiagnosticReport.NombresModulos.ContainsKey(p.Clave));
+        if (diagnostic) result.EstadoEjecucion = "En curso";
+        try
         {
-            token.ThrowIfCancellationRequested();
-            var scratch = new DiagnosticReport();
-            await step.EjecutarAsync(scratch, token);
-            token.ThrowIfCancellationRequested();
-            if (step.Clave == "rendimiento") _motor.Evaluar(scratch);
-            foreach (var finding in scratch.Hallazgos)
-                if (string.IsNullOrWhiteSpace(finding.Modulo)) finding.Modulo = step.Clave;
-            result.ReplaceModuleFrom(scratch, step.Clave);
+            foreach (var step in pasos)
+            {
+                token.ThrowIfCancellationRequested();
+                var scratch = new DiagnosticReport();
+                await step.EjecutarAsync(scratch, token);
+                token.ThrowIfCancellationRequested();
+                if (step.Clave == "rendimiento") _motor.Evaluar(scratch);
+                foreach (var finding in scratch.Hallazgos)
+                    if (string.IsNullOrWhiteSpace(finding.Modulo)) finding.Modulo = step.Clave;
+                result.ReplaceModuleFrom(scratch, step.Clave);
+            }
+            if (diagnostic) { result.Fin = DateTime.Now; result.EstadoEjecucion = "Completado"; }
+            result.ActualizarRecomendaciones();
+            return result;
         }
-        result.Fin = DateTime.Now;
-        result.ActualizarRecomendaciones();
-        return result;
+        catch (OperationCanceledException)
+        {
+            if (diagnostic) { result.Fin = DateTime.Now; result.EstadoEjecucion = "Cancelado"; }
+            throw;
+        }
+        catch
+        {
+            if (diagnostic) { result.Fin = DateTime.Now; result.EstadoEjecucion = "Falló o incompleto"; }
+            throw;
+        }
     }
 }
 

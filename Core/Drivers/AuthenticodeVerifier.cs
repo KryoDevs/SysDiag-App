@@ -15,9 +15,12 @@ public static class AuthenticodeVerifier
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Authenticode requiere Windows.");
         path = Path.GetFullPath(path);
+        // Verificar el mismo archivo abierto: impedir cambios/reemplazos durante WinVerifyTrust.
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
         var fileInfo = new WinTrustFileInfo
         {
-            Size = (uint)Marshal.SizeOf<WinTrustFileInfo>(), FilePath = path
+            Size = (uint)Marshal.SizeOf<WinTrustFileInfo>(), FilePath = path,
+            FileHandle = stream.SafeFileHandle.DangerousGetHandle()
         };
         IntPtr filePointer = Marshal.AllocHGlobal(Marshal.SizeOf<WinTrustFileInfo>());
         Marshal.StructureToPtr(fileInfo, filePointer, false);

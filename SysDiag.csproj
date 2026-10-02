@@ -10,7 +10,7 @@
 
     <RootNamespace>SysDiag</RootNamespace>
     <AssemblyName>SysDiag</AssemblyName>
-    <Version>5.7.0</Version>
+    <Version>5.7.1</Version>
     <Product>SysDiag</Product>
     <AssemblyTitle>SysDiag - Diagnostico y optimizacion de Windows</AssemblyTitle>
     <Company>SysDiag</Company>

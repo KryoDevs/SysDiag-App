@@ -9,6 +9,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{359D76A8
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IntegrationTests", "Tools\IntegrationTests\IntegrationTests.csproj", "{BA7996AE-6362-4EBA-9BBD-1D1C456F2662}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HeadlessRunner", "Tools\HeadlessRunner\HeadlessRunner.csproj", "{A92C7878-CBE1-4E19-BDD2-0BFD1C36A22F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,8 +28,13 @@ Global
 		{BA7996AE-6362-4EBA-9BBD-1D1C456F2662}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BA7996AE-6362-4EBA-9BBD-1D1C456F2662}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BA7996AE-6362-4EBA-9BBD-1D1C456F2662}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A92C7878-CBE1-4E19-BDD2-0BFD1C36A22F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A92C7878-CBE1-4E19-BDD2-0BFD1C36A22F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A92C7878-CBE1-4E19-BDD2-0BFD1C36A22F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A92C7878-CBE1-4E19-BDD2-0BFD1C36A22F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{A92C7878-CBE1-4E19-BDD2-0BFD1C36A22F} = {359D76A8-98DD-418E-899D-8AC9951DE4FD}
 		{BA7996AE-6362-4EBA-9BBD-1D1C456F2662} = {359D76A8-98DD-418E-899D-8AC9951DE4FD}
 	EndGlobalSection
 EndGlobal

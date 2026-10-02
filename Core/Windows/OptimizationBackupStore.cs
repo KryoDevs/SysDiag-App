@@ -75,11 +75,17 @@ public sealed class SavedState
 public sealed class OptimizationBackupStore
 {
     private readonly string _file, _machine, _userSid;
-    public OptimizationBackupStore(string file, string machine, string userSid)
-    { _file = file; _machine = machine; _userSid = userSid; }
+    private readonly Action<string> _protectBeforeReplace, _verifyBeforeRead;
+    public OptimizationBackupStore(string file, string machine, string userSid,
+        Action<string> protectBeforeReplace = null, Action<string> verifyBeforeRead = null)
+    {
+        _file = file; _machine = machine; _userSid = userSid;
+        _protectBeforeReplace = protectBeforeReplace; _verifyBeforeRead = verifyBeforeRead;
+    }
 
     public SavedState Read()
     {
+        _verifyBeforeRead?.Invoke(_file);
         if (new FileInfo(_file).Length > 256 * 1024) throw new InvalidDataException("El respaldo excede el tamaño permitido.");
         var state = JsonSerializer.Deserialize<SavedState>(File.ReadAllText(_file))
             ?? throw new InvalidDataException("El respaldo está vacío.");
@@ -96,7 +102,8 @@ public sealed class OptimizationBackupStore
     public void Write(SavedState state)
     {
         state.Validate(_machine, _userSid);
-        AtomicFile.WriteAllText(_file, JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true }));
+        AtomicFile.WriteAllText(_file, JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true }),
+            beforeReplace: _protectBeforeReplace);
     }
 
     public void CompleteRestore() => File.Move(_file, _file + ".restaurado.json", overwrite: true);

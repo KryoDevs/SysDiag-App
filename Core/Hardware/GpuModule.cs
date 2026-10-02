@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using SysDiag.Models;
 
@@ -71,38 +71,12 @@ public static class GpuModule
     /// </summary>
     private static double? LeerUsoPorContador()
     {
-        try
-        {
-            if (!System.Diagnostics.PerformanceCounterCategory.Exists("GPU Engine"))
-                return null;
-
-            var categoria = new System.Diagnostics.PerformanceCounterCategory("GPU Engine");
-            var instancias = categoria.GetInstanceNames()
-                .Where(n => n.Contains("engtype_3D", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            if (instancias.Count == 0) return null;
-
-            double total = 0;
-            foreach (var inst in instancias)
-            {
-                try
-                {
-                    using var c = new System.Diagnostics.PerformanceCounter("GPU Engine", "Utilization Percentage", inst, true);
-                    c.NextValue();
-                    System.Threading.Thread.Sleep(50);
-                    total += c.NextValue();
-                }
-                catch { /* la instancia desapareció entre enumerar y leer */ }
-            }
-
-            return Math.Min(total, 100);
-        }
-        catch (Exception ex)
-        {
-            AppLog.Write($"No se pudo leer el contador GPU Engine: {ex.Message}", "WARN");
-            return null;
-        }
+        // Clases CIM estables, no nombres de categoría/contador traducidos ni una espera por instancia.
+        var samples = Wmi.Query("SELECT Name, UtilizationPercentage FROM Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine")
+            .Where(row => Wmi.Str(row, "Name").Contains("engtype_3D", StringComparison.OrdinalIgnoreCase))
+            .Select(row => Wmi.TryNum(row, "UtilizationPercentage", out double value) ? (double?)value : null)
+            .Where(value => value.HasValue).Select(value => value!.Value).ToList();
+        return samples.Count == 0 ? null : Math.Clamp(samples.Sum(), 0, 100);
     }
 
     private static string FormatearMemoria(double bytes)

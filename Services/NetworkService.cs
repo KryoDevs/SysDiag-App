@@ -1,22 +1,18 @@
-﻿using System.Threading;
-using System.Threading.Tasks;
 using SysDiag.Core.Hardware;
 using SysDiag.Core.Network;
 using SysDiag.Models;
 
 namespace SysDiag.Services;
 
-/// <summary>
-/// Latencia, Wi-Fi, canales cercanos y traceroute. Ya es asíncrono de
-/// extremo a extremo (ICMP sin bloquear), así que no necesita Task.Run.
-/// </summary>
 public class NetworkService : INetworkService
 {
     public string Clave => "red";
-
-    public async Task EjecutarAsync(DiagnosticReport reporte, CancellationToken token)
+    // netsh y el inventario son síncronos: tampoco pueden ejecutarse en el dispatcher de WPF.
+    public Task EjecutarAsync(DiagnosticReport report, CancellationToken token) => Task.Run(async () =>
     {
-        await Task.Run(() => SystemModule.Run(reporte), token);
-        await NetworkModule.RunAsync(reporte, token);
-    }
+        token.ThrowIfCancellationRequested();
+        SystemModule.Run(report, token: token);
+        token.ThrowIfCancellationRequested();
+        await NetworkModule.RunAsync(report, token);
+    }, token);
 }

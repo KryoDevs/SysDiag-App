@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Windows;
 using SysDiag.Core;
 using SysDiag.Core.Windows;
@@ -8,15 +8,17 @@ namespace SysDiag.Ui;
 
 public partial class ProfilesWindow : Window
 {
+    private bool _applying;
     public ProfilesWindow()
     {
         InitializeComponent();
         MouseLeftButtonDown += (_, _) => DragMove();
+        Closing += (_, e) => { if (_applying) e.Cancel = true; };
     }
 
     private void Cerrar_Click(object sender, RoutedEventArgs e) => Close();
 
-    private void Universidad_Click(object sender, RoutedEventArgs e) => Aplicar("Universidad — Silencioso",
+    private async void Universidad_Click(object sender, RoutedEventArgs e) => await Aplicar("Universidad — Silencioso",
         new OptimizeModule.Options
         {
             FlushDns = true,
@@ -30,7 +32,7 @@ public partial class ProfilesWindow : Window
             CpuMaxPercent = 60
         });
 
-    private void Trabajo_Click(object sender, RoutedEventArgs e) => Aplicar("Trabajo — Equilibrado",
+    private async void Trabajo_Click(object sender, RoutedEventArgs e) => await Aplicar("Trabajo — Equilibrado",
         new OptimizeModule.Options
         {
             FlushDns = true,
@@ -45,7 +47,7 @@ public partial class ProfilesWindow : Window
             CpuMaxPercent = 85
         });
 
-    private void Juego_Click(object sender, RoutedEventArgs e) => Aplicar("Juego — Rendimiento",
+    private async void Juego_Click(object sender, RoutedEventArgs e) => await Aplicar("Juego — Rendimiento",
         new OptimizeModule.Options
         {
             FlushDns = true,
@@ -59,8 +61,9 @@ public partial class ProfilesWindow : Window
             CpuMaxPercent = 100
         });
 
-    private void Aplicar(string nombre, OptimizeModule.Options opciones)
+    private async Task Aplicar(string nombre, OptimizeModule.Options opciones)
     {
+        if (_applying) return;
         if (!AppEnv.IsAdmin)
         {
             bool elevar = Dialog.Confirm("Se necesitan permisos de administrador",
@@ -72,13 +75,17 @@ public partial class ProfilesWindow : Window
         }
 
         bool ok = Dialog.Confirm($"Aplicar perfil «{nombre}»",
-            "Se guarda el estado actual antes de aplicar. Se revierte desde «Restaurar estado» en cualquier momento.",
+            "Se conserva el primer estado respaldado, no el perfil intermedio. «Restaurar estado» revierte solo los ajustes respaldados; vaciar cachés no es reversible.",
             "Aplicar");
         if (!ok) return;
 
+        _applying = true;
+        IsEnabled = false;
         try
         {
-            OptimizeModule.Run(new DiagnosticReport(), opciones);
+            await Task.Run(() => OptimizeModule.Run(new DiagnosticReport(), opciones));
+            _applying = false;
+            IsEnabled = true;
             Dialog.Info("Perfil aplicado", $"«{nombre}» está activo.");
             Close();
         }
@@ -86,5 +93,6 @@ public partial class ProfilesWindow : Window
         {
             Dialog.Error("No se pudo aplicar el perfil", ex.Message);
         }
+        finally { _applying = false; IsEnabled = true; }
     }
 }

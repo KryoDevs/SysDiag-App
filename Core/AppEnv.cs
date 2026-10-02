@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Security.Principal;
 using System.Text;
+using System.Runtime.InteropServices;
 
 namespace SysDiag.Core;
 
@@ -13,7 +14,7 @@ public static class AppEnv
     /// <summary>Documentos\SysDiag; si Documentos está bloqueado, LocalAppData\SysDiag.</summary>
     public static string OutputPath { get; } = ResolveOutputPath();
     public static string LogPath { get; } = Path.Combine(OutputPath, "logs");
-    public static string BackupFile { get; } = Path.Combine(OutputPath, "estado-previo.json");
+    public static string BackupFile => Windows.SecureBackupDirectory.BackupFile;
     public static int LogsMaximo = 30;
 
     static AppEnv() => Directory.CreateDirectory(LogPath);
@@ -26,7 +27,7 @@ public static class AppEnv
             string root = Environment.GetFolderPath(folder);
             if (string.IsNullOrWhiteSpace(root)) continue;
             string path = Path.Combine(root, "SysDiag");
-            try { Directory.CreateDirectory(path); return path; }
+            try { Directory.CreateDirectory(Path.Combine(path, "logs")); return path; }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             { Debug.WriteLine($"No se puede usar {path}: {ex.Message}"); }
         }
@@ -96,7 +97,7 @@ public static class AppEnv
     {
         if (!OperatingSystem.IsWindows() || Path.IsPathRooted(name)) return name;
         string exe = Path.GetFileNameWithoutExtension(name).ToLowerInvariant();
-        if (new[] { "netsh", "powercfg", "ipconfig", "net", "pnputil", "cmd", "taskmgr", "rundll32", "msiexec", "sfc" }.Contains(exe))
+        if (new[] { "netsh", "powercfg", "ipconfig", "net", "pnputil", "cmd", "taskmgr", "rundll32", "msiexec", "sfc", "mmc" }.Contains(exe))
             return Path.Combine(Environment.SystemDirectory, exe + ".exe");
         if (exe == "winget")
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -108,6 +109,7 @@ public static class AppEnv
         CancellationToken token = default)
     {
         var info = ProcessRunner.CreateStartInfo(SystemTool(file), args);
+        SetConsoleEncoding(file, info);
         return ProcessRunner.Run(info, timeoutMs, token);
     }
 
@@ -121,11 +123,26 @@ public static class AppEnv
         throw new InvalidOperationException(message);
     }
 
+    private static void SetConsoleEncoding(string file, ProcessStartInfo info)
+    {
+        if (!OperatingSystem.IsWindows() || Path.GetFileNameWithoutExtension(file).ToLowerInvariant() is not ("netsh" or "ipconfig" or "powercfg")) return;
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        // Estas utilidades clásicas emiten OEM, no UTF-8; no romper Señal/Público en Windows español.
+        var encoding = Encoding.GetEncoding((int)GetOEMCP());
+        info.StandardOutputEncoding = encoding;
+        info.StandardErrorEncoding = encoding;
+    }
+
+    [DllImport("kernel32.dll", ExactSpelling = true)]
+    private static extern uint GetOEMCP();
+
     /// <summary>Compatibilidad para consultas de solo lectura. Un fallo nunca se entrega como datos válidos.</summary>
     public static string RunConsole(string file, string args, int timeoutMs = 15000,
         CancellationToken token = default)
     {
-        var result = ProcessRunner.Run(new ProcessStartInfo(SystemTool(file), args), timeoutMs, token);
+        var info = new ProcessStartInfo(SystemTool(file), args);
+        SetConsoleEncoding(file, info);
+        var result = ProcessRunner.Run(info, timeoutMs, token);
         if (result.Success) return result.StandardOutput;
         AppLog.Write(result.Describe(file), "WARN");
         return "";

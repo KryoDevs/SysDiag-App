@@ -1,9 +1,10 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 
 namespace SysDiag.Models;
 
 public class EventSummaryRow
 {
+    [DisplayName("Proveedor")] public string Origen { get; set; } = "";
     [DisplayName("ID")] public int Id { get; set; }
     [DisplayName("Significado")] public string Descripcion { get; set; } = "";
     [DisplayName("Veces")] public int Ocurrencias { get; set; }

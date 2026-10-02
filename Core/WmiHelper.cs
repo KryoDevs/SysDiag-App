@@ -54,7 +54,7 @@ public static class Wmi
         return results;
     }
 
-    public static WmiRow First(string className) => Query($"SELECT * FROM {className}").FirstOrDefault();
+    public static WmiRow First(string className, CancellationToken token = default) => Query($"SELECT * FROM {className}", token: token).FirstOrDefault();
     public static string Str(WmiRow row, string property) => row?[property]?.ToString() ?? "";
     public static bool TryNum(WmiRow row, string property, out double value)
     {

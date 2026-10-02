@@ -44,6 +44,7 @@ public class DiagnosticReport : IJsonOnDeserialized
     public Guid Id { get; set; } = Guid.NewGuid();
     public DateTime Inicio { get; set; } = DateTime.Now;
     public DateTime? Fin { get; set; }
+    public string EstadoEjecucion { get; set; } = "Sin registro de ejecución";
     public Dictionary<string, DateTime> ModulosCompletados { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public string Equipo { get; set; } = Environment.MachineName;
 
@@ -93,6 +94,8 @@ public class DiagnosticReport : IJsonOnDeserialized
 
     public string ResumenEstado()
     {
+        if (EstadoEjecucion == "Cancelado" || EstadoEjecucion == "Falló o incompleto")
+            return "La ejecución quedó " + EstadoEjecucion.ToLowerInvariant() + ". Los datos visibles pueden incluir mediciones anteriores; no es un diagnóstico completado.";
         if (TieneDatosRelevantes())
             return Hallazgos.Count == 0
                 ? "La comprobación se completó, pero no se detectaron problemas relevantes en los datos disponibles."
@@ -116,7 +119,7 @@ public class DiagnosticReport : IJsonOnDeserialized
         if (Red.Count > 0) modulos.Add("Red y latencia");
         if (RendimientoResumen.Count > 0 || TopCpu.Count > 0 || TopRam.Count > 0) modulos.Add("Rendimiento");
         if (Termicas.Count > 0 || Bateria.Count > 0 || Gpus.Count > 0) modulos.Add("Térmicas y energía");
-        if (Almacenamiento.Count > 0 || Discos.Count > 0 || Memoria.Count > 0) modulos.Add("Almacenamiento");
+        if (Almacenamiento.Count > 0) modulos.Add("Almacenamiento");
         if (EventosResumen.Count > 0 || Whea.Count > 0 || Minidumps.Count > 0 || EventosDetalle.Count > 0) modulos.Add("Estabilidad");
         if (Seguridad.Count > 0) modulos.Add("Seguridad");
         if (Drivers.Count > 0 || DriversDisponibles.Count > 0) modulos.Add("Drivers");
@@ -143,7 +146,9 @@ public class DiagnosticReport : IJsonOnDeserialized
             "Arranque y software"
         };
 
-        var existentes = new HashSet<string>(ModulosConDatos(), StringComparer.OrdinalIgnoreCase);
+        var existentes = ModulosCompletados.Count > 0
+            ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(ModulosConDatos(), StringComparer.OrdinalIgnoreCase);
         foreach (var key in ModulosCompletados.Keys)
             if (NombresModulos.TryGetValue(key, out var nombre)) existentes.Add(nombre);
         return todos.Where(m => !existentes.Contains(m)).ToList();
@@ -283,6 +288,22 @@ public class DiagnosticReport : IJsonOnDeserialized
         DriversDisponibles ??= new(); Almacenamiento ??= new(); Arranque ??= new(); Servicios ??= new();
         Programas ??= new(); RedesCercanas ??= new(); Recomendaciones ??= new(); ModulosCompletados ??= new();
         Hallazgos.RemoveAll(f => f == null);
+        foreach (var finding in Hallazgos)
+        {
+            finding.Area ??= ""; finding.Message ??= ""; finding.Action ??= "";
+            finding.Modulo ??= ""; finding.AccionId ??= "";
+            if (!Enum.IsDefined(finding.Severity)) finding.Severity = Severity.Warn;
+        }
+        // null dentro de una lista JSON tampoco debe derribar las reglas/plantillas.
+        Sistema.RemoveAll(x => x == null); Discos.RemoveAll(x => x == null); Memoria.RemoveAll(x => x == null);
+        WiFi.RemoveAll(x => x == null); Red.RemoveAll(x => x == null); RendimientoResumen.RemoveAll(x => x == null);
+        TopCpu.RemoveAll(x => x == null); TopRam.RemoveAll(x => x == null); Termicas.RemoveAll(x => x == null);
+        Bateria.RemoveAll(x => x == null); EventosResumen.RemoveAll(x => x == null); EventosDetalle.RemoveAll(x => x == null);
+        Whea.RemoveAll(x => x == null); Minidumps.RemoveAll(x => x == null); Traceroute.RemoveAll(x => x == null);
+        Limpieza.RemoveAll(x => x == null); Drivers.RemoveAll(x => x == null); Seguridad.RemoveAll(x => x == null);
+        Gpus.RemoveAll(x => x == null); Actualizaciones.RemoveAll(x => x == null); DriversDisponibles.RemoveAll(x => x == null);
+        Almacenamiento.RemoveAll(x => x == null); Arranque.RemoveAll(x => x == null); Servicios.RemoveAll(x => x == null);
+        Programas.RemoveAll(x => x == null); RedesCercanas.RemoveAll(x => x == null);
         ActualizarRecomendaciones();
     }
 }

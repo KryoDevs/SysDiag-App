@@ -1,9 +1,9 @@
-# SysDiag 5.7
+# SysDiag 5.7.1
 
-[![Compilar y probar](https://github.com/nicolasdcarrillo-create/SysDiag-App/actions/workflows/build.yml/badge.svg)](https://github.com/nicolasdcarrillo-create/SysDiag-App/actions/workflows/build.yml) [![Validar fixture](https://github.com/nicolasdcarrillo-create/SysDiag-App/actions/workflows/validate-fixture.yml/badge.svg)](https://github.com/nicolasdcarrillo-create/SysDiag-App/actions/workflows/validate-fixture.yml)
+[![Compilar y probar](https://github.com/KryoDevs/SysDiag-App/actions/workflows/build.yml/badge.svg)](https://github.com/KryoDevs/SysDiag-App/actions/workflows/build.yml) [![Validar fixture](https://github.com/KryoDevs/SysDiag-App/actions/workflows/validate-fixture.yml/badge.svg)](https://github.com/KryoDevs/SysDiag-App/actions/workflows/validate-fixture.yml)
 
 Aplicación de escritorio para Windows que diagnostica red, rendimiento, térmicas y
-estabilidad, limpia temporales y aplica optimizaciones reversibles. Interfaz gráfica
+estabilidad, limpia temporales bajo confirmación y aplica ajustes con respaldo limitado. Interfaz gráfica
 en WPF, registro de actividad e informe HTML exportable.
 
 ## Cómo obtener el .exe
@@ -14,25 +14,14 @@ El proyecto se entrega como código fuente. Para compilarlo:
 2. Doble clic en **`build.bat`**.
 3. El ejecutable queda en `publish\SysDiag.exe`.
 
-No hace falta instalar nada a mano primero. `build.bat` revisa si el equipo tiene el
-SDK de .NET 8; si no lo tiene, lo descarga e instala solo —en una carpeta propia
-(`%LOCALAPPDATA%\SysDiag\dotnet-sdk`), sin pedir permisos de administrador y sin tocar
-ninguna instalación de .NET que ya exista en el sistema (si detecta una que sirve, la
-usa directamente en vez de descargar otra). Las siguientes veces que compiles reutiliza
-esa copia y no vuelve a descargar nada.
+Instala primero el **SDK .NET 8** desde <https://dotnet.microsoft.com/download/dotnet/8.0>.
+El script usa `global.json` para seleccionar ese SDK y puede reutilizar una copia propia
+ya instalada en `%LOCALAPPDATA%\SysDiag\dotnet-sdk`. No descarga ni ejecuta scripts
+remotos automáticamente. Se necesita internet para restaurar paquetes NuGet la primera vez.
 
-Los paquetes NuGet y los componentes de escritorio de Windows (WinForms) también se
-descargan solos durante la compilación; eso ya funcionaba así antes, no hacía falta
-tocarlo.
-
-Lo único que sigue haciendo falta es conexión a internet la primera vez (el SDK pesa
-unos 200 MB). Si compilas en una red que filtre el tráfico saliente y la descarga
-automática falla, el script termina con el enlace para instalarlo a mano:
-<https://dotnet.microsoft.com/download/dotnet/8.0>.
-
-El `.exe` resultante es **autocontenido**: pesa entre 60 y 90 MB porque lleva dentro el
-runtime de .NET, y por eso funciona en cualquier Windows 10 u 11 de 64 bits aunque no
-tenga nada instalado. Se puede copiar a un pendrive y ejecutar en otro equipo.
+El `.exe` resultante es **autocontenido**: incluye el runtime de .NET y WPF; su tamaño depende del SDK y del bundle.
+Está dirigido a Windows 10/11 x64 compatibles con .NET 8. La compatibilidad con cada
+hardware/configuración requiere pruebas reales, no se garantiza por el tamaño del EXE. Se puede copiar a un pendrive y ejecutar en otro equipo.
 
 Si prefieres un archivo pequeño (unos 300 KB) a cambio de exigir .NET 8 instalado en la
 máquina destino, edita `SysDiag.csproj` y cambia `<SelfContained>true</SelfContained>`
@@ -45,7 +34,7 @@ SysDiag/
 ├─ SysDiag.csproj
 ├─ App.xaml / App.xaml.cs        Arranque, cultura, instancia única, captura de errores
 │
-├─ Models/                       DTOs puros, sin lógica. Namespace SysDiag.Models
+├─ Models/                       DTOs y reglas de fusión/normalización. Namespace SysDiag.Models
 │  ├─ DiagnosticModels.cs        Severity, Finding, DiagnosticReport (+ MergeFrom)
 │  ├─ HardwareModels.cs          KeyValueRow, DiskRow, MemoryRow, GpuInfo
 │  ├─ NetworkModels.cs           LatencyResult, TraceHop, WifiNetworkRow
@@ -96,16 +85,18 @@ SysDiag/
 | Limpieza | Calcula, confirma y borra temporales reportando lo liberado | parcial |
 | Drivers | Inventario de drivers con antigüedad, foco en almacenamiento/chipset/red | no |
 | Optimizar | DNS, reparación de WLAN, plan de energía, reinicio de pila TCP/IP | sí |
-| Restaurar | Deshace la última optimización desde el respaldo | sí |
+| Restaurar | Revierte los valores capturados antes del primer ajuste pendiente; no TCP/IP/IP fija/VPN | sí |
 
 ### Sobre el módulo de Drivers
 
-Es de **solo lectura**: audita versión y fecha de cada driver vía WMI y nada más.
-A propósito no descarga ni instala nada — es exactamente la superficie que explotan
-las herramientas tipo "driver updater" (bajan de espejos no verificados y a veces
-instalan la versión equivocada). Para actualizar, la app te lleva con un clic a dos
-canales oficiales: Windows Update ▸ Actualizaciones opcionales, o la página de soporte
-del fabricante para tu modelo exacto.
+El inventario de drivers es de **solo lectura**. La búsqueda e instalación opcional
+usa el Agente de Windows Update, requiere confirmación, permisos y un punto de
+restauración exitoso; puede requerir reiniciar y no se prueba automáticamente en hardware
+de usuarios. También se puede abrir Windows Update o el soporte oficial del fabricante.
+
+**Instaladores locales EXE/MSI/INF/CAB/ZIP no se ejecutan desde SysDiag.** La verificación
+con `WinVerifyTrust` y antivirus es informativa: no demuestra compatibilidad de hardware.
+Si no se puede comprobar firma/integridad/antivirus, el estado es desconocido, no aprobado.
 
 La pestaña **Resumen** muestra el estado como tarjetas (dashboard): estado general, equipo,
 latencia de referencia, CPU/RAM, desgaste de batería y conteo de errores WHEA/eventos
@@ -116,58 +107,44 @@ elevada; también hay un enlace permanente en la cabecera.
 
 ## Salidas
 
-Todo en `Documentos\SysDiag\`:
+Los reportes, CSV/JSON, historial y logs se guardan en `Documentos\SysDiag\`;
+si esa carpeta está bloqueada se usa `LocalAppData\SysDiag`. Los nombres incluyen fecha,
+fracciones y un ID para no sobrescribir exportaciones. El HTML muestra estado, alcance y
+duración registrada; un archivo antiguo sin Fin no inventa duración.
 
-- `informe_AAAAMMDD_HHmm.html` — informe con los hallazgos ordenados por severidad
-- `logs\sysdiag_*.log` — registro completo de cada sesión
-- `estado-previo.json` — respaldo para restaurar
+El respaldo que guía cambios elevados se guarda separado:
+`%ProgramData%\SysDiag-Backups\<SID>\estado-previo.json`, con propietario
+Administradores/SYSTEM y ACL que impide escritura sin elevar. Se conserva la primera
+captura hasta restaurar. Los respaldos antiguos de Documentos no se importan automáticamente
+ni se borran; revisar sus valores manualmente si se necesita recuperar aquel estado.
 
-## Release y packaging (5.7)
+## CI, pruebas y distribución
 
-La parte de packaging ya no es solo "compila y sube .exe": ahora el workflow valida
-que el bundle publicado tenga ejecutable, dependencias y estructura de release
-correcta, y luego empaqueta la carpeta `publish` en un `.zip` para descarga.
-
-El gate real en CI hace esto:
-
-1. `dotnet publish` en Release.
-2. `Tools/validate_release.ps1` confirma que existe `SysDiag.exe` y los artefactos
-   críticos del runtime.
-3. Se genera un ZIP con toda la carpeta publicada.
-4. Se suben ambos artefactos (`.zip` y `SysDiag.exe`) como artefactos de la corrida.
-
-Además, hay un workflow de release real para GitHub: `.github/workflows/release.yml`
-que se dispara con etiquetas tipo `vX.Y.Z` y crea un release con notas automáticas y
-la versión empaquetada lista para descargar.
-
-Esto hace que el pipeline sea útil como validación de release y no solo de build.
-
-## CI (5.7)
-
-`.github/workflows/build.yml` compila el proyecto completo, ejecuta la suite de
-pruebas de `Tools/IntegrationTests`, valida el bundle de release y deja el `.exe`
-/`.zip` como artefactos descargables para cada corrida — en una máquina Windows
-real que administra GitHub, no la tuya ni la mía. Se dispara en cada `push` a
-`main`, en cada pull request y también a mano desde la pestaña Actions.
-
-El pipeline también valida la fixture de diagnóstico y deja un primer gate de
-calidad real para el repositorio antes de publicar artefactos.
-
-## Tests (5.7)
-
-La suite de pruebas está en `Tools/IntegrationTests/` y cubre la lógica pura
-verificada contra escenarios reales: cálculo del puntaje, fusión parcial de
-reportes, no duplicación de hallazgos y validación del fixture generado desde la
-ejecución real del diagnóstico.
-
-Se ejecuta con:
+- Windows compila la solución, ejecuta regresiones y conserva TRX. Se incluyen ramas
+  `arena/**`; no se publica un release por trabajar en una rama.
+- `Tools/validate_tests.ps1` exige ≥80 pruebas, todas aprobadas y sin omisiones.
+- Headless está en la solución y comparte `ScanService`; `--self-test` usa un doble
+  sintético explícito, nunca sustituye mediciones de un diagnóstico real.
+- `Tools/validate_release.ps1` arranca el **EXE publicado** con `--self-test` y comprueba
+  recursos WPF, reglas y JSON, sin modificar hardware, red ni ajustes.
+- Solo `release.yml` gestiona etiquetas existentes coincidentes con la versión del
+  proyecto. Después de tests y gates prepara ZIP/checksums y crea un **borrador**.
+- `Tools/build_installer.ps1` entrega la versión del proyecto a Inno Setup 6; la firma
+  propia de distribución y la prueba real de instalador todavía son tareas manuales.
 
 ```powershell
-dotnet test "Tools/IntegrationTests/IntegrationTests.csproj" --verbosity minimal
+dotnet restore SysDiag.sln
+dotnet build SysDiag.sln -c Release --no-restore
+dotnet test SysDiag.sln -c Release --no-build --logger "trx;LogFileName=tests.trx" --results-directory TestResults
+.\Tools\validate_tests.ps1
+dotnet publish SysDiag.csproj -c Release -o publish
+.\Tools\validate_release.ps1 -Root .\publish
+.\Tools\validate_version.ps1 -Root .\publish
 ```
 
-También se integra en el solution y en el workflow de CI para que cada cambio
-quede validado automáticamente en Windows.
+Consulta [la auditoría y sus tres listas de diez](docs/AUDITORIA.md) para los fallos,
+correcciones, evidencia de CI y límites pendientes. Un CI anterior no certifica cambios
+posteriores; el informe identifica expresamente el SHA validado.
 
 ## Sobre la arquitectura (5.0)
 
@@ -198,10 +175,9 @@ Dos módulos nuevos, ambos reales — nada de datos de ejemplo:
   `MSFT_MpComputerStatus`, Firewall vía `netsh`, BitLocker y TPM vía WMI, Secure
   Boot vía registro, UAC vía registro. Todo de solo lectura.
 - **GPU** (`Core/Hardware/GpuModule.cs`): modelo y driver por
-  `Win32_VideoController`, uso real por el contador de rendimiento "GPU Engine"
-  que trae Windows de fábrica — mismo dato que muestra el Administrador de
-  tareas. Si el contador no está disponible, el campo queda vacío en vez de
-  completarse con un número inventado.
+  `Win32_VideoController`, uso por clases CIM estables de motores 3D de Windows,
+  no por nombres de contadores traducidos. Si la medición no está disponible,
+  se indica falta de datos en vez de completar con un cero inventado.
 
 ## Sobre la interfaz
 
@@ -239,9 +215,13 @@ Decisiones de diseño:
   en un Windows en español y rompen el código. Se usan clases CIM, que son estables.
 - **La configuración automática de WLAN nunca se desactiva.** Si se detecta apagada, se
   ofrece encenderla: dejarla así impide reconectarse solo a las redes guardadas.
-- **Todo cambio es reversible.** Antes de optimizar se serializa el estado a JSON.
+- **Respaldo limitado y validado antes de cambiar.** DNS IPv4/origen, valores de
+  registro y energía por plan se capturan; cachés, borrado y reset de TCP/IP no se
+  revierten con ese JSON. Un error puede dejar cambios parciales: se informa y se
+  conserva el respaldo, no se declara una transacción global exitosa.
 - **El reinicio de la pila TCP/IP exige doble confirmación** y advierte de que borra IP fija,
-  DNS personalizados y configuración de VPN.
+  DNS personalizados y configuración de VPN. Exige un punto de restauración y no
+  promete recuperar IP fija, rutas ni VPN desde el respaldo de SysDiag.
 - **Jitter en vez de solo ping medio.** Es la métrica que explica los tirones en juego.
 
 ## Nota sobre antivirus
@@ -251,12 +231,12 @@ vez ("Windows protegió su PC" → *Más información* → *Ejecutar de todas fo
 en binarios propios. Para distribuirlo a terceros haría falta un certificado de firma de
 código.
 
-## Siguientes pasos posibles
+## Siguientes pasos
 
-- Temperatura por núcleo integrando `LibreHardwareMonitorLib` (requiere driver).
-- Historial entre ejecuciones para comparar antes y después de un cambio.
-- Exportación a CSV/JSON para graficar tendencias.
-- Monitor en vivo de latencia mientras juegas, con gráfico en tiempo real.
+- Matriz manual Windows 10/11, UAC, GUI, Modern Standby, VPN/IP fija, WUA y restore.
+- Más sensores/fixtures físicos para SMART, térmicas, GPU y Wi-Fi 6 GHz.
+- Desacoplar más backends nativos de los servicios y evaluar umbrales/confianza del score.
+- Firmar y probar el instalador; redactar datos de red/equipo antes de compartir informes.
 
 ## Fixtures para desarrollo y CI
 

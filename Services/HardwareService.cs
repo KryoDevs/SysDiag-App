@@ -12,7 +12,9 @@ public class HardwareService : IHardwareService
 
     public Task EjecutarAsync(DiagnosticReport reporte, CancellationToken token) => Task.Run(() =>
     {
-        SystemModule.Run(reporte);
+        token.ThrowIfCancellationRequested();
+        SystemModule.Run(reporte, token: token);
+        token.ThrowIfCancellationRequested();
         ThermalModule.Run(reporte);
         GpuModule.Run(reporte);
     }, token);

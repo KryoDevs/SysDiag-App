@@ -451,6 +451,9 @@
               <TextBlock Text="RECOMENDACIÓN" Style="{StaticResource Eyebrow}" Margin="0,0,0,6"/>
               <TextBlock Text="{Binding DetalleHallazgo}" Style="{StaticResource Body}"
                          TextWrapping="Wrap" Foreground="{StaticResource BTextDim}"/>
+              <Button Content="{Binding TextoReparar}" Visibility="{Binding BotonReparar}"
+                      IsEnabled="{Binding Libre}" Click="Reparar_Click" Style="{StaticResource BtnPrimary}"
+                      HorizontalAlignment="Left" Margin="0,12,0,0"/>
             </StackPanel>
           </Border>
         </Grid>
@@ -573,16 +576,16 @@
                      Text="Los informes y registros se guardan en Documentos\SysDiag"/>
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="Cancelar" Style="{StaticResource BtnGhost}" Margin="0,0,8,0"
-                    IsEnabled="{Binding Ocupado}" Click="Cancelar_Click"/>
+                    IsEnabled="{Binding PuedeCancelar}" Click="Cancelar_Click"/>
             <Button Content="Exportar tabla (CSV)" Style="{StaticResource BtnGhost}" Margin="0,0,8,0"
-                    IsEnabled="{Binding HayDatos}" Click="ExportarCsv_Click"
+                    IsEnabled="{Binding PuedeExportar}" Click="ExportarCsv_Click"
                     ToolTip="Exporta la tabla seleccionada en la vista Datos"/>
             <Button Content="Exportar todo (JSON)" Style="{StaticResource BtnGhost}" Margin="0,0,8,0"
-                    IsEnabled="{Binding HayDatos}" Click="ExportarJson_Click"/>
+                    IsEnabled="{Binding PuedeExportar}" Click="ExportarJson_Click"/>
             <Button Content="Abrir carpeta" Style="{StaticResource BtnGhost}" Margin="0,0,8,0"
                     Click="Carpeta_Click"/>
             <Button Content="Generar informe" Style="{StaticResource BtnPrimary}"
-                    IsEnabled="{Binding HayDatos}" Click="Informe_Click"/>
+                    IsEnabled="{Binding PuedeExportar}" Click="Informe_Click"/>
           </StackPanel>
         </Grid>
       </Grid>

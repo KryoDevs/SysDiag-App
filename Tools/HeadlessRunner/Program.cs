@@ -1,71 +1,73 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
+using System.IO;
+using SysDiag.Core.Diagnostics;
+using SysDiag.Core.Windows;
 using SysDiag.Models;
 using SysDiag.Services;
-using SysDiag.Core.Diagnostics;
 
-class Program
+internal static class Program
 {
-    static async Task<int> Main(string[] args)
+    private static async Task<int> Main(string[] args)
     {
-        Console.WriteLine("Headless: iniciando diagnóstico completo...");
-        var token = CancellationToken.None;
-        var merged = new DiagnosticReport();
-
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+        Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancellation.Cancel(); };
         try
         {
-            // Red
-            var scratch = new DiagnosticReport();
-            Console.WriteLine("Ejecutando: Red...");
-            await new NetworkService().EjecutarAsync(scratch, token);
-            merged.MergeFrom(scratch);
-            Console.WriteLine("Red completada.");
-
-            // Rendimiento
-            scratch = new DiagnosticReport();
-            Console.WriteLine("Ejecutando: Rendimiento...");
-            await new PerformanceService().EjecutarAsync(scratch, token);
-            merged.MergeFrom(scratch);
-            Console.WriteLine("Rendimiento completado.");
-
-            // Térmicas y energía
-            scratch = new DiagnosticReport();
-            Console.WriteLine("Ejecutando: Térmicas y energía...");
-            await new HardwareService().EjecutarAsync(scratch, token);
-            merged.MergeFrom(scratch);
-            Console.WriteLine("Térmicas completadas.");
-
-            // Almacenamiento
-            scratch = new DiagnosticReport();
-            Console.WriteLine("Ejecutando: Almacenamiento...");
-            await new StorageService().EjecutarAsync(scratch, token);
-            merged.MergeFrom(scratch);
-            Console.WriteLine("Almacenamiento completado.");
-
-            // Seguridad
-            scratch = new DiagnosticReport();
-            Console.WriteLine("Ejecutando: Seguridad...");
-            await new SecurityService().EjecutarAsync(scratch, token);
-            merged.MergeFrom(scratch);
-            Console.WriteLine("Seguridad completada.");
-
-            // Estabilidad
-            scratch = new DiagnosticReport();
-            Console.WriteLine("Ejecutando: Estabilidad...");
-            await new StabilityService().EjecutarAsync(scratch, token);
-            merged.MergeFrom(scratch);
-            Console.WriteLine("Estabilidad completada.");
-
-            // Final: exportar JSON
-            string archivo = Exporter.ToJson(merged);
-            Console.WriteLine($"Diagnóstico guardado: {archivo}");
+            if (args.Contains("--self-test")) return await SelfTest();
+            string? output = null;
+            for (int index = 0; index < args.Length; index++)
+            {
+                if (args[index] != "--output" || index + 1 >= args.Length)
+                    throw new ArgumentException("Uso: HeadlessRunner [--output carpeta] o --self-test");
+                output = Path.GetFullPath(args[++index]);
+            }
+            SettingsService.Aplicar(SettingsService.Cargar());
+            Console.WriteLine("Diagnóstico de solo lectura: no se limpiarán archivos ni se aplicarán ajustes.");
+            IDiagnosticService[] services =
+            {
+                new NetworkService(), new PerformanceService(), new HardwareService(), new StorageService(),
+                new SecurityService(), new StabilityService(), new DriverService(), new UpdateService(),
+                new StartupService(), new CleanupService()
+            };
+            var report = await new ScanService().EjecutarAsync(null!, services, cancellation.Token);
+            string file = Exporter.ToJson(report, output!);
+            Console.WriteLine($"Diagnóstico guardado: {file}");
             return 0;
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
         {
-            Console.Error.WriteLine($"Error durante el diagnóstico: {ex.Message}");
-            return 2;
+            Console.Error.WriteLine("Diagnóstico cancelado o timeout global de 10 minutos. No se anunció como completado.");
+            return 1;
+        }
+        catch (Exception ex) { Console.Error.WriteLine(ex); return 2; }
+    }
+
+    private static async Task<int> SelfTest()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "SysDiag-headless-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var report = await new ScanService().EjecutarAsync(null!, new IDiagnosticService[] { new FakePerformance() }, CancellationToken.None);
+            var loaded = Exporter.Cargar(Exporter.ToJson(report, root));
+            if (loaded.Hallazgos.Count != 2 || loaded.Sistema.Count != 1
+                || loaded.Hallazgos.Any(f => f.Modulo != "rendimiento"))
+                throw new InvalidOperationException("El runner perdió inventario, reglas o hallazgos durante el round-trip.");
+            Console.WriteLine("SYSDIAG_HEADLESS_SELF_TEST_OK");
+            return 0;
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+    }
+
+    // Solo para --self-test: nunca se usa como fuente de datos de un diagnóstico normal.
+    private sealed class FakePerformance : IDiagnosticService
+    {
+        public string Clave => "rendimiento";
+        public Task EjecutarAsync(DiagnosticReport report, CancellationToken token)
+        {
+            report.Equipo = "Equipo sintético de autotest";
+            report.Sistema.Add(new("Equipo", report.Equipo));
+            report.RendimientoResumen.Add(new("RAM en uso", "90.5 %"));
+            report.TopCpu.Add(new() { Proceso = "Proceso sintético", CpuPct = 60 });
+            return Task.CompletedTask;
         }
     }
 }

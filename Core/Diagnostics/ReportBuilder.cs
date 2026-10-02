@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -12,10 +12,13 @@ namespace SysDiag.Core.Diagnostics;
 
 public static class ReportBuilder
 {
-    public static string Build(DiagnosticReport r)
+    public static string Build(DiagnosticReport r, string outputDirectory = null)
     {
-        Directory.CreateDirectory(AppEnv.OutputPath);
-        string file = Path.Combine(AppEnv.OutputPath, $"informe_{r.Inicio:yyyyMMdd_HHmm}.html");
+        string folder = outputDirectory ?? AppEnv.OutputPath;
+        Directory.CreateDirectory(folder);
+        r.Puntaje = HealthScore.Calcular(r);
+        r.ActualizarRecomendaciones();
+        string file = Path.Combine(folder, $"informe_{DateTime.Now:yyyyMMdd_HHmmss_fffffff}_{Guid.NewGuid():N}.html");
         var sb = new StringBuilder();
 
         sb.AppendLine("<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"utf-8\">");
@@ -23,15 +26,22 @@ public static class ReportBuilder
         sb.AppendLine($"<title>SysDiag — {E(r.Equipo)}</title>");
         sb.AppendLine($"<style>{Css}</style></head><body><div class=\"wrap\">");
 
-        int dur = (int)(DateTime.Now - r.Inicio).TotalSeconds;
+        string dur = r.Fin.HasValue && r.Fin >= r.Inicio
+            ? $"{(int)(r.Fin.Value - r.Inicio).TotalSeconds} s" : "no registrada";
         sb.AppendLine("<header><h1>Informe de diagnóstico</h1><div class=\"slate\">");
         sb.AppendLine($"<span>Equipo <b>{E(r.Equipo)}</b></span>");
         sb.AppendLine($"<span>Fecha <b>{r.Inicio:yyyy-MM-dd HH:mm}</b></span>");
-        sb.AppendLine($"<span>Duración <b>{dur} s</b></span>");
+        sb.AppendLine($"<span>Duración <b>{E(dur)}</b></span>");
         sb.AppendLine($"<span>SysDiag <b>v{AppEnv.Version}</b></span>");
         if (r.Puntaje >= 0)
             sb.AppendLine($"<span>Puntaje <b>{r.Puntaje}/100</b> — {E(HealthScore.Etiqueta(r.Puntaje))}</span>");
+        sb.AppendLine($"<span>Estado <b>{E(r.EstadoEjecucion)}</b></span>");
         sb.AppendLine("</div></header>");
+        var pending = r.ModulosFaltantes();
+        Section(sb, "Alcance de la medición", $"<p>{E(r.ResumenEstado())}</p><p>{E(pending.Count == 0
+            ? "Se intentaron todos los módulos; sensores o consultas ausentes no equivalen a un equipo sano."
+            : "Diagnóstico parcial. Módulos pendientes: " + string.Join(", ", pending))}</p>",
+            "El puntaje describe solo la evidencia disponible; no certifica ausencia de fallos.");
 
         // Los hallazgos van primero: es lo único que la mayoría va a leer.
         if (r.Hallazgos.Count > 0)
@@ -166,7 +176,7 @@ public static class ReportBuilder
         sb.AppendLine($"<footer>Generado por SysDiag v{AppEnv.Version} · registro completo en {E(AppLog.File)}</footer>");
         sb.AppendLine("</div></body></html>");
 
-        File.WriteAllText(file, sb.ToString(), new UTF8Encoding(true));
+        AtomicFile.WriteAllText(file, sb.ToString(), new UTF8Encoding(true));
         AppLog.Write($"Informe generado: {file}", "OK");
         return file;
     }

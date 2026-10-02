@@ -28,12 +28,13 @@ public static class SystemModule
     private static readonly TimeSpan Vigencia = TimeSpan.FromMinutes(3);
 
     private static readonly object Gate = new();
-    public static void Run(DiagnosticReport r, bool forzar = false)
+    public static void Run(DiagnosticReport r, bool forzar = false, CancellationToken token = default)
     {
-        lock (Gate) RunCore(r, forzar);
+        token.ThrowIfCancellationRequested();
+        lock (Gate) RunCore(r, forzar, token);
     }
 
-    private static void RunCore(DiagnosticReport r, bool forzar)
+    private static void RunCore(DiagnosticReport r, bool forzar, CancellationToken token)
     {
         if (!forzar && _cache != null && DateTime.Now - _cache.Momento < Vigencia)
         {
@@ -56,10 +57,10 @@ public static class SystemModule
 
         var info = new List<KeyValueRow>();
 
-        var os = Wmi.First("Win32_OperatingSystem");
-        var cs = Wmi.First("Win32_ComputerSystem");
-        var cpu = Wmi.First("Win32_Processor");
-        var bios = Wmi.First("Win32_BIOS");
+        var os = Wmi.First("Win32_OperatingSystem", token);
+        var cs = Wmi.First("Win32_ComputerSystem", token);
+        var cpu = Wmi.First("Win32_Processor", token);
+        var bios = Wmi.First("Win32_BIOS", token);
 
         string equipo = $"{Wmi.Str(cs, "Manufacturer")} {Wmi.Str(cs, "Model")}".Trim();
         r.Equipo = string.IsNullOrWhiteSpace(equipo) ? Environment.MachineName : equipo;
@@ -84,7 +85,7 @@ public static class SystemModule
 
         // ---- Discos --------------------------------------------------------
         var discos = new List<DiskRow>();
-        foreach (var d in Wmi.Query("SELECT * FROM Win32_LogicalDisk WHERE DriveType=3"))
+        foreach (var d in Wmi.Query("SELECT * FROM Win32_LogicalDisk WHERE DriveType=3", token: token))
         {
             double size = Wmi.Num(d, "Size");
             double free = Wmi.Num(d, "FreeSpace");
@@ -112,7 +113,7 @@ public static class SystemModule
         // ---- Módulos de memoria -------------------------------------------
         var memoria = new List<MemoryRow>();
         var velocidades = new HashSet<string>();
-        foreach (var m in Wmi.Query("SELECT * FROM Win32_PhysicalMemory"))
+        foreach (var m in Wmi.Query("SELECT * FROM Win32_PhysicalMemory", token: token))
         {
             string vel = Wmi.Num(m, "ConfiguredClockSpeed").ToString("0");
             velocidades.Add(vel);

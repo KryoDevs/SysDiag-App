@@ -10,3 +10,5 @@ TestResults/
 sysdiag-*.zip
 sysdiag-*.exe
 *.tmp
+
+installer/Output/

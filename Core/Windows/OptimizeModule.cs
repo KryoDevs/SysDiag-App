@@ -36,7 +36,15 @@ public static class OptimizeModule
             return identity.User?.Value ?? throw new InvalidOperationException("No se pudo identificar al usuario del respaldo.");
         }
     }
-    private static OptimizationBackupStore Store => new(AppEnv.BackupFile, Environment.MachineName, UserSid);
+    private static OptimizationBackupStore Store
+    {
+        get
+        {
+            SecureBackupDirectory.Ensure();
+            return new(AppEnv.BackupFile, Environment.MachineName, UserSid,
+                SecureBackupDirectory.ProtectTemporaryFile, SecureBackupDirectory.VerifyFile);
+        }
+    }
     private static void RequireAdmin()
     {
         if (!AppEnv.IsAdmin) throw new InvalidOperationException("Esta operación necesita privilegios de administrador.");
@@ -163,7 +171,7 @@ public static class OptimizeModule
     public static string Restore()
     {
         RequireAdmin();
-        if (!File.Exists(AppEnv.BackupFile)) return "No hay respaldo pendiente de restauración.";
+        if (!File.Exists(AppEnv.BackupFile)) return "No hay respaldo protegido pendiente. Los antiguos respaldos en Documentos no se importan automáticamente; revisa los ajustes de aquella versión manualmente.";
         var store = Store;
         var state = store.Read();
         var available = PowerSettings.Plans();

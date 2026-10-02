@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using System.Threading.Tasks;
 using SysDiag.Core.Drivers;
 using SysDiag.Core.Hardware;
@@ -19,7 +19,9 @@ public class DriverService : IDriverService
 
     public Task EjecutarAsync(DiagnosticReport reporte, CancellationToken token) => Task.Run(() =>
     {
-        SystemModule.Run(reporte);
+        token.ThrowIfCancellationRequested();
+        SystemModule.Run(reporte, token: token);
+        token.ThrowIfCancellationRequested();
         DriverModule.Run(reporte);
     }, token);
 }

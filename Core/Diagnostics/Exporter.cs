@@ -54,10 +54,9 @@ public static class Exporter
                 if (report.Id == Guid.Empty) report.Id = Guid.NewGuid();
                 string file = Path.Combine(root, $"{report.Inicio:yyyyMMdd_HHmmss_fffffff}_{report.Id:N}.json");
                 AtomicFile.WriteAllText(file, Serializar(report));
-                foreach (var old in new DirectoryInfo(root).GetFiles("*.json")
-                             .OrderByDescending(f => f.LastWriteTimeUtc).Skip(Math.Clamp(HistorialMaximo, 5, 500)))
+                foreach (var old in ReadHistory(root).Skip(Math.Clamp(HistorialMaximo, 5, 500)))
                 {
-                    try { old.Delete(); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+                    try { File.Delete(old.Archivo); } catch (IOException) { } catch (UnauthorizedAccessException) { }
                 }
             }
             return true;
@@ -98,7 +97,7 @@ public static class Exporter
                         ? measured.EnumerateObject().Select(p => p.Name).ToArray() : Array.Empty<string>();
                     entries.Add(new() { Fecha = date, Puntaje = value, Archivo = file.FullName, Modulos = modules });
                 }
-                catch (Exception ex) when (ex is JsonException or IOException or InvalidOperationException)
+                catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or InvalidOperationException)
                 { AppLog.Write($"Entrada de historial omitida: {file.Name} ({ex.Message})", "WARN"); }
             }
         }
