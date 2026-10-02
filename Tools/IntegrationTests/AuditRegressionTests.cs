@@ -290,7 +290,7 @@ public class AuditRegressionTests
     public async Task Network_PreCanceledOperationsDoNotSendPackets()
     {
         using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => NetworkModule.PingUnaAsync("127.0.0.1", cancellation.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => NetworkModule.PingUnaVez("127.0.0.1", cancellation.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => NetworkModule.MeasureAsync("local", "127.0.0.1", 1, cancellation.Token));
     }
 
