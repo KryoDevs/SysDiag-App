@@ -496,6 +496,7 @@ public partial class MainWindow : Window
 
     private void Elevar_Click(object sender, RoutedEventArgs e)
     {
+        if (_vm.Ocupado) return;
         if (AppEnv.RelaunchElevated()) Application.Current.Shutdown();
     }
 

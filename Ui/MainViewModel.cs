@@ -512,11 +512,11 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         }
 
         var cpu = Report.RendimientoResumen.FirstOrDefault(x => x.Clave == "CPU total");
-        if (cpu != null && NumericText.TryRead(cpu.Valor, out double pct))
+        if (cpu != null && NumericText.TryRead(cpu.Valor, out double cpuPercent))
         {
             Tarjetas.Add(MetricCard.Create("Uso de CPU", cpu.Valor,
                 Report.RendimientoResumen.FirstOrDefault(x => x.Clave == "RAM en uso")?.Valor ?? "",
-                Pincel(pct > 85 ? Severity.Bad : pct > 60 ? Severity.Warn : Severity.Ok), pct / 100.0,
+                Pincel(cpuPercent > 85 ? Severity.Bad : cpuPercent > 60 ? Severity.Warn : Severity.Ok), cpuPercent / 100.0,
                 "rendimiento"));
         }
 
