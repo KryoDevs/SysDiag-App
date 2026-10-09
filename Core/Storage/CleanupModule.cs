@@ -138,24 +138,36 @@ public static class CleanupModule
                     AppLog.Write($"Objetivo de limpieza no autorizado: {row.Ruta}", "WARN");
                     continue;
                 }
+                List<FileInfo> items = row.Items ?? new List<FileInfo>();
                 var remaining = new List<FileInfo>();
-                foreach (var file in row.Items ?? new())
+                int next = 0;
+                try
                 {
-                    token.ThrowIfCancellationRequested();
-                    try
+                    for (; next < items.Count; next++)
                     {
-                        if (seen.Add(file.FullName) && Eligible(target, file)
-                            && CleanupSafety.TryDelete(target.Ruta, file.FullName, out long size))
-                            freed += size;
-                        else { remaining.Add(file); skipped++; }
+                        token.ThrowIfCancellationRequested();
+                        FileInfo file = items[next];
+                        try
+                        {
+                            if (seen.Add(file.FullName) && Eligible(target, file)
+                                && CleanupSafety.TryDelete(target.Ruta, file.FullName, out long size))
+                                freed += size;
+                            else { remaining.Add(file); skipped++; }
+                        }
+                        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                        { remaining.Add(file); skipped++; }
                     }
-                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                    { remaining.Add(file); skipped++; }
                 }
-                row.Items = remaining;
-                row.Archivos = remaining.Count;
-                row.Bytes = remaining.Sum(file => { try { file.Refresh(); return file.Exists ? file.Length : 0; } catch (IOException) { return 0; } });
-                row.Ocupa = AppEnv.FormatBytes(row.Bytes);
+                finally
+                {
+                    // Si la limpieza se cancela a mitad de la fila, lo ya borrado sale de ella y lo pendiente se
+                    // conserva: la tabla refleja el disco, no el análisis anterior.
+                    for (; next < items.Count; next++) remaining.Add(items[next]);
+                    row.Items = remaining;
+                    row.Archivos = remaining.Count;
+                    row.Bytes = remaining.Sum(file => { try { file.Refresh(); return file.Exists ? file.Length : 0; } catch (IOException) { return 0; } });
+                    row.Ocupa = AppEnv.FormatBytes(row.Bytes);
+                }
             }
             token.ThrowIfCancellationRequested();
             if (Opts.Papelera) VaciarPapelera();

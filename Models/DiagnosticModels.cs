@@ -94,8 +94,10 @@ public class DiagnosticReport : IJsonOnDeserialized
 
     public string ResumenEstado()
     {
-        if (EstadoEjecucion == "Cancelado" || EstadoEjecucion == "Falló o incompleto")
-            return "La ejecución quedó " + EstadoEjecucion.ToLowerInvariant() + ". Los datos visibles pueden incluir mediciones anteriores; no es un diagnóstico completado.";
+        if (EstadoEjecucion == "Cancelado")
+            return "La ejecución fue cancelada. Los datos visibles pueden incluir mediciones anteriores; no es un diagnóstico completado.";
+        if (EstadoEjecucion == "Falló o incompleto")
+            return "La ejecución falló o quedó incompleta. Los datos visibles pueden incluir mediciones anteriores; no es un diagnóstico completado.";
         if (TieneDatosRelevantes())
             return Hallazgos.Count == 0
                 ? "La comprobación se completó, pero no se detectaron problemas relevantes en los datos disponibles."

@@ -326,11 +326,13 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
             if (diagnostic)
             {
                 // JSON y lectura de historial pueden ser grandes: nunca bloquear el dispatcher.
+                // La tendencia y la comparación usan la misma cobertura: no mezclar un «Red» suelto con uno completo.
+                string[] cobertura = Report.ModulosCompletados.Keys.ToArray();
                 var history = await Task.Run(() =>
                 {
-                    int previous = Exporter.PuntajeAnterior(Report.Inicio, modulos: Report.ModulosCompletados.Keys.ToArray());
+                    int previous = Exporter.PuntajeAnterior(Report.Inicio, modulos: cobertura);
                     bool saved = Exporter.Archivar(Report);
-                    return (previous, saved, series: Exporter.Historial());
+                    return (previous, saved, series: Exporter.Historial(modulos: cobertura));
                 });
                 _previousScore = history.previous;
                 archived = history.saved;

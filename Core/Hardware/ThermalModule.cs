@@ -16,23 +16,24 @@ public static class ThermalModule
 
         // Windows no expone temperatura por núcleo sin un driver dedicado.
         // MSAcpi_ThermalZoneTemperature solo existe si el fabricante lo implementó.
-        var zonas = Wmi.Query("SELECT * FROM MSAcpi_ThermalZoneTemperature", @"root\WMI").ToList();
-        if (zonas.Count > 0)
+        // Solo cuentan lecturas plausibles: una zona sin dato llega como 0 y antes se mostraba como «0 °C».
+        double? maxTemp = null;
+        foreach (var z in Wmi.Query("SELECT * FROM MSAcpi_ThermalZoneTemperature", @"root\WMI"))
         {
-            double maxTemp = 0;
-            foreach (var z in zonas)
-            {
-                double c = Wmi.Num(z, "CurrentTemperature") / 10.0 - 273.15;
-                if (c > maxTemp) maxTemp = c;
-            }
-            maxTemp = Math.Round(maxTemp, 1);
-            datos.Add(new KeyValueRow("Temperatura (ACPI)", $"{maxTemp} °C"));
+            double? c = ConvertirTemperaturaAcpi(Wmi.Num(z, "CurrentTemperature"));
+            if (c.HasValue && (!maxTemp.HasValue || c.Value > maxTemp.Value)) maxTemp = c.Value;
+        }
 
-            if (maxTemp >= 90)
-                r.Add(Severity.Bad, "Térmicas", $"Zona térmica en {maxTemp} °C.",
+        if (maxTemp.HasValue)
+        {
+            double temperatura = maxTemp.Value;
+            datos.Add(new KeyValueRow("Temperatura (ACPI)", $"{temperatura} °C"));
+
+            if (temperatura >= 90)
+                r.Add(Severity.Bad, "Térmicas", $"Zona térmica en {temperatura} °C.",
                     "A esta temperatura el equipo reduce frecuencia para protegerse. Toca limpieza de ventilación y cambio de pasta térmica.");
-            else if (maxTemp >= 80)
-                r.Add(Severity.Warn, "Térmicas", $"Zona térmica en {maxTemp} °C.",
+            else if (temperatura >= 80)
+                r.Add(Severity.Warn, "Térmicas", $"Zona térmica en {temperatura} °C.",
                     "Margen justo bajo carga sostenida.");
         }
         else
@@ -88,6 +89,17 @@ public static class ThermalModule
         foreach (var d in datos) AppLog.Write($"{d.Clave,-28}: {d.Valor}");
 
         AuditBattery(r);
+    }
+
+    /// <summary>
+    /// MSAcpi_ThermalZoneTemperature publica décimas de kelvin. Un valor no positivo, no finito o fuera de un
+    /// rango físicamente posible significa que el firmware no entregó lectura: devuelve null en vez de un número.
+    /// </summary>
+    public static double? ConvertirTemperaturaAcpi(double decimasKelvin)
+    {
+        if (!double.IsFinite(decimasKelvin) || decimasKelvin <= 0) return null;
+        double celsius = Math.Round(decimasKelvin / 10.0 - 273.15, 1);
+        return celsius is >= -40 and <= 125 ? (double?)celsius : null;
     }
 
     /// <summary>

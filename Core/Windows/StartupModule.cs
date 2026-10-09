@@ -43,7 +43,7 @@ public static class StartupModule
 
         if (filas.Count >= 20)
             r.Add(Severity.Warn, "Arranque", $"{filas.Count} programas se inician con Windows.",
-                "Cada uno suma tiempo de arranque y memoria en reposo. Revisa la lista en Datos ▸ Arranque y desactiva los que no reconozcas necesitar.",
+                "Cada uno suma tiempo de arranque y memoria en reposo. Revisa la lista en Datos ▸ Arranque y desactiva los que no reconozcas o no necesites.",
                 "abrir-inicio");
         else if (filas.Count >= 12)
             r.Add(Severity.Warn, "Arranque", $"{filas.Count} programas al inicio.",

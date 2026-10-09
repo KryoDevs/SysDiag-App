@@ -72,6 +72,7 @@ public static class Remediation
             throw new InvalidOperationException("Los servicios están cambiando de estado. Espera y vuelve a intentar.");
         Exception failure = null;
         bool moved = false;
+        string backup = null;
         try
         {
             foreach (var service in services.Where(s => previous[s.ServiceName] == ServiceControllerStatus.Running))
@@ -82,7 +83,8 @@ public static class Remediation
             string root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "SoftwareDistribution");
             if (Directory.Exists(root))
             {
-                Directory.Move(root, root + ".bak_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + Guid.NewGuid().ToString("N"));
+                backup = root + ".bak_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + Guid.NewGuid().ToString("N");
+                Directory.Move(root, backup);
                 moved = true;
             }
         }
@@ -109,8 +111,11 @@ public static class Remediation
             }
         }
         if (failure != null) throw new InvalidOperationException("La reparación de Windows Update fue incompleta. Revisa el registro y el punto de restauración.", failure);
+        // La copia renombrada no se borra automáticamente: ocupa espacio hasta que el usuario la elimine.
         return moved
-            ? "Caché de Windows Update respaldada por renombrado. Se restauró el estado original de los servicios."
+            ? $"Caché de Windows Update respaldada como «{Path.GetFileName(backup)}» en {Path.GetDirectoryName(backup)}. " +
+              "Se restauró el estado original de los servicios. Cuando Windows Update funcione con normalidad, " +
+              "puedes borrar esa carpeta (requiere administrador) para recuperar espacio."
             : "No había caché que renombrar. Se restauró el estado original de los servicios.";
     }
 

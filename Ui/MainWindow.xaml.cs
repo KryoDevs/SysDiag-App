@@ -131,10 +131,16 @@ public partial class MainWindow : Window
 
     private async void Nav_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_vm.Ocupado || Nav.SelectedItem is not ListBoxItem item || item.Tag is not string clave) return;
+        if (Nav.SelectedItem is not ListBoxItem item || item.Tag is not string clave) return;
+        if (_vm.Ocupado)
+        {
+            // Si el ítem quedara marcado, volver a pulsarlo al terminar la operación no dispararía este evento.
+            AppLog.Write("Hay una operación en curso. Espera a que termine para elegir otro módulo.", "WARN");
+            Nav.SelectedIndex = -1;
+            return;
+        }
         try
         {
-
             // La selección marca el módulo activo; se limpia al terminar para que
             // volver a pulsar el mismo vuelva a ejecutarlo.
             switch (clave)
@@ -324,6 +330,7 @@ public partial class MainWindow : Window
 
         bool ok = Dialog.Confirm($"Instalar {descripcion}",
             "Los paquetes vienen firmados por Microsoft y validados contra el hardware de este equipo.\n\n" +
+            "Si algún paquete pide aceptar su licencia, SysDiag la acepta al confirmar: revisa la lista antes de continuar.\n\n" +
             "Aun así, un cambio de driver puede requerir reiniciar y, en casos raros, dejar un dispositivo " +
             "sin funcionar. Windows guarda la versión anterior: se revierte desde Propiedades del " +
             "dispositivo ▸ Controlador ▸ Revertir.",
@@ -452,7 +459,12 @@ public partial class MainWindow : Window
         if (!await _vm.RunAsync("Limpieza",
             ("limpieza", (r, t) => Task.Run(() => CleanupModule.Analyze(r, t), t)))) return;
 
-        if (_vm.Report.Limpieza.Count == 0 && !CleanupModule.Opts.Papelera) return;
+        if (_vm.Report.Limpieza.Count == 0 && !CleanupModule.Opts.Papelera)
+        {
+            // Sin esto el usuario pulsa «Limpiar» y no ve ningún resultado.
+            Dialog.Info("Nada que analizar", "Ninguna de las categorías seleccionadas existe en este equipo. Marca otras categorías o revisa los permisos.");
+            return;
+        }
 
         var filas = _vm.Report.Limpieza;
         long total = filas.Sum(x => x.Bytes);

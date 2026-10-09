@@ -11,7 +11,7 @@ public class StartupRow
 public class ServiceRow
 {
     [DisplayName("Servicio")] public string Nombre { get; set; } = "";
-    [DisplayName("Descripción")] public string Descripcion { get; set; } = "";
+    [DisplayName("Nombre interno")] public string Descripcion { get; set; } = "";
     [DisplayName("Inicio")] public string Inicio { get; set; } = "";
     [DisplayName("Estado")] public string Estado { get; set; } = "";
 }

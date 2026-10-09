@@ -36,6 +36,7 @@
                              FontSize="16" Foreground="{Binding Color}"/>
                   <TextBlock Text="/100" Style="{StaticResource Dim}" Margin="2,3,0,0"/>
                 </StackPanel>
+                <TextBlock Text="{Binding Cobertura}" Style="{StaticResource Dim}" FontSize="11" Margin="0,2,0,0"/>
               </StackPanel>
             </DataTemplate>
           </ListBox.ItemTemplate>

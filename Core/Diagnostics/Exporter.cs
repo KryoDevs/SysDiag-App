@@ -117,8 +117,19 @@ public static class Exporter
     public static List<EntradaHistorial> Listar(int maximo = 100, string historialDirectory = null) =>
         ReadHistory(historialDirectory ?? HistorialPath).Take(Math.Max(0, maximo)).ToList();
 
-    public static List<(DateTime Fecha, int Puntaje)> Historial(int maximo = 30, string historialDirectory = null) =>
-        Listar(maximo, historialDirectory).Where(e => e.Puntaje >= 0).Select(e => (e.Fecha, e.Puntaje)).ToList();
+    /// <summary>
+    /// Serie para la tendencia. Con <paramref name="modulos"/> solo entran diagnósticos de la misma cobertura:
+    /// dibujar un «Red» suelto junto a un diagnóstico completo mezcla puntajes que no miden lo mismo.
+    /// </summary>
+    public static List<(DateTime Fecha, int Puntaje)> Historial(int maximo = 30, string historialDirectory = null, string[] modulos = null)
+    {
+        var expected = modulos == null ? null : new HashSet<string>(modulos, StringComparer.OrdinalIgnoreCase);
+        return ReadHistory(historialDirectory ?? HistorialPath)
+            .Where(e => e.Puntaje >= 0 && (expected == null || expected.SetEquals(e.Modulos)))
+            .Take(Math.Max(0, maximo))
+            .Select(e => (e.Fecha, e.Puntaje))
+            .ToList();
+    }
 
     public static DiagnosticReport Cargar(string archivo)
     {

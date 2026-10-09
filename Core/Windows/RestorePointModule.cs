@@ -118,10 +118,10 @@ public static class RestorePointModule
         {
             // ERROR_SERVICE_DISABLED / fallos típicos cuando la Protección
             // del sistema está apagada en la unidad.
-            1058 => "La Protección del sistema parece estar desactivada en esta unidad. Actívala en Panel de control ▸ Sistema ▸ Protección del sistema, o continúa sin punto de restauración bajo tu propio riesgo.",
+            1058 => "La Protección del sistema parece estar desactivada en esta unidad. Actívala en Panel de control ▸ Sistema ▸ Protección del sistema y vuelve a intentarlo.",
             1060 => "El servicio de Restauración del sistema no está instalado o está deshabilitado en este equipo.",
             5 => "Acceso denegado al crear el punto de restauración. Confirma que SysDiag corre como administrador.",
-            _ => $"No se pudo crear el punto de restauración (código de Windows {codigoWin32}). Puedes continuar sin él, pero sin esa red de seguridad."
+            _ => $"No se pudo crear el punto de restauración (código de Windows {codigoWin32}). Revisa la Protección del sistema de la unidad y vuelve a intentarlo. Las operaciones que lo exigen no se ejecutan sin él."
         };
     }
 }
