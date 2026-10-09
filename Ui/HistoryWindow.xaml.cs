@@ -25,12 +25,13 @@ public partial class HistoryWindow : Window
     public HistoryWindow()
     {
         InitializeComponent();
-        Cargar();
+        // Con muchos diagnósticos archivados, leerlos tarda: se hace fuera del hilo de la interfaz.
+        Loaded += async (_, _) => await CargarAsync();
     }
 
-    private void Cargar()
+    private async Task CargarAsync()
     {
-        var entradas = Exporter.Listar(200);
+        var entradas = await Task.Run(() => Exporter.Listar(200));
         var items = new List<HistorialItemVm>();
 
         foreach (var e in entradas)

@@ -129,7 +129,7 @@ ni se borran; revisar sus valores manualmente si se necesita recuperar aquel est
 
 - Windows compila la solución, ejecuta regresiones y conserva TRX. Se incluyen ramas
   `arena/**`; no se publica un release por trabajar en una rama.
-- `Tools/validate_tests.ps1` exige ≥113 pruebas (el mínimo de la suite auditada), todas aprobadas y sin omisiones.
+- `Tools/validate_tests.ps1` exige ≥114 pruebas (el mínimo de la suite auditada), todas aprobadas y sin omisiones.
 - Headless está en la solución y comparte `ScanService`; `--self-test` usa un doble
   sintético explícito, nunca sustituye mediciones de un diagnóstico real.
 - `Tools/validate_release.ps1` arranca el **EXE publicado** con `--self-test` y comprueba

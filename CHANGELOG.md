@@ -14,17 +14,17 @@ All notable changes to this project will be documented in this file.
 - **Navegación:** pulsar un módulo durante otra operación ya no deja el ítem marcado.
 - **Discos:** el espacio libre salía de una caché de 3 minutos; ahora se lee en cada diagnóstico (un aviso de disco bajo ya no persiste tras limpiar).
 - **WHEA:** se guardan hasta 2.000 filas (antes hasta 50.000, unos 10 MB por diagnóstico archivado).
-- **Recursos:** los `Process` lanzados desde la interfaz se liberan.
+- **Recursos:** los `Process` lanzados desde la interfaz se liberan. La ventana de historial se abre sin esperar a leer todos los diagnósticos archivados.
 - **Textos:** los mensajes de punto de restauración ya no sugieren continuar sin él; el estado de ejecución tiene redacción correcta; la caché de Windows Update renombrada indica su ubicación y que puede borrarse; la instalación de drivers avisa que acepta licencias; corregida una frase de arranque y el encabezado «Nombre interno» de servicios.
 
 ### Repositorio y calidad
 - Dejan de versionarse `sysdiag-1.0.0.zip` (66 MB) e `installer/Output/sysdiag-1.0.0.exe` (50 MB), que ya estaban excluidos por `.gitignore`. El historial no se reescribe.
 - Eliminados `OptimizeModule.ReadWlanAutoconfig` y `OptimizeModule.SaveState`, sin llamadores.
-- `validate_tests.ps1` sube el mínimo de pruebas de 80 a 113 (la suite auditada).
+- `validate_tests.ps1` sube el mínimo de pruebas de 80 a 114 (la suite auditada).
 - README actualizado con la estructura real y los módulos de Monitor de ping, Historial, Perfiles y Ajustes.
 
 ### Pruebas
-- Nuevo `AuditRound2RegressionTests` (12 casos): temperatura ACPI, detección de catálogo vacío de winget, parser Wi-Fi por BSSID y tendencia por cobertura.
+- Nuevo `AuditRound2RegressionTests` (13 casos): temperatura ACPI, detección de catálogo vacío de winget, parser Wi-Fi por BSSID y tendencia por cobertura.
 
 See `docs/AUDITORIA_2026-10-09.md` para el detalle, la evidencia de CI y los pendientes.
 
