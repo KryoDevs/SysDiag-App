@@ -45,10 +45,10 @@ Cada hallazgo tiene tratamiento en esta rama o una decisión explícita en la se
 | A19 | Baja | README con estructura y módulos desactualizados. | Actualizado. |
 | A20 | Baja | Repositorio: 116 MB de binarios versionados (`sysdiag-1.0.0.zip` 66 MB, `installer/Output/sysdiag-1.0.0.exe` 50 MB) pese a `.gitignore`. | Dejan de versionarse. El historial no se reescribe. |
 | A21 | Baja | Umbral de pruebas de CI (80) muy por debajo de la suite (101 en la auditoría 1). | Umbral sube a 114 (ratchet). |
+| A22 | Media | El inventario se cachea 3 minutos y también incluía el espacio libre de los discos: un diagnóstico hecho tras limpiar mostraba el valor anterior y su aviso. | Los discos se leen en cada corrida; solo se cachea el inventario estático (`LeerDiscos`). |
 | A23 | Media | Historial: cada corrida se archivaba con la cobertura acumulada del reporte fusionado. Un «Red» suelto hecho después de un diagnóstico completo se etiquetaba «diagnóstico completo» y se comparaba como tal. | Se archiva una copia (`ParaArchivo`) que declara solo los módulos medidos en esa corrida. Prueba. |
 | A24 | Baja | La ventana de historial leía todos los diagnósticos archivados en el hilo de la interfaz: con 500 entradas, la ventana tardaba en abrirse. | La lectura se hace en segundo plano (`Task.Run`) y las filas se construyen en el hilo de UI. |
 | A25 | Media | Ninguna ventana se construía en CI: un error de XAML o de code-behind solo aparecía al abrirla. | El autotest del EXE publicado construye las ocho ventanas (sin mostrarlas) antes de declarar OK. |
-| A22 | Media | El inventario se cachea 3 minutos y también incluía el espacio libre de los discos: un diagnóstico hecho tras limpiar mostraba el valor anterior y su aviso. | Los discos se leen en cada corrida; solo se cachea el inventario estático (`LeerDiscos`). |
 
 ## Decisiones (revisadas, no cambiadas)
 
@@ -65,11 +65,25 @@ Cada hallazgo tiene tratamiento en esta rama o una decisión explícita en la se
 
 ## Verificación
 
-- **Sintaxis:** 82 archivos C# revisados antes de cada push; sin errores nuevos.
-- **Compilación y pruebas en Windows (CI):**
-  - Commit `6a17dad` (primer lote de correcciones): *Compilar y probar* verde, **113/113 pruebas aprobadas**,
-    runner headless, publicación y autotest del EXE publicado; *Validate fixture* verde.
-  - Commit final: ver la sección de evidencia al final de este documento.
+- **Sintaxis:** los 82 archivos C# se revisaron con un parser independiente antes de cada push. Sin errores nuevos.
+- **Compilación, pruebas y gates en Windows (CI):** cada lote se publicó en la rama y CI corrió sobre ese commit.
+
+| Commit | Contenido | *Compilar y probar* (run) | Pruebas | *Validate fixture* (run) |
+|---|---|---|---|---|
+| `6a17dad` | Lote 1: correcciones de datos y estados | `37896391491` ✅ | 113/113 | `37896391453` ✅ |
+| `0ddac48` | Lote 2: textos, Process, WHEA, dead code, umbral | `37896866226` ✅ | 113/113 | — |
+| `8c4fd7d` | Lote 3: espacio libre de discos sin caché | `37897164372` ✅ | 113/113 | `37897164452` ✅ |
+| `ae7b420` | Lote 4: cobertura por corrida (`ParaArchivo`) | `37897507716` ✅ | 114/114 | — |
+| `56df825` | Lote 5: historial en segundo plano, umbral 114 | `37897796941` ✅ | 114/114 | `37897796969` ✅ (ambos jobs) |
+| **`8fa11d6`** | **Lote 6, código final**: autotest construye ventanas | **`37898173399` ✅** | **114/114** | **`37898173340` ✅ (ambos jobs)** |
+
+En el commit final, *Compilar y probar* ejecutó todos sus pasos con éxito: restauración, compilación Release,
+suite de pruebas, gate de regresiones (≥114), autotest del runner compartido, publicación autocontenida y
+**«Validar el paquete publicado»**, que arranca el EXE con `--self-test` y ahora construye las ocho ventanas.
+*Validate fixture* también pasó en sus dos jobs, incluidas las pruebas de integración en Debug.
+
+Limitación del sandbox: los logs completos no se descargan desde aquí (el host de resultados no está en la lista
+permitida). La evidencia se toma de las conclusiones por paso y de las anotaciones de CI vía API.
 
 ## Pendientes que CI no puede verificar
 
@@ -78,3 +92,6 @@ Cada hallazgo tiene tratamiento en esta rama o una decisión explícita en la se
 - Salida real de `netsh` en Windows en español para el escaneo Wi-Fi. El parser se basa en el mapa de claves
   localizadas ya existente, y conviene confirmarlo en un equipo real.
 - Matriz de hardware: Modern Standby, GPU híbrida, SMART y sensores térmicos.
+- Firma de código del EXE y prueba real del instalador Inno Setup: siguen fuera de CI (pendiente desde la auditoría 1).
+- Aceptación de licencias de drivers (A09): hoy se acepta al confirmar, con aviso. Conviene decidir si debe pedirse
+  licencia por paquete.
