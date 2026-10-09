@@ -95,6 +95,23 @@ public class AuditRound2RegressionTests
         Assert.Equal(2, todas.Count);
     }
 
+    [Fact]
+    public void ArchiveCopy_RecordsOnlyTheModulesMeasuredInThatRun()
+    {
+        using var folder = new TemporaryDirectory();
+        var date = DateTime.UtcNow.AddDays(-1);
+        // El reporte fusionado conserva módulos de corridas anteriores: esa corrida solo midió «red».
+        var merged = ReportFor(date, "red", "seguridad", "termicas");
+
+        var copia = merged.ParaArchivo(new[] { "red" });
+
+        Assert.Single(copia.ModulosCompletados);
+        Assert.Equal(3, merged.ModulosCompletados.Count);
+        Assert.True(Exporter.Archivar(copia, folder.Path));
+        var entrada = Assert.Single(Exporter.Listar(historialDirectory: folder.Path));
+        Assert.Equal(new[] { "red" }, entrada.Modulos);
+    }
+
     private static DiagnosticReport ReportFor(DateTime date, params string[] modules)
     {
         var report = new DiagnosticReport { Inicio = date };

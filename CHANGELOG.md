@@ -9,7 +9,7 @@ All notable changes to this project will be documented in this file.
 - **Winget:** sin actualizaciones disponibles, un código de salida distinto de cero se reportaba como fallo.
 - **Wi-Fi:** señal y canal de cada punto de acceso se asignaban por orden de línea. Ahora se leen por BSSID.
 - **Drivers:** un origen que falla ya no se presenta como «no se pudo consultar» si otro origen sí respondió.
-- **Historial:** la tendencia solo compara diagnósticos de la misma cobertura; cada entrada indica si fue completa o parcial.
+- **Historial:** la tendencia solo compara diagnósticos de la misma cobertura; cada entrada indica si fue completa o parcial, y declara solo los módulos medidos en esa corrida (no la cobertura acumulada del reporte).
 - **Limpieza:** cancelar a mitad de una fila deja la tabla igual que el disco; aviso cuando no hay categorías que analizar.
 - **Navegación:** pulsar un módulo durante otra operación ya no deja el ítem marcado.
 - **Discos:** el espacio libre salía de una caché de 3 minutos; ahora se lee en cada diagnóstico (un aviso de disco bajo ya no persiste tras limpiar).

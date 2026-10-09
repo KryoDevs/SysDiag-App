@@ -280,6 +280,21 @@ public class DiagnosticReport : IJsonOnDeserialized
         ActualizarRecomendaciones();
     }
 
+    /// <summary>
+    /// Copia para archivar. Conserva los datos del reporte fusionado, pero declara como cobertura solo los módulos
+    /// medidos en la corrida que se archiva: ModulosCompletados acumula módulos de corridas anteriores, y sin esto
+    /// un «Red» suelto hecho después de un diagnóstico completo quedaría etiquetado como completo.
+    /// </summary>
+    public DiagnosticReport ParaArchivo(IEnumerable<string> modulosDeLaCorrida)
+    {
+        var medidos = new HashSet<string>(modulosDeLaCorrida ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+        var copia = (DiagnosticReport)MemberwiseClone();
+        copia.ModulosCompletados = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (modulo, fecha) in ModulosCompletados)
+            if (medidos.Contains(modulo)) copia.ModulosCompletados[modulo] = fecha;
+        return copia;
+    }
+
     void IJsonOnDeserialized.OnDeserialized()
     {
         // Un archivo antiguo o un JSON con null no debe tumbar la vista de historial.

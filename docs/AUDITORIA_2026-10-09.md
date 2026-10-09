@@ -45,6 +45,7 @@ Cada hallazgo tiene tratamiento en esta rama o una decisión explícita en la se
 | A19 | Baja | README con estructura y módulos desactualizados. | Actualizado. |
 | A20 | Baja | Repositorio: 116 MB de binarios versionados (`sysdiag-1.0.0.zip` 66 MB, `installer/Output/sysdiag-1.0.0.exe` 50 MB) pese a `.gitignore`. | Dejan de versionarse. El historial no se reescribe. |
 | A21 | Baja | Umbral de pruebas de CI (80) muy por debajo de la suite (101 en la auditoría 1). | Umbral sube a 113 (ratchet). |
+| A23 | Media | Historial: cada corrida se archivaba con la cobertura acumulada del reporte fusionado. Un «Red» suelto hecho después de un diagnóstico completo se etiquetaba «diagnóstico completo» y se comparaba como tal. | Se archiva una copia (`ParaArchivo`) que declara solo los módulos medidos en esa corrida. Prueba. |
 | A22 | Media | El inventario se cachea 3 minutos y también incluía el espacio libre de los discos: un diagnóstico hecho tras limpiar mostraba el valor anterior y su aviso. | Los discos se leen en cada corrida; solo se cachea el inventario estático (`LeerDiscos`). |
 
 ## Decisiones (revisadas, no cambiadas)

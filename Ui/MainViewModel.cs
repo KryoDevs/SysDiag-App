@@ -325,14 +325,18 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
             completed = true;
             if (diagnostic)
             {
+                // Cobertura de ESTA corrida, no del reporte fusionado (que conserva módulos de corridas anteriores).
+                // Tendencia y comparación usan la misma cobertura: no mezclar un «Red» suelto con uno completo.
+                string[] ejecutados = pasos.Select(p => p.Clave)
+                    .Where(k => DiagnosticReport.NombresModulos.ContainsKey(k))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
                 // JSON y lectura de historial pueden ser grandes: nunca bloquear el dispatcher.
-                // La tendencia y la comparación usan la misma cobertura: no mezclar un «Red» suelto con uno completo.
-                string[] cobertura = Report.ModulosCompletados.Keys.ToArray();
                 var history = await Task.Run(() =>
                 {
-                    int previous = Exporter.PuntajeAnterior(Report.Inicio, modulos: cobertura);
-                    bool saved = Exporter.Archivar(Report);
-                    return (previous, saved, series: Exporter.Historial(modulos: cobertura));
+                    int previous = Exporter.PuntajeAnterior(Report.Inicio, modulos: ejecutados);
+                    bool saved = Exporter.Archivar(Report.ParaArchivo(ejecutados));
+                    return (previous, saved, series: Exporter.Historial(modulos: ejecutados));
                 });
                 _previousScore = history.previous;
                 archived = history.saved;
