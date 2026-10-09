@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Sin publicar] - 2026-10-09 (auditoría 2)
+
+### Corregido
+- **Térmicas:** una zona ACPI sin lectura aparecía como «0 °C». Ahora solo cuentan lecturas plausibles.
+- **Winget:** sin actualizaciones disponibles, un código de salida distinto de cero se reportaba como fallo.
+- **Wi-Fi:** señal y canal de cada punto de acceso se asignaban por orden de línea. Ahora se leen por BSSID.
+- **Drivers:** un origen que falla ya no se presenta como «no se pudo consultar» si otro origen sí respondió.
+- **Historial:** la tendencia solo compara diagnósticos de la misma cobertura; cada entrada indica si fue completa o parcial.
+- **Limpieza:** cancelar a mitad de una fila deja la tabla igual que el disco; aviso cuando no hay categorías que analizar.
+- **Navegación:** pulsar un módulo durante otra operación ya no deja el ítem marcado.
+- **WHEA:** se guardan hasta 2.000 filas (antes hasta 50.000, unos 10 MB por diagnóstico archivado).
+- **Recursos:** los `Process` lanzados desde la interfaz se liberan.
+- **Textos:** los mensajes de punto de restauración ya no sugieren continuar sin él; el estado de ejecución tiene redacción correcta; la caché de Windows Update renombrada indica su ubicación y que puede borrarse; la instalación de drivers avisa que acepta licencias; corregida una frase de arranque y el encabezado «Nombre interno» de servicios.
+
+### Repositorio y calidad
+- Dejan de versionarse `sysdiag-1.0.0.zip` (66 MB) e `installer/Output/sysdiag-1.0.0.exe` (50 MB), que ya estaban excluidos por `.gitignore`. El historial no se reescribe.
+- Eliminados `OptimizeModule.ReadWlanAutoconfig` y `OptimizeModule.SaveState`, sin llamadores.
+- `validate_tests.ps1` sube el mínimo de pruebas de 80 a 113 (la suite auditada).
+- README actualizado con la estructura real y los módulos de Monitor de ping, Historial, Perfiles y Ajustes.
+
+### Pruebas
+- Nuevo `AuditRound2RegressionTests` (12 casos): temperatura ACPI, detección de catálogo vacío de winget, parser Wi-Fi por BSSID y tendencia por cobertura.
+
+See `docs/AUDITORIA_2026-10-09.md` para el detalle, la evidencia de CI y los pendientes.
+
 ## [5.7.1] - 2026-10-02 (rama de auditoría; no publicado)
 
 ### Seguridad y correcciones

@@ -283,7 +283,7 @@ public partial class MainWindow : Window
     // oficiales. La app nunca descarga ni ejecuta un instalador de driver.
     private void AbrirWindowsUpdate_Click(object sender, RoutedEventArgs e)
     {
-        try { Process.Start(new ProcessStartInfo("ms-settings:windowsupdate-optionalupdates") { UseShellExecute = true }); }
+        try { Process.Start(new ProcessStartInfo("ms-settings:windowsupdate-optionalupdates") { UseShellExecute = true })?.Dispose(); }
         catch (Exception ex) { Dialog.Error("No se pudo abrir Windows Update", ex.Message); }
     }
 
@@ -438,7 +438,7 @@ public partial class MainWindow : Window
             // manda al portal genérico de soporte que le corresponde.
             string equipo = _vm.Report?.Equipo ?? "";
             string url = DriverVerifier.SitioOficial(equipo);
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();
         }
         catch (Exception ex) { Dialog.Error("No se pudo abrir el navegador", ex.Message); }
     }
@@ -549,7 +549,7 @@ public partial class MainWindow : Window
         try
         {
             string archivo = ReportBuilder.Build(_vm.Report);
-            Process.Start(new ProcessStartInfo(archivo) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(archivo) { UseShellExecute = true })?.Dispose();
         }
         catch (Exception ex)
         {
@@ -596,7 +596,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            Process.Start(new ProcessStartInfo(AppEnv.OutputPath) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(AppEnv.OutputPath) { UseShellExecute = true })?.Dispose();
         }
         catch (Exception ex)
         {

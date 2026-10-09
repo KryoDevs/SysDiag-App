@@ -50,8 +50,9 @@ SysDiag/
 │  ├─ Network/                   NetworkModule (latencia, Wi-Fi, canales, traceroute)
 │  ├─ Storage/                   StorageModule (SMART), CleanupModule
 │  ├─ Security/                  SecurityModule (Defender, Firewall, BitLocker, TPM, Secure Boot, UAC)
-│  ├─ Drivers/                   DriverModule, DriverUpdateModule, DriverVerifier
-│  ├─ Windows/                   OptimizeModule, StartupModule, UpdateModule (winget)
+│  ├─ Drivers/                   DriverModule, DriverUpdateModule, DriverVerifier, AuthenticodeVerifier
+│  ├─ Windows/                   OptimizeModule, PowerSettings, OptimizationBackupStore, SecureBackupDirectory,
+│  │                            RestorePointModule, SettingsService, StartupModule, UpdateModule (winget)
 │  └─ Diagnostics/               HealthScore, Remediation, ReportBuilder, Exporter, StabilityModule
 │
 ├─ Services/                     Contrato hacia la UI. Namespace SysDiag.Services
@@ -70,7 +71,9 @@ SysDiag/
    ├─ MainWindow.xaml             Ventana con chrome propio
    ├─ MainViewModel.cs            Estado observable y orquestación de sesión
    ├─ Charts.cs / Converters.cs
-   ├─ CleanupWindow.xaml / OptimizeWindow.xaml / Dialog.xaml
+   ├─ Dialog.xaml                 Diálogos propios (no MessageBox)
+   ├─ CleanupWindow / OptimizeWindow / ProfilesWindow   acciones con confirmación
+   └─ HistoryWindow / SettingsWindow / PingMonitorWindow   historial, ajustes y monitor de latencia
 ```
 
 ## Módulos
@@ -86,6 +89,10 @@ SysDiag/
 | Drivers | Inventario de drivers con antigüedad, foco en almacenamiento/chipset/red | no |
 | Optimizar | DNS, reparación de WLAN, plan de energía, reinicio de pila TCP/IP | sí |
 | Restaurar | Revierte los valores capturados antes del primer ajuste pendiente; no TCP/IP/IP fija/VPN | sí |
+| Monitor de ping | Latencia en vivo hacia el router o internet: último valor, promedio, máximo y pérdida | no |
+| Historial | Diagnósticos archivados con su puntaje y cobertura; la tendencia compara solo cobertura equivalente | no |
+| Perfiles | Combinaciones de optimización (universidad, trabajo, juego) con respaldo previo | sí |
+| Ajustes | Muestreo, ventanas de eventos, retención de historial y registros | no |
 
 ### Sobre el módulo de Drivers
 
@@ -122,7 +129,7 @@ ni se borran; revisar sus valores manualmente si se necesita recuperar aquel est
 
 - Windows compila la solución, ejecuta regresiones y conserva TRX. Se incluyen ramas
   `arena/**`; no se publica un release por trabajar en una rama.
-- `Tools/validate_tests.ps1` exige ≥80 pruebas, todas aprobadas y sin omisiones.
+- `Tools/validate_tests.ps1` exige ≥113 pruebas (el mínimo de la suite auditada), todas aprobadas y sin omisiones.
 - Headless está en la solución y comparte `ScanService`; `--self-test` usa un doble
   sintético explícito, nunca sustituye mediciones de un diagnóstico real.
 - `Tools/validate_release.ps1` arranca el **EXE publicado** con `--self-test` y comprueba

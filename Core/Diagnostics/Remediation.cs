@@ -167,7 +167,7 @@ public static class Remediation
                     return "Plan de energía en alto rendimiento. Se revierte desde «Restaurar estado».";
 
                 case "abrir-inicio":
-                    Process.Start(new ProcessStartInfo(AppEnv.SystemTool("taskmgr"), "/7 /startup") { UseShellExecute = true });
+                    Process.Start(new ProcessStartInfo(AppEnv.SystemTool("taskmgr"), "/7 /startup") { UseShellExecute = true })?.Dispose();
                     return "Administrador de tareas abierto en la pestaña Inicio.";
 
                 case "reset-wu":
@@ -181,7 +181,7 @@ public static class Remediation
                     // En consola visible y a propósito: la comprobación tarda
                     // varios minutos y conviene que el usuario vea el avance.
                     Process.Start(new ProcessStartInfo(AppEnv.SystemTool("sfc"), "/scannow")
-                    { UseShellExecute = true, Verb = "runas" });
+                    { UseShellExecute = true, Verb = "runas" })?.Dispose();
                     return "Comprobación de archivos de sistema lanzada en una consola aparte.";
 
                 default:
