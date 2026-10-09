@@ -47,6 +47,7 @@ Cada hallazgo tiene tratamiento en esta rama o una decisión explícita en la se
 | A21 | Baja | Umbral de pruebas de CI (80) muy por debajo de la suite (101 en la auditoría 1). | Umbral sube a 114 (ratchet). |
 | A23 | Media | Historial: cada corrida se archivaba con la cobertura acumulada del reporte fusionado. Un «Red» suelto hecho después de un diagnóstico completo se etiquetaba «diagnóstico completo» y se comparaba como tal. | Se archiva una copia (`ParaArchivo`) que declara solo los módulos medidos en esa corrida. Prueba. |
 | A24 | Baja | La ventana de historial leía todos los diagnósticos archivados en el hilo de la interfaz: con 500 entradas, la ventana tardaba en abrirse. | La lectura se hace en segundo plano (`Task.Run`) y las filas se construyen en el hilo de UI. |
+| A25 | Media | Ninguna ventana se construía en CI: un error de XAML o de code-behind solo aparecía al abrirla. | El autotest del EXE publicado construye las ocho ventanas (sin mostrarlas) antes de declarar OK. |
 | A22 | Media | El inventario se cachea 3 minutos y también incluía el espacio libre de los discos: un diagnóstico hecho tras limpiar mostraba el valor anterior y su aviso. | Los discos se leen en cada corrida; solo se cachea el inventario estático (`LeerDiscos`). |
 
 ## Decisiones (revisadas, no cambiadas)

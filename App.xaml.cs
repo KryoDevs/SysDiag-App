@@ -28,6 +28,16 @@ public partial class App : Application
                 var copy = JsonSerializer.Deserialize<DiagnosticReport>(JsonSerializer.Serialize(report));
                 if (copy?.Hallazgos.Count != 1 || HealthScore.Calcular(copy) != 95 || !Resources.Contains("BOk"))
                     throw new InvalidOperationException("Falló el autotest de reglas, JSON o recursos WPF.");
+                // Cada ventana se construye sin mostrarla: valida su XAML, sus recursos y su code-behind dentro del EXE
+                // publicado. Antes ninguna ventana se construía en CI, y un fallo solo aparecía al abrirla.
+                _ = new Ui.MainWindow();
+                _ = new Ui.HistoryWindow();
+                _ = new Ui.SettingsWindow();
+                _ = new Ui.ProfilesWindow();
+                _ = new Ui.OptimizeWindow();
+                _ = new Ui.CleanupWindow();
+                _ = new Ui.PingMonitorWindow();
+                _ = new Ui.DialogWindow();
                 Console.WriteLine($"SYSDIAG_SELF_TEST_OK {AppEnv.Version}");
                 Shutdown(0);
             }

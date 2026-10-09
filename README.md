@@ -133,7 +133,7 @@ ni se borran; revisar sus valores manualmente si se necesita recuperar aquel est
 - Headless está en la solución y comparte `ScanService`; `--self-test` usa un doble
   sintético explícito, nunca sustituye mediciones de un diagnóstico real.
 - `Tools/validate_release.ps1` arranca el **EXE publicado** con `--self-test` y comprueba
-  recursos WPF, reglas y JSON, sin modificar hardware, red ni ajustes.
+  recursos WPF, reglas y JSON, y construye todas las ventanas sin mostrarlas; no modifica hardware, red ni ajustes.
 - Solo `release.yml` gestiona etiquetas existentes coincidentes con la versión del
   proyecto. Después de tests y gates prepara ZIP/checksums y crea un **borrador**.
 - `Tools/build_installer.ps1` entrega la versión del proyecto a Inno Setup 6; la firma

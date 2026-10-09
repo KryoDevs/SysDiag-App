@@ -24,6 +24,7 @@ All notable changes to this project will be documented in this file.
 - README actualizado con la estructura real y los módulos de Monitor de ping, Historial, Perfiles y Ajustes.
 
 ### Pruebas
+- El autotest del EXE publicado (`--self-test`) construye las ocho ventanas, para detectar errores de XAML o de code-behind antes de que el usuario las abra.
 - Nuevo `AuditRound2RegressionTests` (13 casos): temperatura ACPI, detección de catálogo vacío de winget, parser Wi-Fi por BSSID y tendencia por cobertura.
 
 See `docs/AUDITORIA_2026-10-09.md` para el detalle, la evidencia de CI y los pendientes.
