@@ -19,7 +19,6 @@ public static class SystemModule
         public DateTime Momento;
         public string Equipo;
         public List<KeyValueRow> Info;
-        public List<DiskRow> Discos;
         public List<MemoryRow> Memoria;
         public List<Finding> Hallazgos;
     }
@@ -34,13 +33,45 @@ public static class SystemModule
         lock (Gate) RunCore(r, forzar, token);
     }
 
+    /// <summary>
+    /// Espacio libre de cada unidad. No se cachea: cambia al limpiar, descargar o instalar, así que un
+    /// diagnóstico posterior no debe mostrar el valor de hace minutos.
+    /// </summary>
+    private static void LeerDiscos(DiagnosticReport r, CancellationToken token)
+    {
+        var discos = new List<DiskRow>();
+        foreach (var d in Wmi.Query("SELECT * FROM Win32_LogicalDisk WHERE DriveType=3", token: token))
+        {
+            double size = Wmi.Num(d, "Size");
+            double free = Wmi.Num(d, "FreeSpace");
+            double pct = size > 0 ? Math.Round(free / size * 100, 1) : 0;
+            string unidad = Wmi.Str(d, "DeviceID");
+
+            discos.Add(new DiskRow
+            {
+                Unidad = unidad,
+                Etiqueta = Wmi.Str(d, "VolumeName"),
+                Tamano = AppEnv.FormatBytes(size),
+                Libre = AppEnv.FormatBytes(free),
+                LibrePct = pct
+            });
+
+            if (pct < 10)
+                r.Add(Severity.Bad, "Disco", $"La unidad {unidad} tiene solo {pct}% libre.",
+                    "Windows necesita espacio para el archivo de paginación y las actualizaciones. Libera espacio cuanto antes.", modulo: "equipo");
+            else if (pct < 20)
+                r.Add(Severity.Warn, "Disco", $"La unidad {unidad} tiene {pct}% libre.",
+                    "Conviene mantener al menos un 20% libre en el disco del sistema.", modulo: "equipo");
+        }
+        r.Discos = discos;
+    }
+
     private static void RunCore(DiagnosticReport r, bool forzar, CancellationToken token)
     {
         if (!forzar && _cache != null && DateTime.Now - _cache.Momento < Vigencia)
         {
             r.Equipo = _cache.Equipo;
             r.Sistema = new(_cache.Info);
-            r.Discos = new(_cache.Discos);
             r.Memoria = new(_cache.Memoria);
 
             // Copias, no las mismas instancias: quien las reciba les asigna
@@ -48,7 +79,9 @@ public static class SystemModule
             foreach (var f in _cache.Hallazgos)
                 r.Add(f.Severity, f.Area, f.Message, f.Action, f.AccionId, "equipo");
 
-            AppLog.Write("Inventario del equipo (en caché)", "STEP");
+            // El espacio libre cambia al limpiar o descargar: los discos se vuelven a leer en cada corrida.
+            LeerDiscos(r, token);
+            AppLog.Write("Inventario del equipo (en caché; discos leídos de nuevo)", "STEP");
             return;
         }
 
@@ -83,32 +116,7 @@ public static class SystemModule
 
         r.Sistema = info;
 
-        // ---- Discos --------------------------------------------------------
-        var discos = new List<DiskRow>();
-        foreach (var d in Wmi.Query("SELECT * FROM Win32_LogicalDisk WHERE DriveType=3", token: token))
-        {
-            double size = Wmi.Num(d, "Size");
-            double free = Wmi.Num(d, "FreeSpace");
-            double pct = size > 0 ? Math.Round(free / size * 100, 1) : 0;
-            string unidad = Wmi.Str(d, "DeviceID");
-
-            discos.Add(new DiskRow
-            {
-                Unidad = unidad,
-                Etiqueta = Wmi.Str(d, "VolumeName"),
-                Tamano = AppEnv.FormatBytes(size),
-                Libre = AppEnv.FormatBytes(free),
-                LibrePct = pct
-            });
-
-            if (pct < 10)
-                r.Add(Severity.Bad, "Disco", $"La unidad {unidad} tiene solo {pct}% libre.",
-                    "Windows necesita espacio para el archivo de paginación y las actualizaciones. Libera espacio cuanto antes.", modulo: "equipo");
-            else if (pct < 20)
-                r.Add(Severity.Warn, "Disco", $"La unidad {unidad} tiene {pct}% libre.",
-                    "Conviene mantener al menos un 20% libre en el disco del sistema.", modulo: "equipo");
-        }
-        r.Discos = discos;
+        LeerDiscos(r, token);
 
         // ---- Módulos de memoria -------------------------------------------
         var memoria = new List<MemoryRow>();
@@ -140,9 +148,9 @@ public static class SystemModule
             Momento = DateTime.Now,
             Equipo = r.Equipo,
             Info = info,
-            Discos = discos,
             Memoria = memoria,
-            Hallazgos = r.Hallazgos.Skip(hallazgosPrevios).ToList()
+            // Los hallazgos de disco se recalculan en cada corrida (LeerDiscos); aquí solo los estáticos.
+            Hallazgos = r.Hallazgos.Skip(hallazgosPrevios).Where(f => f.Area != "Disco").ToList()
         };
     }
 }
