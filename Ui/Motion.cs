@@ -293,8 +293,14 @@ public static class Motion
     /// Arranca una animación simple con retardo. Sin Storyboard: un solo
     /// animador por propiedad y por elemento basta, y así no hay que resolver
     /// nombres ni ámbitos para coordinar dos tramos.
+    ///
+    /// El destino es <see cref="IAnimatable"/> y no <c>Animatable</c>: la
+    /// opacidad se anima sobre un <c>UIElement</c> (un Grid, un Border), que
+    /// implementa la interfaz sin derivar de esa clase, y el desplazamiento
+    /// sobre un <c>TranslateTransform</c>, que sí deriva. Con <c>Animatable</c>
+    /// la mitad de las llamadas no compila.
     /// </summary>
-    private static DoubleAnimation Transicion(Animatable target, DependencyProperty propiedad,
+    private static DoubleAnimation Transicion(IAnimatable target, DependencyProperty propiedad,
         double desde, double hasta, TimeSpan duracion, TimeSpan retardo)
     {
         var anim = new DoubleAnimation(desde, hasta, duracion)
