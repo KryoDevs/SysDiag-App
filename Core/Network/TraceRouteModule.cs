@@ -48,6 +48,11 @@ public static class TraceMath
         // Con una sola muestra no hay variabilidad posible: reportar jitter 0
         // daría a entender que el enlace es estable, cuando lo que pasa es que
         // no alcanzó la medición para saberlo.
+        //
+        // Se usa el mismo estimador que la tabla de latencia (RFC 3550) para que
+        // el jitter de un salto sea comparable con el de una medición normal.
+        // Es suavizado, así que con pocas muestras queda por debajo del valor
+        // real: el umbral de acá es un piso, no una medida fina.
         double jitter = respondidos > 1 ? Stats.JitterRfc(muestras) : 0;
 
         Severity estado;

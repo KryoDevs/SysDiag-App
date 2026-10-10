@@ -103,7 +103,11 @@ public class TraceRouteTests
     [Fact]
     public void UnJitterAlto_seMarcaComoColaYNoComoDistancia()
     {
-        var fila = TraceMath.Calcular(2, "a", new List<double> { 10, 100, 10, 100 }, 4);
+        // Diez muestras, que es lo que manda la medición por defecto: el jitter
+        // de RFC 3550 es un estimador suavizado y con cuatro muestras todavía
+        // está muy por debajo del valor real.
+        var alternado = new List<double> { 10, 100, 10, 100, 10, 100, 10, 100, 10, 100 };
+        var fila = TraceMath.Calcular(2, "a", alternado, alternado.Count);
 
         Assert.True(fila.Jitter > TraceMath.JitterConGestion);
         Assert.Contains("cola", fila.Nota);
@@ -199,8 +203,8 @@ public class TraceRouteTests
         var salto = TraceMath.SaltoMasLento(ruta);
 
         Assert.NotNull(salto);
-        Assert.Equal(3, salto.Value.Hacia);
-        Assert.Equal(60, salto.Value.Suma);
+        Assert.Equal(3, salto!.Value.Hacia);
+        Assert.Equal(60, salto!.Value.Suma);
     }
 
     [Fact]
