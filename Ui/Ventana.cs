@@ -48,20 +48,37 @@ public static class Ventana
         // tamaño. El piso de la comparación es el mínimo declarado o 0.
         double pisoAlto = double.IsNaN(window.MinHeight) ? 0 : window.MinHeight;
         double pisoAncho = double.IsNaN(window.MinWidth) ? 0 : window.MinWidth;
-        double disponibleAlto = Math.Max(pisoAlto, area.Height - Margen);
-        double disponibleAncho = Math.Max(pisoAncho, area.Width - Margen);
+        double disponibleAlto = area.Height - Margen;
+        double disponibleAncho = area.Width - Margen;
 
-        // NaN = "no lo fijé", y no hay nada que recortar.
-        if (!double.IsNaN(window.MaxHeight) && window.MaxHeight > disponibleAlto)
-            window.MaxHeight = disponibleAlto;
+        window.MaxHeight = Recortar(window.MaxHeight, pisoAlto, disponibleAlto);
+        window.Height = Recortar(window.Height, pisoAlto, disponibleAlto);
+        window.MaxWidth = Recortar(window.MaxWidth, pisoAncho, disponibleAncho);
+        window.Width = Recortar(window.Width, pisoAncho, disponibleAncho);
+    }
 
-        if (!double.IsNaN(window.Height) && window.Height > disponibleAlto)
-            window.Height = disponibleAlto;
-
-        if (!double.IsNaN(window.MaxWidth) && window.MaxWidth > disponibleAncho)
-            window.MaxWidth = disponibleAncho;
-
-        if (!double.IsNaN(window.Width) && window.Width > disponibleAncho)
-            window.Width = disponibleAncho;
+    /// <summary>
+    /// La regla, separada de la ventana para que se pueda probar sin WPF: el
+    /// valor declarado se recorta al espacio disponible, pero nunca por debajo del
+    /// mínimo de la propia ventana. Que el mínimo gane es deliberado —una ventana
+    /// que no cabe desborda el monitor, y eso es peor que un pie que asoma: el
+    /// escritorio se puede configurar, el mínimo de una app no se puede leer.
+    /// </summary>
+    /// <param name="declarado">Lo que dice el XAML. <c>double.NaN</c> —y
+    /// <see cref="double.PositiveInfinity"/> en los <c>Max*</c>— significa «no lo fijé».</param>
+    /// <param name="piso">El mínimo declarado de la ventana, o 0 si no tiene.</param>
+    /// <param name="disponible">Área de trabajo menos el margen de seguridad.</param>
+    public static double Recortar(double declarado, double piso, double disponible)
+    {
+        // Dos centinelas, no uno: Height/Width/Min* sin declarar son NaN, pero el
+        // valor por defecto de MaxHeight y MaxWidth es +∞. Comprobar solo el NaN
+        // —que es lo que hacía esta función antes de separarla— recortaba el
+        // MaxHeight de TODAS las ventanas al área de trabajo aunque el XAML no
+        // hubiera declarado ninguno: en la práctica les quitaba el máximo
+        // efectivo y, en una segunda pantalla más grande, las dejaba sin poder
+        // aprovecharla.
+        if (double.IsNaN(declarado) || double.IsPositiveInfinity(declarado)) return declarado;
+        double tope = Math.Max(piso, disponible);
+        return declarado > tope ? tope : declarado;
     }
 }

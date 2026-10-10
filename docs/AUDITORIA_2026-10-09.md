@@ -95,3 +95,14 @@ permitida). La evidencia se toma de las conclusiones por paso y de las anotacion
 - Firma de código del EXE y prueba real del instalador Inno Setup: siguen fuera de CI (pendiente desde la auditoría 1).
 - Aceptación de licencias de drivers (A09): hoy se acepta al confirmar, con aviso. Conviene decidir si debe pedirse
   licencia por paquete.
+
+---
+
+## Correcciones posteriores al informe
+
+- **A25 decía «las ocho ventanas»; son diez.** El `--self-test` construye hoy
+  `MainWindow`, `HistoryWindow`, `SettingsWindow`, `ProfilesWindow`, `OptimizeWindow`,
+  `CleanupWindow`, `PingMonitorWindow`, `DialogWindow`, `ActivationWindow` y
+  `TweaksWindow`. Al momento de la auditoría el número era correcto: la cuenta subió
+  con las ventanas propias del rediseño. Se anota acá en lugar de editar la tabla para
+  que el informe siga diciendo lo que se vio entonces.

@@ -30,6 +30,22 @@ All notable changes to this project will be documented in this file.
   de *ms-settings*, que es el API correcto ahí.
 
 ### Funcionalidad
+- **Un módulo que tarda se nota**. El rótulo del pie pasa a `2 de 5 · Red y latencia ·
+  14 s`, y a los 90 s del paso se anota una vez en el registro (`el módulo «Drivers»
+  lleva 92 s.`). Con WMI colgado, «midiendo» y «no va a terminar» eran
+  indistinguibles: ahora el tiempo transcurrido está en la pantalla y en el log, que es
+  lo que hace falta para decidir si esperar o reiniciar. El reloj es un `DispatcherTimer`
+  que solo existe durante la corrida y se apaga en el `finally` y en `Dispose`: no suma
+  un temporizador permanente al de la cabecera.
+- **La regla de recorte de ventanas es una función y tiene pruebas**:
+  `Ventana.Recortar(declarado, piso, disponible)` separa la aritmética del contacto con
+  WPF, y `WindowSizingTests` (8) fija los cuatro casos que importan —lo que cabe no se
+  toca; el `NaN` de una ventana con `SizeToContent` no se convierte en número; el mínimo
+  declarado le gana al área disponible; y un área inválida no deja la ventana en 0, que
+  lo evita la salida temprana de `AjustarAPantalla`, no el recorte—). Y al separarla
+  salió a la vista un defecto que estaba dentro del propio arreglo: <c>MaxHeight</c> sin
+  declarar es <c>+∞</c>, no <c>NaN</c>, así que comprobar solo el <c>NaN</c> recortaba el
+  máximo de las nueve ventanas que no declaran ninguno. Se trata a los dos centinelas.
 - **La barra del pie ahora dice cuánto falta.** Era indeterminada incluso cuando
   el propio `MainViewModel` tiene la lista de pasos: ahora muestra `3 de 5 · Red y
   latencia` y rellena la barra con el conteo real. Sigue indeterminada (y el rótulo
@@ -112,10 +128,22 @@ All notable changes to this project will be documented in this file.
 
 ### Herramientas
 - `Tools/validate_xaml.ps1`: bien formado, resolución de `{StaticResource}` y
-  ámbito de cada `TargetName` dentro de su plantilla. Cubre el hueco que deja
-  tocar plantillas: los `Storyboard` de un trigger solo se materializan al pasar
-  el cursor, y el autotest del EXE no los mira. Entra en `build.yml` como
-  advertencia (`continue-on-error`) hasta que tenga corridas encima.
+  ámbito de cada `TargetName` dentro de su plantilla. Cubre el hueco que deja tocar
+  plantillas: los `Storyboard` de un trigger solo se materializan al pasar el cursor, y
+  el autotest del EXE no los mira. Pasó de advertencia a **puerta** en `build.yml` después
+  de dos corridas verdes sobre el tema reescrito.
+- El validador suma dos reglas que **WPF no avisa nunca**: (4) la propiedad animada tiene
+  que existir en el tipo del elemento destino —animar `ScaleX` sobre un
+  `TranslateTransform`, u `Opacity` sobre un `ScaleTransform` o sobre un pincel, no lanza
+  excepción: simplemente no anima—, y (5) un `RepeatBehavior="Forever"` nacido en
+  `Trigger.EnterActions` tiene que tener su `StopStoryboard` con nombre. Se escribieron
+  contra una réplica en Python y se verificó por separado que no dicen nada sobre el XAML
+  actual y que sí disparan sobre tres errores sembrados.
+- La maqueta `docs/preview/index.html` vuelve a decir la verdad: adopta `#808CC2`, los
+  tres tiempos del sistema de movimiento como variables, transición en los hovers que no
+  tenían, elevación en las tarjetas y el latido con curva en vez de rampa lineal.
+- `docs/AUDITORIA_2026-10-09.md` lleva una nota de corrección: A25 decía «ocho ventanas»
+  y el `--self-test` construye diez.
 
 ## [Sin publicar] - 2026-10-10 (secciones propias, licencia y ajustes de Windows)
 

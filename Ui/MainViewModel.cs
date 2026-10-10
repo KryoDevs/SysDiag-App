@@ -7,8 +7,10 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Threading;
 using SysDiag.Core;
 using SysDiag.Core.Diagnostics;
 using SysDiag.Core.Drivers;
@@ -411,6 +413,56 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         set { Set(ref _avadeModulo, value); OnPropertyChanged(nameof(AvadeTexto)); }
     }
 
+    // El cronómetro del paso. Existe por una razón concreta: con un módulo de WMI
+    // colgado, «midiendo» y «no va a terminar» se ven idénticos, y esa es la
+    // diferencia entre esperar y reiniciar. Un DispatcherTimer de un segundo que
+    // solo vive durante la corrida no cuesta nada cuando la app está quieta —que es
+    // casi siempre— y no suma un reloj permanente al de la cabecera.
+    private DispatcherTimer _cronometro;
+    private Stopwatch _relojPaso;
+    private int _segundosPaso;
+
+    /// <summary>Segundos que lleva el módulo actual midiendo.</summary>
+    public int SegundosPaso
+    {
+        get => _segundosPaso;
+        private set
+        {
+            Set(ref _segundosPaso, value);
+            OnPropertyChanged(nameof(AvadeTexto));
+        }
+    }
+
+    private void IniciarCronometro()
+    {
+        DetenerCronometro();
+        _relojPaso = Stopwatch.StartNew();
+        SegundosPaso = 0;
+        _cronometro = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _cronometro.Tick += (_, _) =>
+        {
+            if (_disposed || _relojPaso is null) return;
+            int antes = SegundosPaso;
+            SegundosPaso = (int)_relojPaso.Elapsed.TotalSeconds;
+            // Una sola vez, en el umbral: si el usuario tarda más, el log no tiene
+            // que llenarse de líneas repetidas. Con el módulo colgado, esto es lo
+            // que después permite decir dónde se detuvo la corrida.
+            if (antes < SegundosLentos && SegundosPaso >= SegundosLentos)
+                AppLog.Write($"{Titulo}: el módulo «{AvadeModulo}» lleva {SegundosPaso} s.", "WARN");
+        };
+        _cronometro.Start();
+    }
+
+    private void DetenerCronometro()
+    {
+        _cronometro?.Stop();
+        _cronometro = null;
+        _relojPaso = null;
+    }
+
+    /// <summary>Umbral a partir del cual se anota en el registro que un paso tarda.</summary>
+    private const int SegundosLentos = 90;
+
     /// <summary>
     /// Rótulo listo para pintar. Se arma acá y no con un MultiBinding +
     /// conversor en el XAML porque la frase tiene una coma, un «de» y un vacío
@@ -422,8 +474,15 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         0 => "",
         // Con un solo paso no hay fracción que informar: decir «0 de 1» es
         // describir un número que no significa nada. Ahí lo útil es el nombre.
-        1 => $"midiendo: {AvadeModulo}",
-        _ => $"{_avadeHechos} de {_avadeTotal} · {AvadeModulo}"
+        1 => $"midiendo: {NombreConTiempo(AvadeModulo)}",
+        _ => $"{_avadeHechos} de {_avadeTotal} · {NombreConTiempo(AvadeModulo)}"
+    };
+
+    private string NombreConTiempo(string modulo) => _segundosPaso switch
+    {
+        < 2 => modulo,
+        < SegundosLentos => $"{modulo} · {_segundosPaso} s",
+        _ => $"{modulo} · {_segundosPaso} s (lento)"
     };
 
     public bool Libre => !_ocupado;
@@ -644,6 +703,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         AvadeHechos = 0;
         AvadeIndeterminado = pasos.Length < 2;
         AvadeModulo = NombreModulo(pasos[0].Clave);
+        IniciarCronometro();
         Ocupado = true;
         Titulo = titulo;
         Subtitulo = permiteCancelar ? "Midiendo. El detalle va apareciendo en Registro."
@@ -714,6 +774,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         finally
         {
             if (diagnostic) Report.Fin = DateTime.Now;
+            DetenerCronometro();
             _cts.Dispose();
             _cts = null;
             Ocupado = false;
@@ -1124,6 +1185,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        DetenerCronometro();
         AppLog.Line -= OnLog;
         Core.Licensing.LicenseService.EstadoCambiado -= RefrescarLicencia;
         _cts?.Cancel();
