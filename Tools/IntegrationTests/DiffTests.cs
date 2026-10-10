@@ -139,7 +139,7 @@ public class DiffTests
         var diff = DiffEngine.Comparar(parcial, completo);
 
         Assert.False(diff.MismaCobertura);
-        Assert.Contains("red", diff.CoberturaAnterior);
+        Assert.Contains("Red", diff.CoberturaAnterior);
         Assert.NotEqual(diff.CoberturaAnterior, diff.CoberturaActual);
     }
 
@@ -241,7 +241,7 @@ public class DiffTests
         var diff = DiffEngine.Comparar(antes, despues);
 
         Assert.Contains("1 empeoró", diff.Resumen());
-        Assert.Contains("1 hallazgo(s) nuevo(s)", diff.Resumen());
+        Assert.Contains("1 hallazgo nuevo", diff.Resumen());
         Assert.Equal(-20, diff.DeltaPuntaje);
     }
 }

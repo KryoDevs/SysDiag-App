@@ -92,12 +92,20 @@ public sealed class ReportDiff
     public string Resumen()
     {
         var partes = new List<string>();
-        if (Nuevos.Count > 0) partes.Add($"{Nuevos.Count} hallazgo(s) nuevo(s)");
-        if (Empeoraron.Count > 0) partes.Add($"{Empeoraron.Count} empeoró/aron");
-        if (Resueltos.Count > 0) partes.Add($"{Resueltos.Count} resuelto(s)");
-        if (Mejoraron.Count > 0) partes.Add($"{Mejoraron.Count} mejoró/aron");
+        if (Nuevos.Count > 0) partes.Add($"{Nuevos.Count} {Plural(Nuevos.Count, "hallazgo nuevo", "hallazgos nuevos")}");
+        if (Empeoraron.Count > 0) partes.Add($"{Empeoraron.Count} {Plural(Empeoraron.Count, "empeoró", "empeoraron")}");
+        if (Resueltos.Count > 0) partes.Add($"{Resueltos.Count} {Plural(Resueltos.Count, "resuelto", "resueltos")}");
+        if (Mejoraron.Count > 0) partes.Add($"{Mejoraron.Count} {Plural(Mejoraron.Count, "mejoró", "mejoraron")}");
         if (partes.Count == 0) return "Sin cambios en los hallazgos entre las dos fechas.";
         return string.Join(" · ", partes) + ".";
+    }
+
+    /// <summary>
+    /// Los plurales van acá y no en la plantilla: «1 hallazgo(s) nuevo(s)» se
+    /// lee como texto sin terminar, y es la primera línea que mira el usuario.
+    /// </summary>
+    private static string Plural(int n, string singular, string plural) =>
+        n == 1 ? singular : plural;
     }
 
     public string PuntajeTexto()
@@ -142,10 +150,12 @@ public static class DiffEngine
             }
 
             var comparado = Convertir(f, previo.Severity);
-            // Severity.Bad = 0, Warn = 1, Ok = 2 en el enum: el orden del enum
-            // ya es «de peor a mejor», así que compararlos es directo.
-            if (f.Severity < previo.Severity) empeoraron.Add(comparado);
-            else if (f.Severity > previo.Severity) mejoraron.Add(comparado);
+            // Severity es Ok = 0, Warn = 1, Bad = 2: crece con la gravedad, así
+            // que subir es empeorar. Conviene no comparar por nombre ni armar
+            // una tabla de equivalencias: si mañana se agrega un nivel, el orden
+            // del enum sigue diciendo la verdad y esto no hay que tocarlo.
+            if (f.Severity > previo.Severity) empeoraron.Add(comparado);
+            else if (f.Severity < previo.Severity) mejoraron.Add(comparado);
             else iguales.Add(comparado);
         }
 
@@ -197,7 +207,9 @@ public static class DiffEngine
     };
 
     private static List<HallazgoComparado> Ordenar(List<HallazgoComparado> lista) =>
-        lista.OrderBy(x => (int)x.Severity)
+        // Descendente: Severity crece con la gravedad (Ok=0, Warn=1, Bad=2), así
+        // que lo peor queda primero.
+        lista.OrderByDescending(x => (int)x.Severity)
              .ThenBy(x => x.Area, StringComparer.CurrentCultureIgnoreCase)
              .ToList();
 
