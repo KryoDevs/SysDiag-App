@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 
-namespace SysDiag.Diagnostics;
+namespace SysDiag.Core.Diagnostics;
 
 /// <summary>
 /// Presupuesto de medición propio: cuánta CPU y cuánta memoria costó la
