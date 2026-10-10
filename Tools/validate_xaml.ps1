@@ -168,6 +168,7 @@ $origenesDatos = @{
     'HistoryWindow.xaml' = 'Ui\HistoryWindow.xaml.cs'
     'SmartWindow.xaml'    = 'Ui\SmartWindow.xaml.cs'
     'ConsumoWindow.xaml'  = 'Ui\ConsumoWindow.xaml.cs'
+    'TrazaWindow.xaml'    = 'Ui\TrazaWindow.xaml.cs'
 }
 
 # Nombres que se enlazan y no son miembros del ViewModel: son propiedades de

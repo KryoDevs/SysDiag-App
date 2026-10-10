@@ -47,6 +47,7 @@ public partial class App : Application
                 _ = new Ui.CompararWindow();
                 _ = new Ui.SmartWindow();
                 _ = new Ui.ConsumoWindow();
+                _ = new Ui.TrazaWindow();
                 Console.WriteLine($"SYSDIAG_SELF_TEST_OK {AppEnv.Version}");
                 Shutdown(0);
             }

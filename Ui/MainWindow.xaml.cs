@@ -248,6 +248,10 @@ public partial class MainWindow : Window
                 new HistoryWindow { Owner = this }.ShowDialog();
                 break;
 
+            case "traza":
+                new TrazaWindow { Owner = this }.ShowDialog();
+                break;
+
             case "ping-monitor":
                 new PingMonitorWindow { Owner = this }.ShowDialog();
                 break;

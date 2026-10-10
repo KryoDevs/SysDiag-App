@@ -148,6 +148,12 @@
                     <TextBlock Text="Red y latencia" Style="{StaticResource NavLabel}"/>
                   </StackPanel>
                 </ListBoxItem>
+                <ListBoxItem Tag="traza" ToolTip="Pérdida y jitter por salto: localiza en qué tramo se pierden los paquetes">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE81E;" Style="{StaticResource NavIcon}"/>
+                    <TextBlock Text="Pérdida por salto" Style="{StaticResource NavLabel}"/>
+                  </StackPanel>
+                </ListBoxItem>
                 <ListBoxItem Tag="ping-monitor" ToolTip="Ping cada segundo en vivo, mientras la ventana esté abierta">
                   <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE9D9;" Style="{StaticResource NavIcon}"/>
