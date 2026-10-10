@@ -67,8 +67,8 @@ SysDiag/
 │  └─ CpuRules.cs, MemoryRules.cs Ejemplos reales, ya conectados (ver nota abajo)
 │
 └─ Ui/                            Capa visual en WPF
-   ├─ Theme.xaml                  Tokens de color y tipografía, plantillas de control
-   ├─ MainWindow.xaml             Ventana con chrome propio
+   ├─ Theme.xaml                  Sistema de diseño: paleta, tipografía, escalas y plantillas
+   ├─ MainWindow.xaml             Barra superior + rail de navegación y cuatro vistas
    ├─ MainViewModel.cs            Estado observable y orquestación de sesión
    ├─ Charts.cs / Converters.cs
    ├─ Dialog.xaml                 Diálogos propios (no MessageBox)
@@ -200,18 +200,29 @@ medición y presentación fue justamente lo que la hizo barata.
 
 Decisiones de diseño:
 
-- **Paleta azul-pizarra**, no negro puro, con acento índigo `#6C7BF7`. La profundidad
-  viene de la elevación de superficie, no de bordes marcados.
-- **Tres roles tipográficos**: Bahnschrift (un DIN, la letra del dibujo técnico) para
-  cifras y rótulos, Segoe UI Variable para texto corrido, y Cascadia Mono con cifras
-  tabulares para todo dato numérico, así las columnas no bailan.
-- **La regla de escala**: cada métrica del Resumen lleva debajo una serie de marcas que
-  se llenan según su magnitud, como la escala de un instrumento. Es el elemento que da
-  identidad a la interfaz y codifica lo que la aplicación hace: medir.
-- **Barra de título propia**: la del sistema no se puede tematizar.
+- **Paleta «medianoche»**: azul `#0B1020` de base, violeta `#8B7CFF` como acento de
+  marca y cian `#38D6F0` como acento secundario. El cian es el color del logo y se
+  reserva para lo que está vivo en ese instante: operación en curso, traza del
+  monitor de ping, puntos del gráfico de evolución. La profundidad la da la
+  elevación de la superficie, no el grosor del borde.
+- **Un solo acento por pantalla.** El color semántico (verde, ámbar, rojo) califica
+  datos y nunca decora: si todo compite por atención, nada la recibe.
+- **Tres roles tipográficos**: Segoe UI Variable Display para titulares, Segoe UI
+  Variable Text para el cuerpo, y Cascadia Mono con cifras tabulares para todo dato
+  numérico, así las columnas no bailan al actualizarse.
+- **La regla de escala**: cada métrica del Resumen lleva debajo una serie de marcas
+  que se llenan según su magnitud, como la escala de un instrumento. Es el elemento
+  que da identidad a la interfaz y codifica lo que la aplicación hace: medir.
+- **Barra de título propia**: la del sistema no se puede tematizar. Todas las
+  ventanas, incluidas las secundarias, llevan la marca.
 - **Diálogos propios**: `MessageBox` se dibuja en claro y rompe el conjunto.
-- **La navegación es una lista con selección**, no botones sueltos: el módulo activo
-  queda marcado sin estado que sincronizar a mano.
+- **Navegación en rail con la acción principal separada**: el diagnóstico completo
+  es un botón arriba porque es lo que se hace al abrir la aplicación; el resto son
+  módulos sueltos agrupados por lo que hacen, dentro de una lista con selección
+  (el módulo activo queda marcado sin estado que sincronizar a mano).
+
+El sistema completo —paleta, escalas, sombras, plantillas de control y reglas de
+uso del color— está documentado en `docs/DISENO.md`.
 
 ## Decisiones técnicas
 

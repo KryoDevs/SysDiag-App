@@ -325,11 +325,20 @@
                       <!-- Anillo de progreso: un arco trazado con la geometría
                            que calcula ScoreArcConverter, sobre un aro de fondo
                            que marca la escala completa. El número va centrado
-                           adentro. -->
+                           adentro.
+
+                           Las medidas están atadas a las del convertidor: el
+                           arco se calcula en un lienzo de 120x120 con centro
+                           en (60,60) y radio 50. El aro de fondo tiene que
+                           medir 100 (diámetro de la línea media, no del
+                           borde) para que ambos compartan radio, y el Path
+                           mantiene sus 120 y se centra: si se agranda, el
+                           arco se dibuja descentrado respecto del aro. -->
                       <Grid Width="132" Height="132">
-                        <Ellipse Width="112" Height="112" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        <Ellipse Width="100" Height="100" HorizontalAlignment="Center" VerticalAlignment="Center"
                                  Stroke="{StaticResource BStrokeSoft}" StrokeThickness="11"/>
-                        <Path Width="132" Height="132" Stretch="None"
+                        <Path Width="120" Height="120" Stretch="None"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
                               Data="{Binding Puntaje, Converter={StaticResource ScoreArc}}"
                               Stroke="{Binding PuntajeBrush}" StrokeThickness="11"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
@@ -548,7 +557,7 @@
                 <Border Background="{StaticResource BSurface}" Padding="26,22"
                         Visibility="{Binding SinHallazgos, Converter={StaticResource BoolVis}}">
                   <TextBlock Style="{StaticResource Dim}" TextAlignment="Center" TextWrapping="Wrap"
-                             Text="Sin hallazgos todavía. Corre un módulo del panel izquierdo: los hallazgos aparecen aquí con su recomendación."/>
+                             Text="Sin hallazgos todavía. Pulsa «Diagnóstico completo» o elige un módulo del panel izquierdo: los hallazgos aparecen aquí con su recomendación."/>
                 </Border>
               </Grid>
             </Border>
@@ -653,6 +662,17 @@
               <Grid>
                 <DataGrid x:Name="Grid" ItemsSource="{Binding FilasTabla}"
                           AutoGeneratingColumn="Grid_AutoGeneratingColumn"/>
+
+                <Border Background="{StaticResource BBase}" Padding="30,28"
+                        Visibility="{Binding SinTablas, Converter={StaticResource BoolVis}}">
+                  <StackPanel MaxWidth="480" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="Sin tablas que mostrar" Style="{StaticResource H2}"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Style="{StaticResource Dim}" Margin="0,10,0,0" TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               Text="Pulsa «Diagnóstico completo» o elige un módulo del panel izquierdo: cada uno llena esta vista con sus propias tablas."/>
+                  </StackPanel>
+                </Border>
                 <Border Visibility="{Binding AvisoDrivers}" Background="{StaticResource BSurface}"
                         Padding="30,26" VerticalAlignment="Top" Margin="0,30,0,0">
                   <StackPanel MaxWidth="620" HorizontalAlignment="Center">

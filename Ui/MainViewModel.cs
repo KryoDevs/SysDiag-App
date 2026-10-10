@@ -166,7 +166,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
     }
 
     public string TextoVacio => AppEnv.IsAdmin
-        ? "Elige un módulo del panel izquierdo. Si es la primera vez, «Diagnóstico completo» recopila red, rendimiento, térmicas, almacenamiento y estabilidad en una sola pasada."
+        ? "Pulsa «Diagnóstico completo» para recopilar red, rendimiento, térmicas, almacenamiento y estabilidad en una sola pasada, o elige un módulo del panel izquierdo para medir una sola parte."
         : "Todavía no hay mediciones útiles. Algunos módulos requieren permisos de administrador para consultar WMI, el registro y los contadores del sistema. Reinicia la app como administrador para completar el diagnóstico.";
 
     private Finding _hallazgoSel;
@@ -694,7 +694,16 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         TablaSeleccionada = previa != null && Tablas.Contains(previa)
             ? previa
             : Tablas.FirstOrDefault();
+
+        OnPropertyChanged(nameof(SinTablas));
     }
+
+    /// <summary>
+    /// La vista Datos se puede abrir antes de medir nada. Sin tablas, el
+    /// selector vacío y la rejilla en blanco parecen un fallo; este estado
+    /// lo distingue de «medí y no salió nada».
+    /// </summary>
+    public bool SinTablas => Tablas.Count == 0;
 
     private void Offer(string nombre, IList lista, bool aunqueVacia = false)
     {
