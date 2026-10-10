@@ -524,7 +524,7 @@ public partial class MainWindow : Window
             // y la cantidad, por si después hay que explicarlo.
             ActionLog.Registrar(OrigenCambio.Limpieza,
                 $"Archivos temporales borrados ({AppEnv.FormatBytes(total)})",
-                $"Categorías: {string.Join(", ", filas.Select(f => f.Categoria).Distinct())}." +
+                $"Categorías: {string.Join(", ", filas.Select(f => f.Ubicacion).Distinct())}." +
                 (CleanupModule.Opts.Papelera ? " Se vació la papelera de reciclaje." : ""),
                 reversible: false,
                 nota: "El borrado de archivos no se puede deshacer. El punto de restauración del sistema tampoco recupera archivos temporales.");
