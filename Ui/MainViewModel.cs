@@ -7,8 +7,10 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Threading;
 using SysDiag.Core;
 using SysDiag.Core.Diagnostics;
 using SysDiag.Core.Drivers;
@@ -374,6 +376,115 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
+    // ---- Avance de la corrida ---------------------------------------------
+    //
+    // La barra del pie era indeterminada incluso cuando este propio ViewModel
+    // tenía el conteo: RunCoreAsync recibe la lista de pasos. «3 de 5 · Red y
+    // latencia» no es una estimación, es el estado real, y cambia cómo se
+    // atraviesa una corrida de cuarenta segundos. Se conserva el modo
+    // indeterminado para las acciones de un solo paso (optimizar, limpiar),
+    // donde no hay nada que contar y un 0/1 quieto sería peor que la barra que
+    // respira: ahí la señal de vida la da el punto de la cabecera.
+
+    private int _avadeTotal;
+    private int _avadeHechos;
+    private bool _avadeIndeterminado;
+    private string _avadeModulo = "";
+
+    public int AvadeTotal
+    {
+        get => _avadeTotal;
+        set { Set(ref _avadeTotal, value); OnPropertyChanged(nameof(AvadeTexto)); }
+    }
+
+    public int AvadeHechos
+    {
+        get => _avadeHechos;
+        set { Set(ref _avadeHechos, value); OnPropertyChanged(nameof(AvadeTexto)); }
+    }
+
+    /// <summary>True cuando el conteo no dice nada (uno o cero pasos).</summary>
+    public bool AvadeIndeterminado { get => _avadeIndeterminado; set => Set(ref _avadeIndeterminado, value); }
+
+    /// <summary>Módulo que se está midiendo, para el rótulo del pie.</summary>
+    public string AvadeModulo
+    {
+        get => _avadeModulo;
+        set { Set(ref _avadeModulo, value); OnPropertyChanged(nameof(AvadeTexto)); }
+    }
+
+    // El cronómetro del paso. Existe por una razón concreta: con un módulo de WMI
+    // colgado, «midiendo» y «no va a terminar» se ven idénticos, y esa es la
+    // diferencia entre esperar y reiniciar. Un DispatcherTimer de un segundo que
+    // solo vive durante la corrida no cuesta nada cuando la app está quieta —que es
+    // casi siempre— y no suma un reloj permanente al de la cabecera.
+    private DispatcherTimer _cronometro;
+    private Stopwatch _relojPaso;
+    private int _segundosPaso;
+
+    /// <summary>Segundos que lleva el módulo actual midiendo.</summary>
+    public int SegundosPaso
+    {
+        get => _segundosPaso;
+        private set
+        {
+            Set(ref _segundosPaso, value);
+            OnPropertyChanged(nameof(AvadeTexto));
+        }
+    }
+
+    private void IniciarCronometro()
+    {
+        DetenerCronometro();
+        _relojPaso = Stopwatch.StartNew();
+        SegundosPaso = 0;
+        _cronometro = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _cronometro.Tick += (_, _) =>
+        {
+            if (_disposed || _relojPaso is null) return;
+            int antes = SegundosPaso;
+            SegundosPaso = (int)_relojPaso.Elapsed.TotalSeconds;
+            // Una sola vez, en el umbral: si el usuario tarda más, el log no tiene
+            // que llenarse de líneas repetidas. Con el módulo colgado, esto es lo
+            // que después permite decir dónde se detuvo la corrida.
+            if (antes < SegundosLentos && SegundosPaso >= SegundosLentos)
+                AppLog.Write($"{Titulo}: el módulo «{AvadeModulo}» lleva {SegundosPaso} s.", "WARN");
+        };
+        _cronometro.Start();
+    }
+
+    private void DetenerCronometro()
+    {
+        _cronometro?.Stop();
+        _cronometro = null;
+        _relojPaso = null;
+    }
+
+    /// <summary>Umbral a partir del cual se anota en el registro que un paso tarda.</summary>
+    private const int SegundosLentos = 90;
+
+    /// <summary>
+    /// Rótulo listo para pintar. Se arma acá y no con un MultiBinding +
+    /// conversor en el XAML porque la frase tiene una coma, un «de» y un vacío
+    /// cuando no hay corrida: tres reglas de formato no son un conversor, son un
+    /// conversor con estados.
+    /// </summary>
+    public string AvadeTexto => _avadeTotal switch
+    {
+        0 => "",
+        // Con un solo paso no hay fracción que informar: decir «0 de 1» es
+        // describir un número que no significa nada. Ahí lo útil es el nombre.
+        1 => $"midiendo: {NombreConTiempo(AvadeModulo)}",
+        _ => $"{_avadeHechos} de {_avadeTotal} · {NombreConTiempo(AvadeModulo)}"
+    };
+
+    private string NombreConTiempo(string modulo) => _segundosPaso switch
+    {
+        < 2 => modulo,
+        < SegundosLentos => $"{modulo} · {_segundosPaso} s",
+        _ => $"{modulo} · {_segundosPaso} s (lento)"
+    };
+
     public bool Libre => !_ocupado;
     public bool PuedeCancelar => _ocupado && _cancelable;
     public bool PuedeExportar => Libre && HayDatos;
@@ -585,6 +696,14 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         _cancelable = permiteCancelar;
         _moduloActivo = pasos.Length > 1 ? "completo" : pasos[0].Clave;
         SetContexto(_moduloActivo);
+        // El conteo se fija antes de hacer visible el pie y antes del primer
+        // await: en el orden contrario hay un cuadro en el que la barra ya está
+        // en pantalla con 0 de 0, y ese cuadro se lee como «no arrancó».
+        AvadeTotal = pasos.Length;
+        AvadeHechos = 0;
+        AvadeIndeterminado = pasos.Length < 2;
+        AvadeModulo = NombreModulo(pasos[0].Clave);
+        IniciarCronometro();
         Ocupado = true;
         Titulo = titulo;
         Subtitulo = permiteCancelar ? "Midiendo. El detalle va apareciendo en Registro."
@@ -601,7 +720,18 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         Wmi.ResetAccessState();
         try
         {
-            var services = pasos.Select(p => (IDiagnosticService)new DelegateDiagnosticService(p.Clave, p.Trabajo)).ToArray();
+            // El conteo se lleva acá y no dentro de ScanService a propósito: el
+            // runner compartido es el mismo del modo sin interfaz, que no tiene a
+            // quién informarle. Envolver el trabajo de cada paso en el envoltorio
+            // que la UI ya estaba construyendo deja el avance en la capa que lo
+            // consume y no cambia ninguna firma.
+            var services = pasos.Select(p => (IDiagnosticService)new DelegateDiagnosticService(p.Clave,
+                async (rep, tok) =>
+                {
+                    AvadeModulo = NombreModulo(p.Clave);
+                    await p.Trabajo(rep, tok);
+                    AvadeHechos++;
+                })).ToArray();
             Report = await _scan.EjecutarAsync(Report, services, _cts.Token);
             completed = true;
             if (diagnostic)
@@ -644,9 +774,17 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         finally
         {
             if (diagnostic) Report.Fin = DateTime.Now;
+            DetenerCronometro();
             _cts.Dispose();
             _cts = null;
             Ocupado = false;
+            // Se deja el último 5/5 en su sitio y la barra vuelve al modo
+            // indeterminado. NO se pone el total a 0: un ProgressBar calcula su
+            // relleno dividiendo por (Maximum - Minimum), y con 0/0 eso es un
+            // ancho NaN en la próxima pasada de layout —que sí ocurre, porque
+            // Oculto se mide y se ordena igual. La limpieza del conteo sucede al
+            // arrancar la corrida siguiente, que es cuando importa.
+            AvadeIndeterminado = true;
             Refresh(archived);
         }
         return completed;
@@ -1047,6 +1185,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        DetenerCronometro();
         AppLog.Line -= OnLog;
         Core.Licensing.LicenseService.EstadoCambiado -= RefrescarLicencia;
         _cts?.Cancel();
@@ -1064,6 +1203,12 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         campo = valor;
         OnPropertyChanged(prop);
     }
+
+    /// <summary>Nombre legible del módulo para el rótulo de avance.</summary>
+    private static string NombreModulo(string clave) =>
+        !string.IsNullOrEmpty(clave) && DiagnosticReport.NombresModulos.TryGetValue(clave, out string nombre)
+            ? nombre
+            : "equipo";
 
     private void OnPropertyChanged([CallerMemberName] string prop = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));

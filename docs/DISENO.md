@@ -34,7 +34,7 @@ elemento, más clara es su superficie. El borde de 1 px solo define el canto.
 |---|---|---|
 | `CText` | `#EDEFFA` | Texto principal |
 | `CTextDim` | `#A6B0D4` | Texto secundario y notas |
-| `CTextMuted` | `#6E79A8` | Rótulos, etiquetas y texto de tercer nivel |
+| `CTextMuted` | `#808CC2` | Rótulos, etiquetas y texto de tercer nivel (antes `#6E79A8`: no llegaba al mínimo abajo) |
 
 ### Acentos
 
@@ -48,6 +48,16 @@ elemento, más clara es su superficie. El borde de 1 px solo define el canto.
 
 ### Reglas de uso del color
 
+0. **Contraste antes que elegancia.** Todo tinte de texto cumple WCAG AA
+   (4,5:1) sobre los cuatro fundos del tema, medido —no estimado— sobre los
+   valores de arriba: lo más ajustado es `CAccent` sobre `CSurfaceAlt` (4,72) y
+   `CTextMuted` sobre el mismo fondo (4,74). La superficie elevada
+   (`CSurfaceHi`, la del ToolTip) es la excepción deliberada: sobre ella solo
+   puede ir `CText`, y lo garantiza la propia plantilla del ToolTip. La regla la
+   verifica `Tools/IntegrationTests/ThemeRegressionTests.cs` cada vez que corre
+   la suite, así que un color nuevo se rechaza solo. Se numera desde 0 porque
+   manda sobre las demás: si un contraste no pasa, el color se cambia, no se le
+   busca el pretexto.
 1. **Un solo acento por pantalla.** El violeta señala la acción; el cian, el
    momento. Si ambos aparecen con el mismo peso, ninguno orienta.
 2. **El color semántico califica datos, nunca decora.** Verde, ámbar y rojo se
@@ -98,7 +108,73 @@ que se actualiza en vivo no puede «bailar» al cambiar de dígitos.
 
 ---
 
-## 4. Estructura de la ventana principal
+## 4. Movimiento
+
+El movimiento no decora: señala cambios de estado. Si un elemento no cambia de
+estado, no se mueve. De ahí sale todo lo demás.
+
+- **Tres tiempos.** `0,11 s` para lo que sigue al puntero (tiene que sentirse
+  inmediato; pasado ese umbral se lee como lag). `0,19 s` para lo que entra y
+  sale (hover, selección, casilla marcada). `0,34 s` para lo que acompaña un
+  resultado nuevo (el puntaje, atenuar la vista mientras se mide). No hay un
+  cuarto tiempo.
+- **Dos curvas y dos acentos de rebote.** `EEaseSalida` (cúbica, desacelera al
+  llegar) para casi todo; `EEaseSuave` (cúbica in-out) para lo que respira, como
+  el punto de la barra superior y el del monitor de ping; `EEaseSalto`
+  (`BackEase`, amplitude 0.28) solo en el filete del módulo activo y en la
+  palomita, los dos sitios donde un pequeño exceso se lee como «encajó»;
+  `EEaseAcelerando` para el tramo final de la barra indeterminada.
+- **Hover = capa, no color.** El pincel de hover del tema es compartido por toda
+  la interfaz: animar su `Color` repaintaría cada superficie a la vez. Lo que se
+  interpola es la `Opacity` de una capa propia del control (`Luz`, `Prensa`,
+  `Velo`, `Sel`, `Contorno`, `Enfoque`). Es también la razón por la que
+  `MetricCard` se eleva con un `ScaleTransform` en vez de cambiar de fondo: un
+  `Border` sin plantilla no tiene dónde interpolar un color.
+- **Solo `Opacity` y transformaciones.** Nunca `Margin`, `Width` ni nada de
+  layout: una propiedad de layout animada dentro de un `WrapPanel` reabre la
+  medida de todas las tarjetas en cada cuadro. El único caso que vuelve a medir
+  es el número del puntaje, y su caja está centrada en un hueco fijo. Y la
+  propiedad tiene que existir **en el tipo del destino**: `ScaleX` solo es animable
+  sobre un `ScaleTransform`, `X`/`Y` sobre un `TranslateTransform`, `Angle` sobre un
+  `RotateTransform`. WPF no avisa cuando no coincide —no anima, y punto—.
+  `Tools/validate_xaml.ps1` lo comprueba en CI sobre los doce XAML, junto con el
+  ámbito de cada `TargetName` y que ningún `Forever` se quede sin `StopStoryboard`.
+- **El dato nuevo se cuenta, no se reemplaza.** El puntaje sube de 60 a 82 y el
+  arco barre hasta el valor nuevo; las barras se estiran desde la etiqueta. Un
+  número que aparece de golpe no informa de la dirección del cambio, que es
+  justamente lo que se viene a leer.
+- **Cascada, con tope.** Las tarjetas entran escalonadas 24 ms por fila, cortadas
+  a 12 filas: el ojo sigue un recorrido en lugar de descubrir veinte números a la
+  vez, y una lista larga no se pone a tiras.
+- **La espera también tiene que decir algo.** Un indicador que respira no informa:
+  dice que algo vive, no cuánto falta. Por eso el pie nombra el módulo que se está
+  midiendo y los segundos que lleva (`3 de 5 · Red y latencia · 14 s`), y a los 90 s lo
+  anota una vez en el registro. La animación señala el cambio; el número es lo que
+  permite decidir si esperar o reiniciar.
+- **Se respeta la preferencia del sistema.** `Ui/Motion.cs` lee
+  `SystemParameters.ClientAreaAnimation`; si está apagada aplica el valor final
+  en seco. La información nunca puede depender de la animación.
+
+Lo que una vista puede animar sin tocar código son cuatro adjuntos:
+`ui:Motion.Enter` (aparecer al pasar a visible, con `EnterDelay` para escalonar
+regiones), `ui:Motion.Stagger` (cascada de los contenedores de un `ItemsControl`),
+`ui:Motion.Lift` (elevación bajo el puntero) y `ui:Motion.Fade` (opacidad
+objetivo, para estados como «se está midiendo»). `Number` y `Sweep` enlazan el
+valor al que llegan el contador y el arco. La explicación de por qué el animador
+interpola un adjunto *distinto* del enlazado está en `Ui/Motion.cs`: es el
+detalle que hace que re-apuntar a mitad de corrida funcione solo.
+
+Para ajustar tiempos sin compilar está `docs/preview/index.html`: la maqueta usa
+los mismos tokens que el tema —los tres tiempos y las curvas están ahí como
+variables, y el latido, la elevación y la barra del pie imitan lo que hace
+`Pulse`—, así que el movimiento se puede ver en el navegador antes de tocar
+`Theme.xaml`. Si se cambian las duraciones, se cambian en los dos. Es una
+convención, no un mecanismo: una maqueta que deja de ser espejo miente con más
+seguridad que una que no existe.
+
+---
+
+## 5. Estructura de la ventana principal
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
@@ -120,6 +196,10 @@ que se actualiza en vivo no puede «bailar» al cambiar de dígitos.
 
 **Por qué esta disposición**
 
+- **El pie trabaja mientras se mide**: ahí viven la barra indeterminada y el
+  rótulo del avance. Es el único sitio de la ventana que cambia de contenido una vez
+  por segundo durante una corrida sin obligar a desplazar nada, y es lo que
+  distingue «tarda» de «se colgó» sin abrir el registro.
 - **Barra superior**: la marca y el estado del equipo valen en cualquier
   módulo, así que no pueden vivir dentro de uno. El reloj y el indicador de
   corrida se ven siempre, incluso con la vista desplazada.
@@ -146,7 +226,7 @@ fuera de la pantalla justo cuando más se la necesita.
 
 ---
 
-## 5. Componentes
+## 6. Componentes
 
 | Estilo | Es | Notas |
 |---|---|---|
@@ -154,13 +234,15 @@ fuera de la pantalla justo cuando más se la necesita.
 | `BtnGhost` | Acción secundaria con caja | Para confirmaciones y diálogos. |
 | `BtnQuiet` | Acción secundaria sin caja | Para barras con varias acciones. Sin borde ni en hover. |
 | `BtnCaption` / `BtnCaptionClose` | Controles de ventana | El cierre se pinta en rojo al pasar el cursor. |
-| `SegmentBar` + `Segment` | Conmutador de vistas | El activo se rellena de violeta. |
+| `SegmentBar` + `Segment` | Conmutador de vistas | El activo se rellena de violeta; el relleno y la etiqueta se cruzan, no se conmutan. |
 | `Card` / `CardOutline` / `HeroCard` | Superficies | `HeroCard` es la única con degradado: reservada al puntaje. |
 | `MetricCard` | Tarjeta de medición | Rótulo, cifra, regla de escala, nota y módulo de origen. |
 | `Chip` / `MiniChip` | Distintivos | Severidad y procedencia del dato. |
 | `PanelShell` | Armazón de ventanas flotantes | Lo usan los cinco diálogos y paneles de opciones. |
 | `Opcion` | Casilla con franja de riesgo | El color de la franja lo pone quien la declara. |
-| `BarTemplate` | Barra de gráfico | Con riel de fondo que hace visible la escala. |
+| `BarTemplate` | Barra de gráfico | Con riel de fondo que hace visible la escala. La barra se estira hasta su longitud al entrar. |
+| `Pulse` | Barra indeterminada | Crece escalando sobre el ancho real del riel: el recorrido no depende del ancho de la ventana ni del DPI. |
+| `EEase*` | Cuatro curvas compartidas | En el bloque MOVIMIENTO del tema. Ver sección 4. |
 | `CampoNumero` / `FilaAjuste` | Campo y fila de ajustes | Definidos una vez, usados por Ajustes. |
 
 ### Regla de escala
@@ -173,7 +255,7 @@ dibuja.
 
 ---
 
-## 6. Añadir algo nuevo
+## 7. Añadir algo nuevo
 
 1. **¿Existe ya un token para eso?** Úsalo. Si el color que necesitas no está en
    la paleta, casi siempre significa que estás a punto de romper una de las
@@ -187,7 +269,7 @@ dibuja.
    `--self-test`). Si tu XAML tiene un error, el CI lo ve antes que el usuario:
    añade la ventana ahí.
 
-## 7. Lo que no se hace
+## 8. Lo que no se hace
 
 - Escribir un color en hexadecimal dentro de una vista.
 - Usar `MessageBox` (se dibuja en claro y rompe el conjunto): usar `Dialog`.
@@ -195,3 +277,13 @@ dibuja.
   tematizar.
 - Usar verde, ámbar o rojo para algo que no sea un dato o una severidad.
 - Añadir un cuarto rol tipográfico.
+- Animar un color, un grosor de borde o cualquier propiedad de layout. Se anima
+  `Opacity` o una transformación, sobre una capa propia del control.
+- Añadir un tiempo de animación nuevo. Si 0,19 s no alcanza, el problema es el
+  cambio que se está animando, no la duración.
+- Confiar en que WPF avise de una animación mal apuntada: no avisa. `Opacity`
+  sobre un `ScaleTransform` o sobre un pincel se traga en silencio y deja el
+  control sin efecto, que es peor que una excepción porque se publica.
+- Dejar un `RepeatBehavior="Forever"` sin manera de detenerlo. Solo se repite lo
+  que representa algo vivo y acotado: el punto de la barra superior mientras mide
+  y el latido del monitor de ping.

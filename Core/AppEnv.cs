@@ -65,12 +65,18 @@ public static class AppEnv
         }
     }
 
-    public static bool RelaunchElevated()
+    /// <summary>
+    /// Relanza la aplicación. <c>--wait-for-parent</c> hace que el hijo espere a
+    /// que este proceso suelte el mutex de instancia única, así que reiniciar no
+    /// choca contra «SysDiag ya está abierto». Es el mismo mecanismo que usa la
+    /// elevación, y por eso vive al lado.
+    /// </summary>
+    public static bool Reiniciar(bool elevar = false)
     {
         try
         {
-            var info = new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = true, Verb = "runas" };
-            // El hijo espera a que el padre suelte el mutex antes de arrancar.
+            var info = new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = true };
+            if (elevar) info.Verb = "runas";
             info.ArgumentList.Add("--wait-for-parent");
             info.ArgumentList.Add(Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
             using var process = Process.Start(info);
@@ -78,10 +84,12 @@ public static class AppEnv
         }
         catch (Exception ex)
         {
-            AppLog.Write($"No se pudo reiniciar con elevación (o se canceló UAC): {ex.Message}", "WARN");
+            AppLog.Write($"No se pudo reiniciar{(elevar ? " con elevación" : "")} (o se canceló UAC): {ex.Message}", "WARN");
             return false;
         }
     }
+
+    public static bool RelaunchElevated() => Reiniciar(elevar: true);
 
     public static string FormatBytes(double bytes)
     {

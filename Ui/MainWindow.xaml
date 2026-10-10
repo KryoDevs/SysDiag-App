@@ -62,9 +62,17 @@
                      FontFamily="{StaticResource FMono}" VerticalAlignment="Center"
                      Foreground="{StaticResource BTextMuted}" Margin="0,0,10,0"/>
 
-          <Button Content="&#xE921;" Style="{StaticResource BtnCaption}" Click="Min_Click" ToolTip="Minimizar"/>
-          <Button x:Name="BtnMax" Content="&#xE922;" Style="{StaticResource BtnCaption}" Click="Max_Click" ToolTip="Maximizar"/>
-          <Button Content="&#xE8BB;" Style="{StaticResource BtnCaptionClose}" Click="Cerrar_Click" ToolTip="Cerrar"/>
+          <!-- El Name es para el lector de pantalla: el contenido es un glifo de
+               Segoe Fluent Icons, que leído en voz alta es un carácter de área de
+               uso privado. El ToolTip no sustituye: no lo anuncia nada. Son los
+               únicos cinco botones del programa sin texto visible, y están en la
+               cabecera, que es por donde se empieza a navegar. -->
+          <Button Content="&#xE921;" Style="{StaticResource BtnCaption}" Click="Min_Click" ToolTip="Minimizar"
+                  AutomationProperties.Name="Minimizar la ventana"/>
+          <Button x:Name="BtnMax" Content="&#xE922;" Style="{StaticResource BtnCaption}" Click="Max_Click" ToolTip="Maximizar"
+                  AutomationProperties.Name="Maximizar o restaurar la ventana"/>
+          <Button Content="&#xE8BB;" Style="{StaticResource BtnCaptionClose}" Click="Cerrar_Click" ToolTip="Cerrar"
+                  AutomationProperties.Name="Cerrar SysDiag"/>
         </StackPanel>
       </Grid>
     </Border>
@@ -82,7 +90,8 @@
            sueltos, agrupados por lo que hacen y no por cuándo se
            escribieron. -->
       <Border Grid.Column="0" Background="{StaticResource GRail}"
-              BorderBrush="{StaticResource BStrokeSoft}" BorderThickness="0,0,1,0">
+              BorderBrush="{StaticResource BStrokeSoft}" BorderThickness="0,0,1,0"
+              ui:Motion.Enter="True">
         <Grid>
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -293,8 +302,11 @@
         </Grid.RowDefinitions>
 
         <!-- Cabecera del módulo: qué se está mirando, y el conmutador de
-             vistas a la derecha, siempre en el mismo sitio. -->
-        <Grid Grid.Row="0" Margin="24,16,24,12">
+             vistas a la derecha, siempre en el mismo sitio. Entra 50 ms después
+             del rail para que la ventana se arme en un recorrido corto y no de
+             un golpe. -->
+        <Grid Grid.Row="0" Margin="24,16,24,12"
+              ui:Motion.Enter="True" ui:Motion.EnterDelay="0:0:0.05">
           <StackPanel VerticalAlignment="Center">
             <TextBlock Text="{Binding Titulo}" Style="{StaticResource H1}"/>
             <TextBlock Text="{Binding Subtitulo}" Style="{StaticResource Dim}" Margin="0,5,0,0"
@@ -363,11 +375,17 @@
           </ItemsControl>
         </Grid>
 
-        <!-- ============================ VISTAS ============================ -->
-        <Grid Grid.Row="2" Margin="24,0,24,0" Opacity="{Binding ContenidoOpacidad}">
+        <!-- ============================ VISTAS ============================
+             La atenuación mientras se mide existía como un salto de 1,0 a 0,4
+             del ViewModel; ahora interpola Motion, que además respeta la
+             preferencia del sistema de no animar y deja el mismo valor final.
+             Cada vista entra con su propio desvanecimiento porque se muestran
+             por Visibility: «volver a ser visible» es el cambio de estado. -->
+        <Grid Grid.Row="2" Margin="24,0,24,0" ui:Motion.Fade="{Binding ContenidoOpacidad}">
 
           <!-- ========================== Resumen ========================== -->
-          <Grid Visibility="{Binding IsChecked, ElementName=VResumen, Converter={StaticResource BoolVis}}">
+          <Grid Visibility="{Binding IsChecked, ElementName=VResumen, Converter={StaticResource BoolVis}}"
+                ui:Motion.Enter="True">
             <ScrollViewer VerticalScrollBarVisibility="Auto"
                           Visibility="{Binding HayDatos, Converter={StaticResource BoolVis}}">
               <StackPanel>
@@ -387,27 +405,32 @@
                                  HorizontalAlignment="Center"/>
 
                       <!-- Anillo de progreso: un arco trazado con la geometría
-                           que calcula ScoreArcConverter, sobre un aro de fondo
-                           que marca la escala completa. El número va centrado
-                           adentro.
+                           que calcula ScoreArc, sobre un aro de fondo que marca
+                           la escala completa. El número va centrado adentro.
 
-                           Las medidas están atadas a las del convertidor: el
-                           arco se calcula en un lienzo de 120x120 con centro
-                           en (60,60) y radio 50. El aro de fondo tiene que
-                           medir 100 (diámetro de la línea media, no del
-                           borde) para que ambos compartan radio, y el Path
-                           mantiene sus 120 y se centra: si se agranda, el
-                           arco se dibuja descentrado respecto del aro. -->
+                           Las medidas están atadas a las del calculador: el
+                           arco se dibuja en un lienzo de 120x120 con centro en
+                           (60,60) y radio 50. El aro de fondo tiene que medir
+                           100 (diámetro de la línea media, no del borde) para
+                           que ambos compartan radio, y el Path mantiene sus 120
+                           y se centra: si se agranda, el arco se dibuja
+                           descentrado respecto del aro.
+
+                           Ni el número ni el arco enlazan su propiedad final:
+                           enlazan el valor *objetivo* de Motion, que los
+                           interpola. Un puntaje que aparece de golpe no dice si
+                           mejoró; uno que sube de 60 a 82 en un tercio de
+                           segundo lo dice sin explicarlo. Ver Ui/Motion.cs. -->
                       <Grid Width="132" Height="132">
                         <Ellipse Width="100" Height="100" HorizontalAlignment="Center" VerticalAlignment="Center"
                                  Stroke="{StaticResource BStrokeSoft}" StrokeThickness="11"/>
                         <Path Width="120" Height="120" Stretch="None"
                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                              Data="{Binding Puntaje, Converter={StaticResource ScoreArc}}"
+                              ui:Motion.Sweep="{Binding Puntaje}"
                               Stroke="{Binding PuntajeBrush}" StrokeThickness="11"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                          <TextBlock Text="{Binding Puntaje}" FontFamily="{StaticResource FDisplay}"
+                          <TextBlock ui:Motion.Number="{Binding Puntaje}" FontFamily="{StaticResource FDisplay}"
                                      FontSize="36" FontWeight="SemiBold" Foreground="{Binding PuntajeBrush}"
                                      HorizontalAlignment="Center"/>
                           <TextBlock Text="/ 100" Style="{StaticResource Eyebrow}"
@@ -445,13 +468,18 @@
 
                 <TextBlock Text="MEDICIONES" Style="{StaticResource SectionLabel}"/>
 
-                <ItemsControl ItemsSource="{Binding Tarjetas}">
+                <!-- Cada tarjeta entra unos milisegundos después de la anterior y
+                     se eleva al pasar el puntero. La cascada no es adorno: con
+                     diez módulos midiendo a la vez, el ojo puede seguir un
+                     recorrido en lugar de descubrir veinte números nuevos. -->
+                <ItemsControl ItemsSource="{Binding Tarjetas}" ui:Motion.Stagger="True">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
                   </ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                      <Border Style="{StaticResource MetricCard}" Width="256" Margin="0,0,14,14">
+                      <Border Style="{StaticResource MetricCard}" Width="256" Margin="0,0,14,14"
+                              ui:Motion.Lift="0.014">
                         <StackPanel>
                           <Grid>
                             <TextBlock Text="{Binding Titulo}" Style="{StaticResource Eyebrow}"
@@ -581,7 +609,8 @@
           </Grid>
 
           <!-- ========================= Hallazgos ========================= -->
-          <Grid Visibility="{Binding IsChecked, ElementName=VHallazgos, Converter={StaticResource BoolVis}}">
+          <Grid Visibility="{Binding IsChecked, ElementName=VHallazgos, Converter={StaticResource BoolVis}}"
+                ui:Motion.Enter="True">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="2.1*"/>
               <ColumnDefinition Width="16"/>
@@ -651,7 +680,8 @@
           </Grid>
 
           <!-- =========================== Datos =========================== -->
-          <Grid Visibility="{Binding IsChecked, ElementName=VDatos, Converter={StaticResource BoolVis}}">
+          <Grid Visibility="{Binding IsChecked, ElementName=VDatos, Converter={StaticResource BoolVis}}"
+                ui:Motion.Enter="True">
             <Grid.RowDefinitions>
               <RowDefinition Height="Auto"/>
               <RowDefinition Height="Auto"/>
@@ -757,6 +787,7 @@
           <Border Background="{StaticResource BSurface}" CornerRadius="{StaticResource RMd}"
                   BorderBrush="{StaticResource BStrokeSoft}" BorderThickness="1"
                   Padding="8,6"
+                  ui:Motion.Enter="True"
                   Visibility="{Binding IsChecked, ElementName=VRegistro, Converter={StaticResource BoolVis}}">
             <ListBox x:Name="LogList" ItemsSource="{Binding Registro}" Style="{StaticResource PlainList}"
                      ScrollViewer.HorizontalScrollBarVisibility="Auto">
@@ -793,11 +824,21 @@
             <RowDefinition Height="Auto"/>
           </Grid.RowDefinitions>
 
-          <ProgressBar Grid.Row="0" Style="{StaticResource Pulse}" Margin="0,0,0,12"
-                       Visibility="{Binding BarraVisible}"/>
+          <!-- La barra sabe cuántos módulos faltan porque se lo dice el propio
+               ViewModel que los lanzó. Cuando no hay conteo (una acción de un
+               paso) el estilo vuelve solo al modo indeterminado. -->
+          <Grid Grid.Row="0" Margin="0,0,0,12" Visibility="{Binding BarraVisible}">
+            <ProgressBar Style="{StaticResource Pulse}" VerticalAlignment="Center"
+                         Maximum="{Binding AvadeTotal}" Value="{Binding AvadeHechos}"
+                         IsIndeterminate="{Binding AvadeIndeterminado}"/>
+            <TextBlock Text="{Binding AvadeTexto}" Style="{StaticResource Dim}"
+                       FontFamily="{StaticResource FMono}" FontSize="11"
+                       HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,0,4"/>
+          </Grid>
 
           <Border Grid.Row="1" Background="{StaticResource BSurface}" CornerRadius="{StaticResource RMd}"
-                  BorderBrush="{StaticResource BStrokeSoft}" BorderThickness="1" Padding="14,10">
+                  BorderBrush="{StaticResource BStrokeSoft}" BorderThickness="1" Padding="14,10"
+                  ui:Motion.Enter="True" ui:Motion.EnterDelay="0:0:0.09">
             <Grid>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>

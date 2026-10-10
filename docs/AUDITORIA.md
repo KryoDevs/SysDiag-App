@@ -9,6 +9,12 @@ El proyecto es una aplicación WPF/.NET 8 para Windows x64. Se revisaron motor, 
 - El ciclo de base quedó verde en Windows: [Compilar y probar, run 36974887168](https://github.com/KryoDevs/SysDiag-App/actions/runs/36974887168) y [Validate fixture, run 36974887152](https://github.com/KryoDevs/SysDiag-App/actions/runs/36974887152), commit `291922d`. Compilación, suite y publicación/validación anterior finalizaron correctamente.
 - **Tanda final de código validada:** commit `8c049c6`, [Compilar y probar, run 36983543742](https://github.com/KryoDevs/SysDiag-App/actions/runs/36983543742) y [Validate fixture/Debug, run 36983543678](https://github.com/KryoDevs/SysDiag-App/actions/runs/36983543678), ambos exitosos.
 - **101/101 pruebas aprobadas, sin omisiones ni fallos** (annotation del job `110763312092`). Pasaron ACL administrativa de carpeta/archivo temporal, lectura nativa de energía, firma válida/PE alterado, rollback tipado, procesos, JSON/culturas, clasificación de eventos, CSV/historial y cancelación. No se instalaron drivers ni se aplicaron cambios de red/registro/energía.
+> **Estado posterior (2026-10-10).** Este informe quedó superado en parte por
+> `docs/AUDITORIA_2026-10-09.md` y por las tandas de `arena/e864cf80-sysdiag-app`, que
+> cerraron varios de sus puntos y subieron el umbral de pruebas a 163. Se conserva sin
+> reescribir, con la evidencia de CI que le corresponde: un CI anterior no certifica
+> cambios posteriores. Lo que sigue abierto está listado en `docs/MEJORAS.md §1`.
+
 - Pasaron además el autotest del **runner compartido**, la publicación autocontenida, el **arranque real del EXE publicado** con recursos WPF/reglas/JSON y la comprobación de versión 5.7.1. ZIP y EXE quedaron como artefactos del run, no como un release público.
 - Comprobaciones locales efectuadas: `git diff --check`, XML/XAML bien formado y revisión de llamadas/contratos. No sustituyen un compilador ni pruebas Windows.
 - Este sandbox es Linux sin SDK .NET disponible. No se afirma que WPF se haya ejecutado aquí.

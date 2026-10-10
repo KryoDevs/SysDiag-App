@@ -18,6 +18,10 @@ public partial class ActivationWindow : Window
     public ActivationWindow()
     {
         InitializeComponent();
+        // Se ajusta antes de cualquier otra cosa: si la pantalla es más chica
+        // que el alto declarado en el XAML, el pie de la ventana quedaría fuera
+        // del área de trabajo y no habría cómo arrastrarla de vuelta.
+        Ventana.AjustarAPantalla(this);
         ActualizarEstado();
     }
 
@@ -43,6 +47,20 @@ public partial class ActivationWindow : Window
                 TxtEstado.Foreground = Res("BWarn");
                 TxtDetalle.Text = "Puedes seguir diagnosticando y consultando el equipo sin límite. Para optimizar, instalar, limpiar o reparar, activa con un código.";
                 break;
+        }
+
+        // Si había un código guardado que no verificó al arrancar, la ventana lo
+        // mostraba vacío: era imposible saber que alguna vez hubo una licencia
+        // aquí (LicenseService lo conserva desde ahora). Se rellena el campo con
+        // lo guardado y se pone el motivo arriba, para que la persona decida con
+        // datos — renombrar el equipo o cambiar de cuenta no debería sentirse
+        // como perder la compra.
+        string guardado = LicenseService.CodigoActivo;
+        if (LicenseService.Estado != EstadoLicencia.Pro && guardado.Length > 0)
+        {
+            TxtCodigo.Text = guardado;
+            TxtCodigo.CaretIndex = guardado.Length;
+            if (!string.IsNullOrEmpty(LicenseService.Aviso)) MostrarError(LicenseService.Aviso);
         }
     }
 

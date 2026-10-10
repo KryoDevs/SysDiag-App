@@ -110,26 +110,21 @@ public class ModuleLabelConverter : IValueConverter
 }
 
 /// <summary>
-/// Puntaje 0-100 -> geometría de un arco circular, para el anillo de progreso
-/// del puntaje de salud. Se calcula como Geometry en vez de como string de
-/// Path.Data porque así se evita el caso degenerado de un arco de 360°
-/// (WPF no puede dibujar un ArcSegment que empieza y termina en el mismo
-/// punto) y porque separa la trigonometría del XAML.
+/// Matemática del anillo de puntaje: 0-100 -> geometría de un arco circular.
+///
+/// Vive acá y no dentro del convertidor porque la usan dos caminos: el
+/// convertidor, que pinta el estado quieto, y <see cref="Motion"/>, que
+/// interpola el barrido cuadro a cuadro. Dos copias de la trigonometría
+/// garantizan un anillo desalineado en cuanto una de las dos cambie de radio.
 /// </summary>
-public class ScoreArcConverter : IValueConverter
+public static class ScoreArc
 {
     // Centro y radio fijos: el anillo siempre se dibuja en un lienzo de
     // 120x120, así que la vista solo necesita reservar ese espacio.
     private const double Cx = 60, Cy = 60, R = 50;
 
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public static Geometry Geometria(double puntaje)
     {
-        double puntaje = value switch
-        {
-            int i => i,
-            double d => d,
-            _ => 0
-        };
         puntaje = Math.Clamp(puntaje, 0, 100);
 
         // Un barrido de exactamente 360° deja el punto de inicio y de fin
@@ -150,9 +145,26 @@ public class ScoreArcConverter : IValueConverter
 
         var geometria = new PathGeometry();
         geometria.Figures.Add(figura);
+        // Se recrea 60 veces por segundo mientras el arco barre; congelarla
+        // evita que el render la copie en cada cuadro.
         geometria.Freeze();
         return geometria;
     }
+}
+
+/// <summary>
+/// Puntaje 0-100 -> geometría del anillo. Envoltorio de <see cref="ScoreArc"/>
+/// para el camino sin animación (enlaces directos y estados quietos).
+/// </summary>
+public class ScoreArcConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => ScoreArc.Geometria(value switch
+        {
+            int i => i,
+            double d => d,
+            _ => 0
+        });
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();

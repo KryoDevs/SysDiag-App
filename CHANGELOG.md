@@ -1,6 +1,176 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+Los cambios notables de este proyecto se documentan en este archivo. Las secciones
+`[Sin publicar]` son lotes de una rama: se consolidan al cortar el siguiente release.
+
+## [Sin publicar] - 2026-10-10 (la documentación y las puertas, al día)
+
+### Herramientas
+- `validate_xaml.ps1` corría solo en `build.yml`. Ahora `release.yml` lo ejecuta antes de
+  restaurar: un `Trigger` con un `TargetName` mal escrito compila, pasa las pruebas y
+  construye la ventana, y solo se rompe al pasar el cursor —no debería poder llegar a un
+  `v*` publicado. No necesita compilar, así que falla en segundos.
+- Sale del repositorio `sysdiag-1.0.0.sha256`, huérfano desde la auditoría 2 (F12). Sus dos
+  sumas se trasladan a la entrada `[1.0.0]` de este archivo: era el único registro que había.
+- La maqueta `docs/preview/index.html` deja de mostrar lo que el tema ya no hace: la barra
+  indeterminada del pie crece escalando sobre el ancho real del riel, como `Pulse`, en lugar
+  del recorrido de 160 px escritos a mano que era el defecto original; y el pie estrena el
+  rótulo con módulo y segundos (`3 de 5 · Red y latencia · 14 s`).
+
+### Documentación
+- README, `docs/MEJORAS.md` y `docs/DISENO.md` vuelven a describir el árbol actual: el umbral
+  de pruebas es 163 (los textos seguían diciendo 114, 148 y 152), el validador de XAML son
+  cinco comprobaciones y es puerta, y el progreso por módulo incluye el cronómetro.
+- El README enlaza por fin los tres documentos de `docs/` y la maqueta; hasta ahora solo
+  existía el enlace a la primera auditoría.
+- Se corrigen los recuentos con los que arranca `docs/MEJORAS.md`: son 93 archivos `.cs`,
+  12 XAML y **un** proyecto de prueba con siete archivos, no cuatro.
+
+### Formato
+- La línea de cabecera del CHANGELOG estaba en inglés en un repositorio en español.
+
+## [Sin publicar] - 2026-10-10 (movimiento, legibilidad y licencia)
+
+### Corregido
+- **Una licencia ya no se autodestruye.** `LicenseService` borraba el código guardado
+  cuando no verificaba; como el código vinculado se deriva de `máquina\usuario`,
+  renombrar el PC o entrar con otra cuenta apagaba la licencia del comprador y le
+  quitaba hasta el código para recuperarla. Ahora el código se conserva, el archivo
+  recuerda en qué equipo se activó y la ventana de activación lo muestra con el
+  motivo. Si el equipo vuelve a su nombre anterior, la licencia reaparece sola.
+- **Contraste del texto tenue**: `CTextMuted` estaba por debajo del mínimo de WCAG AA
+  en los cuatro fondos donde se usa (4,47 / 4,61 / 4,08 / 3,65) y es el color de los
+  rótulos de 9,5–10,5 px. Subido a `#808CC2` (5,81 / 5,99 / 5,30 / 4,74).
+- **El error inesperado deja de ser un «Entendido»**: el diálogo distingue si había una
+  operación en curso (dice que quedó a medias), muestra la ruta del registro y ofrece
+  **Reiniciar SysDiag** con el mismo mecanismo de `--wait-for-parent` que usa la
+  elevación, para no chocar contra el mutex de instancia única. Si el propio diálogo no
+  se puede construir, queda `MessageBox` como último recurso.
+- **Trazas legibles**: `DebugType` pasa de `none` a `embedded`. El registro de un fallo
+  ya no termina en `<RunAsync>d__57.MoveNext()`; el PDB viaja dentro del ensamblado, así
+  que el paquete publicado sigue siendo un solo archivo.
+- **Parseo de la fecha WMI con cultura invariante** (antigüedad de drivers). Estaba
+  tapado por la cultura forzada del arranque; el fallo se tragaba como «fecha ilegible».
+- **`Core/ProcessRunner` como único embudo de procesos**, ahora con una prueba que lo
+  exige. Se corrigió de paso una afirmación de la auditoría: los «15 sitios que creaban
+  procesos fuera del runner» eran `ProcessStartInfo` para abrir URLs, archivos y páginas
+  de *ms-settings*, que es el API correcto ahí.
+
+### Funcionalidad
+- **Un módulo que tarda se nota**. El rótulo del pie pasa a `2 de 5 · Red y latencia ·
+  14 s`, y a los 90 s del paso se anota una vez en el registro (`el módulo «Drivers»
+  lleva 92 s.`). Con WMI colgado, «midiendo» y «no va a terminar» eran
+  indistinguibles: ahora el tiempo transcurrido está en la pantalla y en el log, que es
+  lo que hace falta para decidir si esperar o reiniciar. El reloj es un `DispatcherTimer`
+  que solo existe durante la corrida y se apaga en el `finally` y en `Dispose`: no suma
+  un temporizador permanente al de la cabecera.
+- **La regla de recorte de ventanas es una función y tiene pruebas**:
+  `Ventana.Recortar(declarado, piso, disponible)` separa la aritmética del contacto con
+  WPF, y `WindowSizingTests` (11 casos) fija lo que importa —lo que cabe no se
+  toca; el `NaN` de una ventana con `SizeToContent` no se convierte en número; el mínimo
+  declarado le gana al área disponible; y un área inválida no deja la ventana en 0, que
+  lo evita la salida temprana de `AjustarAPantalla`, no el recorte—). Y al separarla
+  salió a la vista un defecto que estaba dentro del propio arreglo: <c>MaxHeight</c> sin
+  declarar es <c>+∞</c>, no <c>NaN</c>, así que comprobar solo el <c>NaN</c> recortaba el
+  máximo de las nueve ventanas que no declaran ninguno. Se trata a los dos centinelas.
+- **La barra del pie ahora dice cuánto falta.** Era indeterminada incluso cuando
+  el propio `MainViewModel` tiene la lista de pasos: ahora muestra `3 de 5 · Red y
+  latencia` y rellena la barra con el conteo real. Sigue indeterminada (y el rótulo
+  pasa a `midiendo: Drivers`) en las acciones de un solo paso, donde un `0 de 1` no
+  informa nada. El conteo se lleva en el envoltorio que la UI ya armaba por paso, así
+  que `ScanService` —compartido con el runner sin interfaz— no cambió de firma.
+- **El pie y el progreso se limpian al empezar, no al terminar**: con `Maximum` en 0
+  y `Visibility=Hidden`, un `ProgressBar` sigue midiendo y dividir 0/0 deja un ancho
+  NaN en la pasada de layout siguiente.
+
+### Pruebas
+- `LicenseRegressionTests` (4) fija que un código que no verifica **no se borra**, que
+  un archivo corrupto no deja a nadie sin prueba y que un código emitido por el propio
+  emisor sigue activando y sobreviviendo a la releída. Para poder escribirlas,
+  `LicenseService.Inicializar` acepta ahora una ruta (por defecto, `LocalAppData`):
+  hasta acá, probar la licencia habría significado tocar la licencia real de quien
+  corre la suite. Umbral de `validate_tests.ps1`: 114 → **152**.
+
+### Interfaz
+- **Sistema de movimiento con reglas propias** (`Ui/Motion.cs` y el bloque
+  MOVIMIENTO de `Ui/Theme.xaml`): tres tiempos —0,11 s el puntero, 0,19 s lo que
+  entra y sale, 0,34 s lo que acompaña un resultado— y cuatro curvas compartidas.
+  Antes había **dos** animaciones en todo el programa (el latido y la barra
+  indeterminada) y cuarenta y tantos `Setter` instantáneos: cada hover, cada
+  pulsado, cada selección y cada foco cambiaban de estado en un solo cuadro.
+- **Puntaje animado**: el número se cuenta y el arco barre hasta el valor nuevo.
+  Se enlaza el valor *objetivo* (`ui:Motion.Number`, `ui:Motion.Sweep`) y el
+  animador interpola un adjunto aparte, para que re-apuntar a mitad de una
+  corrida funcione solo. La trigonometría del anillo pasa a `ScoreArc`, fuente
+  única del convertidor y de la animación.
+- **Cruce de vistas**: resumen, hallazgos, datos y registro entran con
+  desvanecimiento y un empujón de 12 px; la ventana se arma en cascada corta
+  (rail → cabecera → pie) con `ui:Motion.Enter` y `EnterDelay`.
+- **Cascada en las mediciones**: las tarjetas entran escalonadas 24 ms por fila,
+  con tope de 12 filas, y se elevan 1,4 % bajo el puntero (`ui:Motion.Lift`).
+  Las barras de los gráficos se estiran desde la etiqueta hasta su longitud.
+- **Pastillas de vista**: el relleno violeta y la etiqueta se cruzan (dos
+  presentadores que se pasan el testigo) en vez de conmutarse, para no dar un
+  parpadeo de tinta oscura sobre fondo oscuro.
+- **Casillas y hallazgos**: la palomita se dibuja con `StrokeDashOffset`; el
+  filete del módulo activo y el de severidad crecen con un ligero exceso
+  (`BackEase`), que es lo que los hace ver encajados.
+- **Foco por teclado**: los botones ganan un anillo cian exterior animado. Antes
+  el foco solo recoloría el borde, que se perdía contra el color del estado.
+- **Barras de desplazamiento** al 35 % y opacas al entrar en su carril.
+- **La palomita, el riel y el hover usan capas superpuestas**, no cambios de
+  color: los pinceles del tema son compartidos y animar su `Color` repintaría
+  cada superficie de la aplicación a la vez.
+
+### Corregido
+- **Las ventanas se cortaban en pantallas de 768 px**: `MainWindow` nacía con
+  alto 860 y `TweaksWindow` con `MaxHeight` 820. En un portátil de oficina o de
+  universidad —el equipo típico de esta aplicación— el área de trabajo son ~728
+  px: el pie con «Generar informe» quedaba fuera y el borde de arrastre también.
+  `Ui/Ventana.cs` recorta alto/ancho y `MaxHeight`/`MaxWidth` al área real,
+  respetando los mínimos, en las diez ventanas.
+- **Barra indeterminada mal dimensionada**: viajaba de −160 a 900 px, un número
+  escrito a mano. En un pie de 1.300 px nunca llegaba al borde y el reinicio se
+  veía como un salto; en una ventana angosta quedaba medio segundo fuera de
+  escena. Ahora crece escalando sobre el ancho real del riel.
+- **Ajustes corregía en silencio**: `AppSettings.LeerCampo` no falla, corrige —
+  «3,5» guardaba 5 y 9999 guardaba 90 — y la ventana se cerraba con un
+  «guardado» que describía otra cosa. Los campos se vuelcan con lo que quedó
+  guardado y el aviso lista lo ajustado.
+- **`AccionTile` y `AccionTilePrimary`** duplicaban la plantilla de `BtnBase` y
+  por eso su hover seguía instantáneo. Se retira la duplicación.
+- **El latido de la barra superior** era lineal (rampa de 1 a 0,25): ahora
+  respira con una curva `EaseInOut`.
+
+### Accesibilidad y rendimiento
+- `Ui/Motion.cs` respeta la preferencia del sistema de no animar controles
+  (`SystemParameters.ClientAreaAnimation`) y aplica el valor final en seco: la
+  información nunca depende de la animación.
+- Las entradas usan `BitmapCache` durante la transición y lo sueltan al terminar:
+  una vista entera con tarjetas sombreadas se recomponía y re-sombreaba por
+  cuadro sin él.
+- Ninguna animación toca layout (`Opacity` y transformaciones; nunca `Margin` ni
+  `Width`), que es lo que impedía que una cascada de tarjetas corriera a las
+  vecinas.
+
+### Herramientas
+- `Tools/validate_xaml.ps1`: bien formado, resolución de `{StaticResource}` y
+  ámbito de cada `TargetName` dentro de su plantilla. Cubre el hueco que deja tocar
+  plantillas: los `Storyboard` de un trigger solo se materializan al pasar el cursor, y
+  el autotest del EXE no los mira. Pasó de advertencia a **puerta** en `build.yml` después
+  de dos corridas verdes sobre el tema reescrito.
+- El validador suma dos reglas que **WPF no avisa nunca**: (4) la propiedad animada tiene
+  que existir en el tipo del elemento destino —animar `ScaleX` sobre un
+  `TranslateTransform`, u `Opacity` sobre un `ScaleTransform` o sobre un pincel, no lanza
+  excepción: simplemente no anima—, y (5) un `RepeatBehavior="Forever"` nacido en
+  `Trigger.EnterActions` tiene que tener su `StopStoryboard` con nombre. Se escribieron
+  contra una réplica en Python y se verificó por separado que no dicen nada sobre el XAML
+  actual y que sí disparan sobre tres errores sembrados.
+- La maqueta `docs/preview/index.html` vuelve a decir la verdad: adopta `#808CC2`, los
+  tres tiempos del sistema de movimiento como variables, transición en los hovers que no
+  tenían, elevación en las tarjetas y el latido con curva en vez de rampa lineal.
+- `docs/AUDITORIA_2026-10-09.md` lleva una nota de corrección: A25 decía «ocho ventanas»
+  y el `--self-test` construye diez.
 
 ## [Sin publicar] - 2026-10-10 (secciones propias, licencia y ajustes de Windows)
 
@@ -157,3 +327,14 @@ See `docs/AUDITORIA_2026-10-09.md` para el detalle, la evidencia de CI y los pen
 ### Known issues
 - Some modules depend on WMI or registry access and may return partial data without admin privileges
 - Full code signing requires an Authenticode certificate and a valid timestamp service
+
+### Sumas de control del paquete
+Estas dos líneas vivían en `sysdiag-1.0.0.sha256` en la raíz del repositorio, un archivo que
+ningún script ni workflow leía y que apuntaba a los dos binarios que la auditoría 2 dejó de
+versionar (A20). Eran el único registro de esas sumas, así que se trasladan acá en lugar de
+borrarse; el archivo sale del repositorio.
+
+```
+3AD3B07B22794E6435D6E1EA2CE0057BCC32C7F421D94E4C8D4CB6AFDCD454D6  sysdiag-1.0.0.zip
+421A80EFA727F92C009A19330980DC650839E331002D9FBCE6C9A3E62E6A1AF8  sysdiag-1.0.0.exe
+```

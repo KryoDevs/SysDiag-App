@@ -161,7 +161,14 @@ reiniciarse elevado.
 
 - Windows compila la solución, ejecuta regresiones y conserva TRX. Se incluyen ramas
   `arena/**`; no se publica un release por trabajar en una rama.
-- `Tools/validate_tests.ps1` exige ≥114 pruebas (el mínimo de la suite auditada), todas aprobadas y sin omisiones.
+- `Tools/validate_tests.ps1` exige ≥163 pruebas (114 de la suite auditada + 34 que miden el sistema visual + 4 de licencia + 11 del recorte de ventanas), todas aprobadas y sin omisiones.
+- `Tools/validate_xaml.ps1` comprueba cinco cosas sobre los doce XAML: bien formado, resolución de
+  `{StaticResource}`, ámbito de cada `TargetName` dentro de su plantilla, que la propiedad animada exista
+  en el tipo del elemento destino, y que todo `RepeatBehavior="Forever"` nacido en un `Trigger` tenga su
+  `StopStoryboard`. Es puerta en `build.yml` y también en `release.yml`. Las dos últimas cazan lo que
+  WPF no reporta: animar una propiedad que el destino no tiene (`ScaleX` sobre un
+  `TranslateTransform`, `Opacity` sobre un pincel) no lanza excepción, simplemente no anima y la vista
+  queda muerta en el primer hover; y un `Forever` sin `StopStoryboard` tampoco falla —sigue corriendo.
 - Headless está en la solución y comparte `ScanService`; `--self-test` usa un doble
   sintético explícito, nunca sustituye mediciones de un diagnóstico real.
 - `Tools/validate_release.ps1` arranca el **EXE publicado** con `--self-test` y comprueba
@@ -191,8 +198,17 @@ dotnet publish SysDiag.csproj -c Release -o publish
 > política del sistema.
 
 Consulta [la auditoría y sus tres listas de diez](docs/AUDITORIA.md) para los fallos,
-correcciones, evidencia de CI y límites pendientes. Un CI anterior no certifica cambios
-posteriores; el informe identifica expresamente el SHA validado.
+correcciones, evidencia de CI y límites pendientes, y [la segunda auditoría](docs/AUDITORIA_2026-10-09.md)
+para la tanda posterior con su propia evidencia. Un CI anterior no certifica cambios posteriores;
+cada informe identifica expresamente el SHA que validó.
+
+El resto del conocimiento vive en tres archivos: [el análisis y el plan](docs/MEJORAS.md),
+que es donde está qué se arregló, qué no y por qué; [la guía de diseño](docs/DISENO.md)
+(paleta, tipografía, escalas, movimiento, componentes y lo que no se hace); y
+`docs/preview/index.html`, una maqueta en HTML que reproduce el tema —ábrela en el navegador
+para ver el movimiento y el contraste sin compilar nada. La maqueta usa los mismos tokens que
+`Ui/Theme.xaml` por convención: si se cambia un tiempo o un color allá y no acá, la maqueta
+pasa a mentir.
 
 ## Sobre la arquitectura (5.0)
 
@@ -251,6 +267,12 @@ Decisiones de diseño:
 - **Tres roles tipográficos**: Segoe UI Variable Display para titulares, Segoe UI
   Variable Text para el cuerpo, y Cascadia Mono con cifras tabulares para todo dato
   numérico, así las columnas no bailan al actualizarse.
+- **El movimiento señala cambios de estado, no decora**: tres tiempos (0,11 s el
+  puntero, 0,19 s lo que entra y sale, 0,34 s lo que acompaña un resultado) y
+  cuatro curvas. El puntaje se cuenta y el arco barre; las vistas se cruzan con
+  un desvanecimiento; la cascada de tarjetas tiene tope. Se anima solo `Opacity`
+  y transformaciones —nunca layout ni el color de un pincel compartido—, y
+  `Ui/Motion.cs` respeta la preferencia del sistema de no animar controles.
 - **La regla de escala**: cada métrica del Resumen lleva debajo una serie de marcas
   que se llenan según su magnitud, como la escala de un instrumento. Es el elemento
   que da identidad a la interfaz y codifica lo que la aplicación hace: medir.

@@ -1,4 +1,6 @@
 using System;
+using System.Globalization;
+using System.Linq;
 using System.Windows;
 using SysDiag.Core.Licensing;
 using SysDiag.Core.Windows;
@@ -13,6 +15,10 @@ public partial class SettingsWindow : Window
     public SettingsWindow()
     {
         InitializeComponent();
+        // Se ajusta antes de cualquier otra cosa: si la pantalla es más chica
+        // que el alto declarado en el XAML, el pie de la ventana quedaría fuera
+        // del área de trabajo y no habría cómo arrastrarla de vuelta.
+        Ventana.AjustarAPantalla(this);
         MouseLeftButtonDown += (_, _) => DragMove();
 
         _actual = SettingsService.Cargar();
@@ -74,7 +80,33 @@ public partial class SettingsWindow : Window
         SettingsService.Aplicar(nuevo);
         _actual = nuevo;
 
-        Dialog.Info("Ajustes guardados", "Los cambios ya están activos. La retención de registros también se ha aplicado.");
+        // `LeerCampo` no falla: corrige. Escribir «3,5» guarda 5, y escribir
+        // 9999 guarda 90, sin más señal que esa. Como la ventana se cerraba
+        // justo después con un «guardado», el aviso describía otra cosa: un
+        // dato presentado como guardado que no era el que se tecleó. Los
+        // campos se vuelcan con lo que realmente quedó y se dice cuáles se
+        // movieron. El rango sigue siendo decisión del programa; deja de ser
+        // invisible.
+        var revisados = new[]
+        {
+            ("muestreo", TxtSample.Text, nuevo.SampleSeconds),
+            ("pings", TxtPing.Text, nuevo.PingCount),
+            ("ventana de eventos", TxtEventDays.Text, nuevo.EventDays),
+            ("ventana de WHEA", TxtWheaDays.Text, nuevo.WheaDays),
+            ("historial", TxtHistorial.Text, nuevo.HistorialMaximo),
+            ("retención de logs", TxtLogs.Text, nuevo.LogsMaximo),
+        };
+        var movidos = revisados
+            .Where(x => (x.Item2 ?? "").Trim() != x.Item3.ToString(CultureInfo.InvariantCulture))
+            .Select(x => $"{x.Item1}: quedó en {x.Item3}")
+            .ToList();
+
+        Volcar(nuevo);
+
+        Dialog.Info("Ajustes guardados", movidos.Count == 0
+            ? "Los cambios ya están activos. La retención de registros también se ha aplicado."
+            : "Los cambios ya están activos.\n\nAlgunos campos no eran un número entero dentro del rango "
+              + "admisible y se ajustaron:\n· " + string.Join("\n· ", movidos));
         Close();
     }
 }

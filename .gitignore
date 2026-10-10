@@ -9,6 +9,10 @@ TestResults/
 *.log
 sysdiag-*.zip
 sysdiag-*.exe
+# Las sumas de control de un paquete se publican como activo del release o en el
+# CHANGELOG, nunca como archivo versionado en la raíz: `sysdiag-1.0.0.sha256` vivió así
+# dos auditorías sin que ningún script lo leyera (F12).
+*.sha256
 *.tmp
 
 installer/Output/

@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using SysDiag.Models;
 
@@ -102,9 +103,14 @@ public static class DriverModule
         if (string.IsNullOrWhiteSpace(raw) || raw.Length < 8) return null;
         try
         {
-            int anio = int.Parse(raw.Substring(0, 4));
-            int mes = int.Parse(raw.Substring(4, 2));
-            int dia = int.Parse(raw.Substring(6, 2));
+            // Invariante a propósito: la fecha viene de WMI como dígitos ASCII,
+            // no como texto localizable. Sin esto, el parse depende de la cultura
+            // del hilo (el arranque fija es-CL hoy, y mañana no tiene por qué),
+            // y un fallo aquí se traga en el catch de abajo como «fecha
+            // ilegible» en vez de delatar el bug.
+            int anio = int.Parse(raw.Substring(0, 4), CultureInfo.InvariantCulture);
+            int mes = int.Parse(raw.Substring(4, 2), CultureInfo.InvariantCulture);
+            int dia = int.Parse(raw.Substring(6, 2), CultureInfo.InvariantCulture);
             return new DateTime(anio, mes, dia);
         }
         catch

@@ -29,6 +29,15 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Comprobar el XAML (recursos y ámbitos de nombres)
+        # Puerta desde la primera corrida verde sobre el tema reescrito. Es la
+        # comprobación que ve lo que el autotest no puede ver: los triggers de una
+        # plantilla solo se materializan al pasar el cursor, y un TargetName mal
+        # escrito no rompe la construcción de la ventana — rompe el primer hover.
+        shell: pwsh
+        run: |
+          .\Tools\validate_xaml.ps1 -Root .
+
       - name: Restaurar dependencias
         run: dotnet restore SysDiag.sln
 
