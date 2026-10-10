@@ -165,9 +165,10 @@ reiniciarse elevado.
 - `Tools/validate_xaml.ps1` comprueba cinco cosas sobre los doce XAML: bien formado, resolución de
   `{StaticResource}`, ámbito de cada `TargetName` dentro de su plantilla, que la propiedad animada exista
   en el tipo del elemento destino, y que todo `RepeatBehavior="Forever"` nacido en un `Trigger` tenga su
-  `StopStoryboard`. Es puerta en `build.yml` y también en `release.yml`: las dos últimas las traga WPF en
-  silencio —animar `ScaleX` sobre un `TranslateTransform`, u `Opacity` sobre un pincel, no lanza
-  excepción; simplemente no anima, y la ventana se ve muerta en el primer hover—.
+  `StopStoryboard`. Es puerta en `build.yml` y también en `release.yml`. Las dos últimas cazan lo que
+  WPF no reporta: animar una propiedad que el destino no tiene (`ScaleX` sobre un
+  `TranslateTransform`, `Opacity` sobre un pincel) no lanza excepción, simplemente no anima y la vista
+  queda muerta en el primer hover; y un `Forever` sin `StopStoryboard` tampoco falla —sigue corriendo.
 - Headless está en la solución y comparte `ScanService`; `--self-test` usa un doble
   sintético explícito, nunca sustituye mediciones de un diagnóstico real.
 - `Tools/validate_release.ps1` arranca el **EXE publicado** con `--self-test` y comprueba
