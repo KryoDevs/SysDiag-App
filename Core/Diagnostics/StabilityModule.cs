@@ -13,6 +13,10 @@ public static class StabilityModule
 
     private const int EventosMaximo = 50000;
 
+    // Cada fila WHEA se archiva en el JSON del historial (~200 bytes indentada): con hardware fallando, 50.000
+    // filas serían ~10 MB por diagnóstico. Los conteos quedan como límite inferior, y el aviso lo declara.
+    private const int WheaMaximo = 2000;
+
     public static void Run(DiagnosticReport r, CancellationToken token = default)
     {
         token.ThrowIfCancellationRequested();
@@ -154,9 +158,9 @@ public static class StabilityModule
                 using (rec)
                 {
                     token.ThrowIfCancellationRequested();
-                    if (eventos.Count >= EventosMaximo)
+                    if (eventos.Count >= WheaMaximo)
                     {
-                        r.Add(Severity.Warn, "Hardware", "Consulta WHEA truncada a 50.000 eventos.", "Los conteos son un límite inferior; revisa el registro completo de Windows.");
+                        r.Add(Severity.Warn, "Hardware", $"Consulta WHEA truncada a {WheaMaximo:N0} eventos guardados.", "Los conteos son un límite inferior; revisa el registro completo de Windows.");
                         break;
                     }
                     string detalle = "";

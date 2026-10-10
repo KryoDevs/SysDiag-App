@@ -94,8 +94,10 @@ public class DiagnosticReport : IJsonOnDeserialized
 
     public string ResumenEstado()
     {
-        if (EstadoEjecucion == "Cancelado" || EstadoEjecucion == "Falló o incompleto")
-            return "La ejecución quedó " + EstadoEjecucion.ToLowerInvariant() + ". Los datos visibles pueden incluir mediciones anteriores; no es un diagnóstico completado.";
+        if (EstadoEjecucion == "Cancelado")
+            return "La ejecución fue cancelada. Los datos visibles pueden incluir mediciones anteriores; no es un diagnóstico completado.";
+        if (EstadoEjecucion == "Falló o incompleto")
+            return "La ejecución falló o quedó incompleta. Los datos visibles pueden incluir mediciones anteriores; no es un diagnóstico completado.";
         if (TieneDatosRelevantes())
             return Hallazgos.Count == 0
                 ? "La comprobación se completó, pero no se detectaron problemas relevantes en los datos disponibles."
@@ -276,6 +278,21 @@ public class DiagnosticReport : IJsonOnDeserialized
         }
         if (NombresModulos.ContainsKey(module)) ModulosCompletados[module] = DateTime.Now;
         ActualizarRecomendaciones();
+    }
+
+    /// <summary>
+    /// Copia para archivar. Conserva los datos del reporte fusionado, pero declara como cobertura solo los módulos
+    /// medidos en la corrida que se archiva: ModulosCompletados acumula módulos de corridas anteriores, y sin esto
+    /// un «Red» suelto hecho después de un diagnóstico completo quedaría etiquetado como completo.
+    /// </summary>
+    public DiagnosticReport ParaArchivo(IEnumerable<string> modulosDeLaCorrida)
+    {
+        var medidos = new HashSet<string>(modulosDeLaCorrida ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+        var copia = (DiagnosticReport)MemberwiseClone();
+        copia.ModulosCompletados = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (modulo, fecha) in ModulosCompletados)
+            if (medidos.Contains(modulo)) copia.ModulosCompletados[modulo] = fecha;
+        return copia;
     }
 
     void IJsonOnDeserialized.OnDeserialized()

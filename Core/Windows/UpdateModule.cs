@@ -33,6 +33,14 @@ public static class UpdateModule
 
         var result = AppEnv.RunCommand("winget", new[] { "upgrade", "--source", "winget", "--include-unknown",
             "--accept-source-agreements", "--disable-interactivity" }, 90000, token);
+
+        // winget puede salir con código distinto de cero cuando simplemente no hay nada que actualizar.
+        // Ese mensaje es el resultado real de la consulta, así que se interpreta antes que el código de salida.
+        if (EsSinActualizaciones(result.StandardOutput + "\n" + result.StandardError))
+        {
+            r.Add(Severity.Ok, "Actualizaciones", "winget no ofrece actualizaciones aplicables en su catálogo comunitario.");
+            return;
+        }
         if (!result.Success)
         {
             r.Add(Severity.Warn, "Actualizaciones", "No se pudo consultar winget.", result.Describe("winget"));
@@ -41,11 +49,8 @@ public static class UpdateModule
         string salida = result.StandardOutput;
         if (!TryParseTable(salida, out var filas))
         {
-            if (Regex.IsMatch(salida, "No available upgrade found|No applicable upgrade found|No (?:se encontraron|hay) actualizaciones (?:disponibles|aplicables)", RegexOptions.IgnoreCase))
-                r.Add(Severity.Ok, "Actualizaciones", "winget no ofrece actualizaciones aplicables en su catálogo comunitario.");
-            else
-                r.Add(Severity.Warn, "Actualizaciones", "La salida de winget no pudo interpretarse.",
-                    "No se asumirá que los programas están al día. Revisa la consulta en una consola visible.");
+            r.Add(Severity.Warn, "Actualizaciones", "La salida de winget no pudo interpretarse.",
+                "No se asumirá que los programas están al día. Revisa la consulta en una consola visible.");
             return;
         }
         r.Actualizaciones = filas;
@@ -123,6 +128,14 @@ public static class UpdateModule
 
         return !invalidRows;
     }
+
+    private static readonly Regex SinActualizacionesRegex = new(
+        "No available upgrade found|No applicable upgrade found|No (?:se encontraron|hay) actualizaciones (?:disponibles|aplicables)",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    /// <summary>Reconoce el mensaje con el que winget indica que el catálogo no tiene nada aplicable.</summary>
+    public static bool EsSinActualizaciones(string salida) =>
+        !string.IsNullOrWhiteSpace(salida) && SinActualizacionesRegex.IsMatch(salida);
 
     public static bool IsSafePackageId(string id) => !string.IsNullOrEmpty(id) && id.Length <= 200
         && Regex.IsMatch(id, @"^[A-Za-z0-9][A-Za-z0-9._-]*$");

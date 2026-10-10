@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -15,6 +15,9 @@ public class HistorialItemVm
     public int Puntaje { get; init; }
     public string Archivo { get; init; } = "";
     public Brush Color { get; init; } = Brushes.Gray;
+
+    /// <summary>Si el diagnóstico cubrió todos los módulos o solo algunos: un puntaje parcial no es comparable con uno completo.</summary>
+    public string Cobertura { get; init; } = "";
 }
 
 public partial class HistoryWindow : Window
@@ -22,12 +25,13 @@ public partial class HistoryWindow : Window
     public HistoryWindow()
     {
         InitializeComponent();
-        Cargar();
+        // Con muchos diagnósticos archivados, leerlos tarda: se hace fuera del hilo de la interfaz.
+        Loaded += async (_, _) => await CargarAsync();
     }
 
-    private void Cargar()
+    private async Task CargarAsync()
     {
-        var entradas = Exporter.Listar(200);
+        var entradas = await Task.Run(() => Exporter.Listar(200));
         var items = new List<HistorialItemVm>();
 
         foreach (var e in entradas)
@@ -36,7 +40,13 @@ public partial class HistoryWindow : Window
             string clave = nivel switch { Severity.Bad => "BBad", Severity.Warn => "BWarn", _ => "BOk" };
             var color = Application.Current.Resources[clave] as Brush ?? Brushes.Gray;
 
-            items.Add(new HistorialItemVm { Fecha = e.Fecha, Puntaje = e.Puntaje, Archivo = e.Archivo, Color = color });
+            int total = DiagnosticReport.NombresModulos.Count;
+            int cubiertos = e.Modulos.Length;
+            string cobertura = cubiertos >= total
+                ? "diagnóstico completo"
+                : $"parcial · {cubiertos}/{total} módulos";
+
+            items.Add(new HistorialItemVm { Fecha = e.Fecha, Puntaje = e.Puntaje, Archivo = e.Archivo, Color = color, Cobertura = cobertura });
         }
 
         Lista.ItemsSource = items;
@@ -48,6 +58,8 @@ public partial class HistoryWindow : Window
             txt.Text = "Todavía no hay diagnósticos guardados. Corré «Diagnóstico completo» al menos una vez.";
         }
     }
+
+    private void Cerrar_Click(object sender, RoutedEventArgs e) => Close();
 
     private void Lista_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {

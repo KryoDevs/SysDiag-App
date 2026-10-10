@@ -89,6 +89,9 @@ public static class DriverUpdateModule
         }));
         estrategias.Add(("origen configurado del equipo", b => { }));
 
+        // Windows contestó en algún origen (aunque sin drivers nuevos). Un error de otro origen no debe
+        // presentarse como «no se pudo consultar» si ya hubo una respuesta válida.
+        bool algunaRespuesta = false;
         foreach (var (nombre, configurar) in estrategias)
         {
             try
@@ -100,6 +103,7 @@ public static class DriverUpdateModule
                 configurar(buscador);
 
                 _resultado = buscador.Search("Type='Driver' and IsInstalled=0 and IsHidden=0");
+                algunaRespuesta = true;
 
                 int total = _resultado.Updates.Count;
                 AppLog.Write($"  {nombre}: {total} resultado(s)");
@@ -153,7 +157,7 @@ public static class DriverUpdateModule
             }
         }
 
-        if (string.IsNullOrEmpty(UltimoError))
+        if (algunaRespuesta)
         {
             UltimoError = "Ninguno de los orígenes de Windows Update ofrece drivers nuevos para este equipo. " +
                           "Puede que ya estén todos al día, o que el fabricante publique versiones que Microsoft no distribuye.";

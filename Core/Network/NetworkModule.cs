@@ -491,43 +491,7 @@ public static class NetworkModule
         string raw = AppEnv.RunConsole("netsh", "wlan show networks mode=bssid", token: token);
         if (string.IsNullOrWhiteSpace(raw)) return;
 
-        var redes = new List<WifiNetworkRow>();
-        string ssid = null;
-        int senal = 0;
-
-        foreach (string linea in raw.Split('\n'))
-        {
-            int idx = linea.IndexOf(':');
-            if (idx <= 0) continue;
-
-            string clave = Normalize(linea.Substring(0, idx));
-            string valor = linea.Substring(idx + 1).Trim();
-
-            if (clave.StartsWith("ssid") && !clave.StartsWith("bssid"))
-            {
-                ssid = string.IsNullOrWhiteSpace(valor) ? "(oculta)" : valor;
-                senal = 0;
-            }
-            else if (clave == "senal" || clave == "signal")
-            {
-                senal = ParseInt(valor);
-            }
-            else if ((clave == "canal" || clave == "channel") && ssid != null)
-            {
-                int canal = ParseInt(valor);
-                if (canal <= 0) continue;
-
-                redes.Add(new WifiNetworkRow
-                {
-                    Ssid = ssid,
-                    Canal = canal,
-                    Banda = canal <= 14 ? "2.4 GHz" : "5 GHz",
-                    Senal = senal > 0 ? $"{senal} %" : "n/d",
-                    SenalPct = senal
-                });
-            }
-        }
-
+        var redes = ParseRedesCercanas(raw);
         if (redes.Count == 0) return;
 
         r.RedesCercanas = redes.OrderByDescending(x => x.SenalPct).ToList();
@@ -549,6 +513,71 @@ public static class NetworkModule
         else if (vecinas >= 2)
             r.Add(Severity.Warn, "Wi-Fi", $"{vecinas} redes comparten tu canal ({propio}).",
                 "Congestión moderada. Si notas picos de ping, probar otro canal es lo más barato que puedes hacer.");
+    }
+
+    /// <summary>
+    /// Lee la salida de «netsh wlan show networks mode=bssid». Cada BSSID se arma con sus propias líneas
+    /// de señal y canal: netsh no las imprime siempre en el mismo orden, y leerlas en secuencia asignaba a
+    /// un punto de acceso la señal del anterior.
+    /// </summary>
+    public static List<WifiNetworkRow> ParseRedesCercanas(string raw)
+    {
+        var redes = new List<WifiNetworkRow>();
+        if (string.IsNullOrWhiteSpace(raw)) return redes;
+
+        string ssid = null;
+        bool enBssid = false;
+        int senal = 0, canal = 0;
+
+        // Cierra el BSSID en curso: solo se publica si tiene canal conocido.
+        void Cerrar()
+        {
+            if (enBssid && ssid != null && canal > 0)
+            {
+                redes.Add(new WifiNetworkRow
+                {
+                    Ssid = ssid,
+                    Canal = canal,
+                    Banda = canal <= 14 ? "2.4 GHz" : "5 GHz",
+                    Senal = senal > 0 ? $"{senal} %" : "n/d",
+                    SenalPct = senal
+                });
+            }
+            enBssid = false;
+            senal = 0;
+            canal = 0;
+        }
+
+        foreach (string linea in raw.Split('\n'))
+        {
+            int idx = linea.IndexOf(':');
+            if (idx <= 0) continue;
+
+            string clave = Normalize(linea.Substring(0, idx));
+            string valor = linea.Substring(idx + 1).Trim();
+
+            if (clave.StartsWith("ssid", StringComparison.Ordinal) && !clave.StartsWith("bssid", StringComparison.Ordinal))
+            {
+                Cerrar();
+                ssid = string.IsNullOrWhiteSpace(valor) ? "(oculta)" : valor;
+            }
+            else if (clave.StartsWith("bssid", StringComparison.Ordinal))
+            {
+                Cerrar();
+                enBssid = true;
+            }
+            else if (enBssid && (clave == "senal" || clave == "signal"))
+            {
+                senal = ParseInt(valor);
+            }
+            else if (enBssid && (clave == "canal" || clave == "channel"))
+            {
+                canal = ParseInt(valor);
+            }
+        }
+
+        Cerrar();
+        return redes;
     }
 
     private static int ParseInt(string s)

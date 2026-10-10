@@ -50,8 +50,9 @@ SysDiag/
 │  ├─ Network/                   NetworkModule (latencia, Wi-Fi, canales, traceroute)
 │  ├─ Storage/                   StorageModule (SMART), CleanupModule
 │  ├─ Security/                  SecurityModule (Defender, Firewall, BitLocker, TPM, Secure Boot, UAC)
-│  ├─ Drivers/                   DriverModule, DriverUpdateModule, DriverVerifier
-│  ├─ Windows/                   OptimizeModule, StartupModule, UpdateModule (winget)
+│  ├─ Drivers/                   DriverModule, DriverUpdateModule, DriverVerifier, AuthenticodeVerifier
+│  ├─ Windows/                   OptimizeModule, PowerSettings, OptimizationBackupStore, SecureBackupDirectory,
+│  │                            RestorePointModule, SettingsService, StartupModule, UpdateModule (winget)
 │  └─ Diagnostics/               HealthScore, Remediation, ReportBuilder, Exporter, StabilityModule
 │
 ├─ Services/                     Contrato hacia la UI. Namespace SysDiag.Services
@@ -66,11 +67,13 @@ SysDiag/
 │  └─ CpuRules.cs, MemoryRules.cs Ejemplos reales, ya conectados (ver nota abajo)
 │
 └─ Ui/                            Capa visual en WPF
-   ├─ Theme.xaml                  Tokens de color y tipografía, plantillas de control
-   ├─ MainWindow.xaml             Ventana con chrome propio
+   ├─ Theme.xaml                  Sistema de diseño: paleta, tipografía, escalas y plantillas
+   ├─ MainWindow.xaml             Barra superior + rail de navegación y cuatro vistas
    ├─ MainViewModel.cs            Estado observable y orquestación de sesión
    ├─ Charts.cs / Converters.cs
-   ├─ CleanupWindow.xaml / OptimizeWindow.xaml / Dialog.xaml
+   ├─ Dialog.xaml                 Diálogos propios (no MessageBox)
+   ├─ CleanupWindow / OptimizeWindow / ProfilesWindow   acciones con confirmación
+   └─ HistoryWindow / SettingsWindow / PingMonitorWindow   historial, ajustes y monitor de latencia
 ```
 
 ## Módulos
@@ -86,6 +89,10 @@ SysDiag/
 | Drivers | Inventario de drivers con antigüedad, foco en almacenamiento/chipset/red | no |
 | Optimizar | DNS, reparación de WLAN, plan de energía, reinicio de pila TCP/IP | sí |
 | Restaurar | Revierte los valores capturados antes del primer ajuste pendiente; no TCP/IP/IP fija/VPN | sí |
+| Monitor de ping | Latencia en vivo hacia el router o internet: último valor, promedio, máximo y pérdida | no |
+| Historial | Diagnósticos archivados con su puntaje y cobertura; la tendencia compara solo cobertura equivalente | no |
+| Perfiles | Combinaciones de optimización (universidad, trabajo, juego) con respaldo previo | sí |
+| Ajustes | Muestreo, ventanas de eventos, retención de historial y registros | no |
 
 ### Sobre el módulo de Drivers
 
@@ -122,11 +129,11 @@ ni se borran; revisar sus valores manualmente si se necesita recuperar aquel est
 
 - Windows compila la solución, ejecuta regresiones y conserva TRX. Se incluyen ramas
   `arena/**`; no se publica un release por trabajar en una rama.
-- `Tools/validate_tests.ps1` exige ≥80 pruebas, todas aprobadas y sin omisiones.
+- `Tools/validate_tests.ps1` exige ≥114 pruebas (el mínimo de la suite auditada), todas aprobadas y sin omisiones.
 - Headless está en la solución y comparte `ScanService`; `--self-test` usa un doble
   sintético explícito, nunca sustituye mediciones de un diagnóstico real.
 - `Tools/validate_release.ps1` arranca el **EXE publicado** con `--self-test` y comprueba
-  recursos WPF, reglas y JSON, sin modificar hardware, red ni ajustes.
+  recursos WPF, reglas y JSON, y construye todas las ventanas sin mostrarlas; no modifica hardware, red ni ajustes.
 - Solo `release.yml` gestiona etiquetas existentes coincidentes con la versión del
   proyecto. Después de tests y gates prepara ZIP/checksums y crea un **borrador**.
 - `Tools/build_installer.ps1` entrega la versión del proyecto a Inno Setup 6; la firma
@@ -193,18 +200,29 @@ medición y presentación fue justamente lo que la hizo barata.
 
 Decisiones de diseño:
 
-- **Paleta azul-pizarra**, no negro puro, con acento índigo `#6C7BF7`. La profundidad
-  viene de la elevación de superficie, no de bordes marcados.
-- **Tres roles tipográficos**: Bahnschrift (un DIN, la letra del dibujo técnico) para
-  cifras y rótulos, Segoe UI Variable para texto corrido, y Cascadia Mono con cifras
-  tabulares para todo dato numérico, así las columnas no bailan.
-- **La regla de escala**: cada métrica del Resumen lleva debajo una serie de marcas que
-  se llenan según su magnitud, como la escala de un instrumento. Es el elemento que da
-  identidad a la interfaz y codifica lo que la aplicación hace: medir.
-- **Barra de título propia**: la del sistema no se puede tematizar.
+- **Paleta «medianoche»**: azul `#0B1020` de base, violeta `#8B7CFF` como acento de
+  marca y cian `#38D6F0` como acento secundario. El cian es el color del logo y se
+  reserva para lo que está vivo en ese instante: operación en curso, traza del
+  monitor de ping, puntos del gráfico de evolución. La profundidad la da la
+  elevación de la superficie, no el grosor del borde.
+- **Un solo acento por pantalla.** El color semántico (verde, ámbar, rojo) califica
+  datos y nunca decora: si todo compite por atención, nada la recibe.
+- **Tres roles tipográficos**: Segoe UI Variable Display para titulares, Segoe UI
+  Variable Text para el cuerpo, y Cascadia Mono con cifras tabulares para todo dato
+  numérico, así las columnas no bailan al actualizarse.
+- **La regla de escala**: cada métrica del Resumen lleva debajo una serie de marcas
+  que se llenan según su magnitud, como la escala de un instrumento. Es el elemento
+  que da identidad a la interfaz y codifica lo que la aplicación hace: medir.
+- **Barra de título propia**: la del sistema no se puede tematizar. Todas las
+  ventanas, incluidas las secundarias, llevan la marca.
 - **Diálogos propios**: `MessageBox` se dibuja en claro y rompe el conjunto.
-- **La navegación es una lista con selección**, no botones sueltos: el módulo activo
-  queda marcado sin estado que sincronizar a mano.
+- **Navegación en rail con la acción principal separada**: el diagnóstico completo
+  es un botón arriba porque es lo que se hace al abrir la aplicación; el resto son
+  módulos sueltos agrupados por lo que hacen, dentro de una lista con selección
+  (el módulo activo queda marcado sin estado que sincronizar a mano).
+
+El sistema completo —paleta, escalas, sombras, plantillas de control y reglas de
+uso del color— está documentado en `docs/DISENO.md`.
 
 ## Decisiones técnicas
 

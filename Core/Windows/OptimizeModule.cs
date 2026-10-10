@@ -2,7 +2,6 @@ using System.IO;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Security.Principal;
-using System.Text.RegularExpressions;
 using Microsoft.Win32;
 using SysDiag.Models;
 
@@ -48,22 +47,6 @@ public static class OptimizeModule
     private static void RequireAdmin()
     {
         if (!AppEnv.IsAdmin) throw new InvalidOperationException("Esta operación necesita privilegios de administrador.");
-    }
-
-    public static string ReadWlanAutoconfig()
-    {
-        string raw = AppEnv.RunConsole("netsh", "wlan show settings");
-        if (string.IsNullOrWhiteSpace(raw)) return "desconocido";
-        if (Regex.IsMatch(raw, "deshabilitad|disabled", RegexOptions.IgnoreCase)) return "deshabilitado";
-        if (Regex.IsMatch(raw, "habilitad|enabled", RegexOptions.IgnoreCase)) return "habilitado";
-        return "desconocido";
-    }
-
-    public static void SaveState()
-    {
-        RequireAdmin();
-        var store = Store;
-        store.Write(store.ReadOrCreate(PowerSettings.ActivePlan()));
     }
 
     private static SavedState Backup(Options options, Guid active, Guid target)

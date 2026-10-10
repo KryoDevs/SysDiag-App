@@ -131,29 +131,28 @@ public partial class MainWindow : Window
 
     private async void Nav_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_vm.Ocupado || Nav.SelectedItem is not ListBoxItem item || item.Tag is not string clave) return;
+        // Los rótulos de grupo viajan dentro de la lista para que el desplazamiento
+        // los arrastre con su sección. No son un destino: si por la precedencia de
+        // estilos alguno llegara a ser seleccionable, se desmarca en el acto para
+        // que no quede pintado como módulo activo.
+        if (Nav.SelectedItem is not ListBoxItem item || item.Tag is not string clave)
+        {
+            Nav.SelectedIndex = -1;
+            return;
+        }
+        if (_vm.Ocupado)
+        {
+            // Si el ítem quedara marcado, volver a pulsarlo al terminar la operación no dispararía este evento.
+            AppLog.Write("Hay una operación en curso. Espera a que termine para elegir otro módulo.", "WARN");
+            Nav.SelectedIndex = -1;
+            return;
+        }
         try
         {
-
             // La selección marca el módulo activo; se limpia al terminar para que
             // volver a pulsar el mismo vuelva a ejecutarlo.
             switch (clave)
             {
-                case "completo":
-                    _vm.BusquedaDriversHecha = false;
-                    await _vm.RunAsync("Diagnóstico completo",
-                        ("red", PasoRed),
-                        ("rendimiento", PasoRendimiento),
-                        ("termicas", PasoTermicas),
-                        ("almacenamiento", PasoAlmacenamiento),
-                        ("seguridad", PasoSeguridad),
-                        ("estabilidad", PasoEstabilidad),
-                        ("drivers", PasoDrivers),
-                        ("actualizaciones", PasoActualizaciones),
-                        ("arranque", PasoArranque),
-                        ("limpieza", PasoAnalisisLimpieza));
-                    break;
-
                 case "red":
                     await _vm.RunAsync("Red y latencia", ("red", PasoRed));
                     break;
@@ -240,6 +239,33 @@ public partial class MainWindow : Window
         finally { Nav.SelectedIndex = -1; }
     }
 
+    /// <summary>
+    /// Botón principal del rail. El diagnóstico completo dejó de ser un ítem
+    /// más de la lista: es la acción que se hace al abrir la aplicación, y
+    /// como tal se dibuja arriba y separada del resto de los módulos.
+    /// </summary>
+    private async void Completo_Click(object sender, RoutedEventArgs e)
+    {
+        if (_vm.Ocupado) return;
+        await EjecutarCompleto();
+    }
+
+    private async Task EjecutarCompleto()
+    {
+        _vm.BusquedaDriversHecha = false;
+        await _vm.RunAsync("Diagnóstico completo",
+            ("red", PasoRed),
+            ("rendimiento", PasoRendimiento),
+            ("termicas", PasoTermicas),
+            ("almacenamiento", PasoAlmacenamiento),
+            ("seguridad", PasoSeguridad),
+            ("estabilidad", PasoEstabilidad),
+            ("drivers", PasoDrivers),
+            ("actualizaciones", PasoActualizaciones),
+            ("arranque", PasoArranque),
+            ("limpieza", PasoAnalisisLimpieza));
+    }
+
     // Cada paso delega en su servicio de dominio (Services/), no en el
     // módulo estático directamente: es la capa que hace testeable el motor
     // y la que pide tu arquitectura. Los módulos de Core/ siguen siendo
@@ -277,7 +303,7 @@ public partial class MainWindow : Window
     // oficiales. La app nunca descarga ni ejecuta un instalador de driver.
     private void AbrirWindowsUpdate_Click(object sender, RoutedEventArgs e)
     {
-        try { Process.Start(new ProcessStartInfo("ms-settings:windowsupdate-optionalupdates") { UseShellExecute = true }); }
+        try { Process.Start(new ProcessStartInfo("ms-settings:windowsupdate-optionalupdates") { UseShellExecute = true })?.Dispose(); }
         catch (Exception ex) { Dialog.Error("No se pudo abrir Windows Update", ex.Message); }
     }
 
@@ -324,6 +350,7 @@ public partial class MainWindow : Window
 
         bool ok = Dialog.Confirm($"Instalar {descripcion}",
             "Los paquetes vienen firmados por Microsoft y validados contra el hardware de este equipo.\n\n" +
+            "Si algún paquete pide aceptar su licencia, SysDiag la acepta al confirmar: revisa la lista antes de continuar.\n\n" +
             "Aun así, un cambio de driver puede requerir reiniciar y, en casos raros, dejar un dispositivo " +
             "sin funcionar. Windows guarda la versión anterior: se revierte desde Propiedades del " +
             "dispositivo ▸ Controlador ▸ Revertir.",
@@ -431,7 +458,7 @@ public partial class MainWindow : Window
             // manda al portal genérico de soporte que le corresponde.
             string equipo = _vm.Report?.Equipo ?? "";
             string url = DriverVerifier.SitioOficial(equipo);
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();
         }
         catch (Exception ex) { Dialog.Error("No se pudo abrir el navegador", ex.Message); }
     }
@@ -452,7 +479,12 @@ public partial class MainWindow : Window
         if (!await _vm.RunAsync("Limpieza",
             ("limpieza", (r, t) => Task.Run(() => CleanupModule.Analyze(r, t), t)))) return;
 
-        if (_vm.Report.Limpieza.Count == 0 && !CleanupModule.Opts.Papelera) return;
+        if (_vm.Report.Limpieza.Count == 0 && !CleanupModule.Opts.Papelera)
+        {
+            // Sin esto el usuario pulsa «Limpiar» y no ve ningún resultado.
+            Dialog.Info("Nada que analizar", "Ninguna de las categorías seleccionadas existe en este equipo. Marca otras categorías o revisa los permisos.");
+            return;
+        }
 
         var filas = _vm.Report.Limpieza;
         long total = filas.Sum(x => x.Bytes);
@@ -537,7 +569,7 @@ public partial class MainWindow : Window
         try
         {
             string archivo = ReportBuilder.Build(_vm.Report);
-            Process.Start(new ProcessStartInfo(archivo) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(archivo) { UseShellExecute = true })?.Dispose();
         }
         catch (Exception ex)
         {
@@ -584,7 +616,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            Process.Start(new ProcessStartInfo(AppEnv.OutputPath) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(AppEnv.OutputPath) { UseShellExecute = true })?.Dispose();
         }
         catch (Exception ex)
         {

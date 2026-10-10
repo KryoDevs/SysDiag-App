@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SysDiag · maqueta del rediseño</title>
+<style>
+  :root{
+    --base:#0B1020; --rail:#080C18; --surface:#141A2E; --surface-alt:#1B2340; --surface-hi:#242E52;
+    --stroke:#2C3763; --stroke-soft:#1A2240;
+    --text:#EDEFFA; --text-dim:#A6B0D4; --text-muted:#6E79A8;
+    --accent:#8B7CFF; --accent-deep:#6D5AE8; --accent2:#38D6F0;
+    --ok:#35D6A0; --warn:#F5A524; --bad:#FF5470; --ink:#0A0D1A;
+    --hover:rgba(255,255,255,.06); --wash:rgba(139,124,255,.16); --track:rgba(255,255,255,.07);
+    --display:"Segoe UI Variable Display","Segoe UI",system-ui,-apple-system,sans-serif;
+    --body:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+    --mono:"Cascadia Mono",Consolas,"Courier New",monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#05070E;color:var(--text);font-family:var(--body);font-size:13px;
+       padding:32px 24px 64px;}
+  .wrap{max-width:1360px;margin:0 auto}
+  h1.page{font-family:var(--display);font-size:22px;font-weight:600;margin:0 0 6px}
+  p.page{color:var(--text-dim);margin:0 0 24px;font-size:12.5px;max-width:820px;line-height:1.6}
+  .window{width:1340px;max-width:100%;height:860px;background:var(--base);border:1px solid var(--stroke-soft);
+          border-radius:10px;overflow:hidden;display:grid;grid-template-rows:52px 1fr;
+          box-shadow:0 30px 60px rgba(0,0,0,.55);}
+
+  /* ---------- barra superior ---------- */
+  .topbar{background:var(--rail);border-bottom:1px solid var(--stroke-soft);
+          display:flex;align-items:center;padding:0 18px;gap:18px}
+  .topbar img{height:30px}
+  .sep-ver{width:1px;height:20px;background:var(--stroke)}
+  .equipo{color:var(--text-dim);font-size:12px}
+  .top-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+  .pill{background:var(--surface-alt);border:1px solid var(--stroke-soft);border-radius:12px;
+        padding:5px 11px;display:flex;align-items:center;gap:7px;color:var(--text-dim);font-size:12px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--accent2);animation:latido .7s infinite alternate}
+  @keyframes latido{from{opacity:1}to{opacity:.25}}
+  .reloj{font-family:var(--mono);font-size:12px;color:var(--text-muted)}
+  .cap{width:46px;height:34px;display:grid;place-items:center;color:var(--text-muted);font-size:10px}
+  .cap:last-child:hover{background:var(--bad);color:#fff}
+
+  /* ---------- cuerpo ---------- */
+  .body{display:grid;grid-template-columns:182px 1fr;min-height:0}
+  .rail{background:linear-gradient(180deg,#0A0F1E,#070A15);border-right:1px solid var(--stroke-soft);
+        display:flex;flex-direction:column;padding:14px 0}
+  .cta{margin:0 14px 4px;height:40px;border-radius:5px;border:1px solid var(--accent-deep);
+       background:linear-gradient(180deg,#A79AFF,#7A67F5);color:var(--ink);font-weight:600;font-size:12.5px;
+       display:flex;align-items:center;justify-content:center;gap:9px}
+  .nav{padding:8px 0 0;overflow:auto;flex:1}
+  .grupo{display:flex;align-items:center;gap:7px;margin:14px 14px 6px 14px;
+         font-family:var(--body);font-size:9.5px;font-weight:600;color:var(--text-muted);letter-spacing:.04em}
+  .grupo i{display:block;height:1px;width:12px;background:var(--stroke)}
+  .item{display:flex;align-items:center;gap:0;padding:9px 15px;color:var(--text-dim);font-size:12.5px;
+        border-left:3px solid transparent}
+  .item .ico{width:24px;text-align:center;font-size:14px;opacity:.9}
+  .item.activo{background:var(--wash);border-left-color:var(--accent);color:var(--text)}
+  .rail-foot{padding:10px 14px 14px}
+  .aviso{background:var(--surface);border-radius:5px;padding:10px 12px;margin-bottom:12px}
+  .aviso b{font-size:12px;font-weight:600}
+  .aviso p{color:var(--text-dim);font-size:12px;margin:3px 0 8px;line-height:1.45}
+  .btn-ghost{background:var(--surface-alt);border:1px solid var(--stroke);color:var(--text);
+             border-radius:5px;padding:6px 10px;font-size:12px}
+  .version{font-size:9.5px;font-weight:600;color:var(--text-muted);letter-spacing:.04em}
+
+  /* ---------- contenido ---------- */
+  .content{display:grid;grid-template-rows:auto 1fr auto;min-width:0}
+  .cabecera{margin:16px 24px 12px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+  .cabecera h2{font-family:var(--display);font-size:24px;font-weight:600;margin:0}
+  .cabecera p{color:var(--text-dim);font-size:12px;margin:5px 0 0}
+  .segmentos{background:var(--surface);border:1px solid var(--stroke-soft);border-radius:9px;padding:4px;
+             display:flex;gap:2px}
+  .seg{padding:6px 14px;border-radius:6px;color:var(--text-dim);font-size:12.5px}
+  .seg.on{background:linear-gradient(180deg,#A79AFF,#7A67F5);color:var(--ink);font-weight:600}
+
+  .vistas{margin:0 24px;overflow:auto}
+  .card{background:var(--surface);border:1px solid var(--stroke-soft);border-radius:10px;padding:18px;
+        box-shadow:0 3px 14px rgba(0,0,0,.4)}
+  .hero{background:linear-gradient(135deg,#1E2749,#121833);border:1px solid var(--stroke);border-radius:14px;
+        padding:24px 26px 26px;display:flex;gap:36px;margin-bottom:16px}
+  .anillo{width:132px;height:132px;position:relative;flex:none}
+  .anillo .num{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+  .anillo .num b{font-family:var(--display);font-size:36px;font-weight:600;color:var(--ok);display:block;line-height:1}
+  .anillo .num span{font-size:10.5px;font-weight:600;color:var(--text-muted);letter-spacing:.05em}
+  .etiqueta{font-family:var(--display);font-size:36px;font-weight:600}
+  .hero-txt{display:flex;flex-direction:column;justify-content:center;gap:14px}
+  .hero-txt p{margin:0;color:var(--text-dim);font-size:12px;line-height:1.7;max-width:520px}
+  .tendencia{background:var(--wash);border-radius:5px;padding:10px 13px;font-size:13px}
+  .eyebrow{font-size:10.5px;font-weight:600;color:var(--text-muted);letter-spacing:.05em;margin-bottom:10px}
+  .outline{background:transparent;border:1px solid var(--stroke-soft);border-radius:10px;padding:18px;margin-bottom:20px}
+  .outline p{color:var(--text-dim);font-size:12px;line-height:1.7;margin:0}
+
+  .metricas{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:10px}
+  .metrica{width:256px}
+  .metrica .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .metrica .nombre{font-size:10.5px;font-weight:600;color:var(--text-muted);letter-spacing:.05em}
+  .chip-mod{background:var(--surface-alt);border-radius:5px;padding:2px 7px;color:var(--text-muted);
+            font-size:9.5px;font-weight:600}
+  .metrica .valor{font-family:var(--display);font-size:30px;font-weight:600;line-height:1;margin-bottom:12px}
+  .regla{height:6px;display:flex}
+  .regla i{display:block;height:6px}
+  .ticks-on{background:repeating-linear-gradient(to right,var(--c) 0 1.5px,transparent 1.5px 6px)}
+  .ticks-off{background:repeating-linear-gradient(to right,var(--stroke-soft) 0 1.5px,transparent 1.5px 6px)}
+  .metrica .nota{color:var(--text-dim);font-size:12px;margin-top:12px}
+
+  .barras .fila{display:flex;align-items:center;margin-bottom:11px}
+  .barras .lbl{width:176px;color:var(--text-dim);font-size:12px;padding-right:16px}
+  .riel{width:420px;height:10px;background:var(--track);border-radius:5px;position:relative;flex:none}
+  .riel i{position:absolute;left:0;top:0;height:10px;border-radius:5px}
+  .barras .num{font-family:var(--mono);font-size:12px;margin-left:16px;min-width:64px}
+
+  .pie{margin:16px 24px}
+  .progreso{height:3px;background:var(--stroke-soft);border-radius:2px;margin-bottom:12px;overflow:hidden}
+  .progreso i{display:block;height:3px;width:160px;background:linear-gradient(90deg,var(--accent2),var(--accent))}
+  .barra-pie{background:var(--surface);border:1px solid var(--stroke-soft);border-radius:10px;padding:10px 14px;
+             display:flex;align-items:center}
+  .barra-pie span{color:var(--text-dim);font-size:12px}
+  .acciones{margin-left:auto;display:flex;gap:6px}
+  .quiet{background:transparent;border:1px solid transparent;color:var(--text-dim);border-radius:5px;
+         padding:9px 16px;font-size:13px}
+  .quiet:hover{background:var(--hover);color:var(--text)}
+  .primary{background:linear-gradient(180deg,#A79AFF,#7A67F5);border:1px solid var(--accent-deep);color:var(--ink);
+           font-weight:600;border-radius:5px;padding:9px 16px;font-size:13px}
+
+  /* ---------- piezas sueltas ---------- */
+  .muestra{display:flex;gap:20px;flex-wrap:wrap;margin-top:28px;align-items:flex-start}
+  .panel{width:420px;background:var(--surface);border:1px solid var(--stroke);border-radius:14px;padding:22px 26px 20px;
+         box-shadow:0 6px 30px rgba(0,0,0,.55)}
+  .panel .barra{height:4px;width:46px;border-radius:2px;background:var(--accent);margin-bottom:16px}
+  .panel h3{font-family:var(--display);font-size:17px;font-weight:600;margin:0}
+  .panel p{color:var(--text-dim);font-size:13px;line-height:1.65}
+  .opcion{display:flex;gap:12px;padding:12px 14px;border-radius:8px;margin-bottom:8px}
+  .opcion:hover{background:var(--hover)}
+  .opcion .franja{width:3px;border-radius:2px}
+  .opcion .caja{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--stroke);flex:none;margin-left:12px}
+  .opcion.on .caja{background:linear-gradient(180deg,#A79AFF,#7A67F5);border-color:var(--accent-deep)}
+  .opcion b{font-weight:600;font-size:13px}
+  .opcion small{display:block;color:var(--text-dim);font-size:12px;margin-top:3px;line-height:1.5}
+  .fila-hallazgo{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--stroke-soft)}
+  .fila-hallazgo .sev{width:4px;height:26px;border-radius:2px;background:var(--bad)}
+  .fila-hallazgo .area{width:104px;color:var(--text-dim);font-size:12px}
+  .fila-hallazgo .txt{font-size:13px}
+  .chip-sev{background:rgba(255,84,112,.15);color:var(--bad);border-radius:5px;padding:3px 8px;
+            font-size:10.5px;font-weight:600}
+  .nota-final{color:var(--text-muted);font-size:12px;margin-top:28px;line-height:1.7;max-width:900px}
+  code{font-family:var(--mono);font-size:11.5px;color:var(--text-dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="page">SysDiag · rediseño de la interfaz</h1>
+  <p class="page">
+    Maqueta estática de la ventana principal con datos de ejemplo. No es la aplicación ejecutándose:
+    es la misma paleta, las mismas medidas y la misma estructura que hay en
+    <code>Ui/Theme.xaml</code> y <code>Ui/MainWindow.xaml</code>, para poder juzgar el diseño sin
+    necesidad de un Windows. Los colores, radios y tipografías son los tokens reales del tema.
+  </p>
+
+  <div class="window">
+    <!-- BARRA SUPERIOR -->
+    <div class="topbar">
+      <img src="logo.png" alt="SysDiag">
+      <div class="sep-ver"></div>
+      <div class="equipo">TUF Gaming F15 · Windows 11</div>
+      <div class="top-right">
+        <div class="pill"><span class="dot"></span>Midiendo</div>
+        <div class="reloj">21:47:03</div>
+        <div class="cap">─</div><div class="cap">□</div><div class="cap">✕</div>
+      </div>
+    </div>
+
+    <div class="body">
+      <!-- RAIL -->
+      <div class="rail">
+        <div class="cta">◈ Diagnóstico completo</div>
+        <div class="nav">
+          <div class="grupo"><i></i>ANÁLISIS</div>
+          <div class="item activo"><span class="ico">◇</span>Red y latencia</div>
+          <div class="item"><span class="ico">◈</span>Monitor de ping</div>
+          <div class="item"><span class="ico">▤</span>Rendimiento</div>
+          <div class="item"><span class="ico">◍</span>Térmicas y energía</div>
+          <div class="item"><span class="ico">⬢</span>Almacenamiento</div>
+          <div class="item"><span class="ico">⛨</span>Seguridad</div>
+          <div class="item"><span class="ico">◌</span>Estabilidad</div>
+
+          <div class="grupo"><i></i>MANTENIMIENTO</div>
+          <div class="item"><span class="ico">▦</span>Drivers</div>
+          <div class="item"><span class="ico">◧</span>Arranque y software</div>
+          <div class="item"><span class="ico">⟳</span>Actualizaciones</div>
+          <div class="item"><span class="ico">⌫</span>Limpieza</div>
+          <div class="item"><span class="ico">⚙</span>Optimizar</div>
+          <div class="item"><span class="ico">☰</span>Perfiles</div>
+
+          <div class="grupo"><i></i>SISTEMA</div>
+          <div class="item"><span class="ico">◷</span>Punto de restauración</div>
+          <div class="item"><span class="ico">↺</span>Restaurar estado</div>
+
+          <div class="grupo"><i></i>DATOS</div>
+          <div class="item"><span class="ico">▤</span>Historial</div>
+          <div class="item"><span class="ico">⚙</span>Ajustes</div>
+        </div>
+        <div class="rail-foot">
+          <div class="aviso">
+            <b>Permisos limitados</b>
+            <p>Algunos módulos verán datos parciales.</p>
+            <button class="btn-ghost">Reiniciar como administrador</button>
+          </div>
+          <div class="version">VERSIÓN 5.7.1</div>
+        </div>
+      </div>
+
+      <!-- CONTENIDO -->
+      <div class="content">
+        <div class="cabecera">
+          <div>
+            <h2>Red y latencia</h2>
+            <p>2 crítico(s) · 3 aviso(s) · finalizado a las 21:46. Diagnóstico completo.</p>
+          </div>
+          <div class="segmentos">
+            <div class="seg on">Resumen</div><div class="seg">Hallazgos</div>
+            <div class="seg">Datos</div><div class="seg">Registro</div>
+          </div>
+        </div>
+
+        <div class="vistas">
+          <!-- Titular -->
+          <div class="hero">
+            <div>
+              <div class="eyebrow" style="text-align:center">ESTADO GENERAL</div>
+              <div class="anillo">
+                <svg width="132" height="132" viewBox="0 0 132 132">
+                  <circle cx="66" cy="66" r="50" fill="none" stroke="#1A2240" stroke-width="11"/>
+                  <circle cx="66" cy="66" r="50" fill="none" stroke="#35D6A0" stroke-width="11"
+                          stroke-linecap="round" stroke-dasharray="257.6 314.16"
+                          transform="rotate(-90 66 66)"/>
+                </svg>
+                <div class="num"><b>82</b><span>/ 100</span></div>
+              </div>
+              <div style="text-align:center;color:var(--ok);font-size:13px;margin-top:12px">Bueno</div>
+            </div>
+            <div class="hero-txt">
+              <p>El puntaje parte de 100 y descuenta por hallazgo: 6 por cada crítico y 2 por cada aviso.
+                 Con 2 críticos y 3 avisos sobre 10 módulos medidos, quedan 82 puntos.</p>
+              <div class="tendencia">Mejoró 5 puntos respecto al diagnóstico anterior (77).</div>
+            </div>
+          </div>
+
+          <!-- Siguiente paso -->
+          <div class="outline">
+            <div class="eyebrow">SIGUIENTE PASO</div>
+            <p>Hay un hallazgo crítico en Red: el jitter de 48 ms en la salida a internet es alto para una
+               conexión estable. Revísalo en la pestaña Hallazgos, donde está la recomendación completa.</p>
+          </div>
+
+          <!-- Mediciones -->
+          <div class="eyebrow">MEDICIONES</div>
+          <div class="metricas">
+            <div class="metrica card">
+              <div class="top"><span class="nombre">LATENCIA · RIOT</span><span class="chip-mod">Red</span></div>
+              <div class="valor" style="color:var(--ok)">38 ms</div>
+              <div class="regla">
+                <i class="ticks-on" style="--c:var(--ok);width:25%"></i>
+                <i class="ticks-off" style="width:75%"></i>
+              </div>
+              <div class="nota">jitter 12 ms · pérdida 0 %</div>
+            </div>
+            <div class="metrica card">
+              <div class="top"><span class="nombre">USO DE CPU</span><span class="chip-mod">Rendimiento</span></div>
+              <div class="valor" style="color:var(--warn)">68 %</div>
+              <div class="regla">
+                <i class="ticks-on" style="--c:var(--warn);width:68%"></i>
+                <i class="ticks-off" style="width:32%"></i>
+              </div>
+              <div class="nota">RAM en uso 86.5 %</div>
+            </div>
+            <div class="metrica card">
+              <div class="top"><span class="nombre">TEMPERATURA</span><span class="chip-mod">Térmicas</span></div>
+              <div class="valor" style="color:var(--warn)">84 °C</div>
+              <div class="regla">
+                <i class="ticks-on" style="--c:var(--warn);width:84%"></i>
+                <i class="ticks-off" style="width:16%"></i>
+              </div>
+              <div class="nota">frecuencia 3.2 GHz</div>
+            </div>
+            <div class="metrica card">
+              <div class="top"><span class="nombre">DESGASTE DE BATERÍA</span><span class="chip-mod">Térmicas</span></div>
+              <div class="valor" style="color:var(--ok)">12 %</div>
+              <div class="regla">
+                <i class="ticks-on" style="--c:var(--ok);width:12%"></i>
+                <i class="ticks-off" style="width:88%"></i>
+              </div>
+              <div class="nota">contra la capacidad de fábrica</div>
+            </div>
+          </div>
+
+          <!-- Gráfico -->
+          <div class="card" style="margin-top:10px">
+            <div class="eyebrow">LATENCIA POR DESTINO</div>
+            <p style="color:var(--text-dim);font-size:12px;line-height:1.7;margin:0 0 16px">
+              Cuanto más larga la barra, más tarda la respuesta. Comparar el router con los demás separa
+              un problema de tu red de uno del proveedor.
+            </p>
+            <div class="barras">
+              <div class="fila"><div class="lbl">Router</div>
+                <div class="riel"><i style="width:14px;background:var(--ok)"></i></div>
+                <div class="num" style="color:var(--ok)">5 ms</div></div>
+              <div class="fila"><div class="lbl">Salida a internet</div>
+                <div class="riel"><i style="width:420px;background:var(--bad)"></i></div>
+                <div class="num" style="color:var(--bad)">148 ms</div></div>
+              <div class="fila"><div class="lbl">Riot · LAN</div>
+                <div class="riel"><i style="width:108px;background:var(--warn)"></i></div>
+                <div class="num" style="color:var(--warn)">38 ms</div></div>
+              <div class="fila"><div class="lbl">Cloudflare</div>
+                <div class="riel"><i style="width:62px;background:var(--ok)"></i></div>
+                <div class="num" style="color:var(--ok)">22 ms</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PIE -->
+        <div class="pie">
+          <div class="progreso"><i></i></div>
+          <div class="barra-pie">
+            <span>Los informes y registros se guardan en Documentos\SysDiag</span>
+            <div class="acciones">
+              <button class="quiet">Cancelar</button>
+              <button class="quiet">Exportar tabla (CSV)</button>
+              <button class="quiet">Exportar todo (JSON)</button>
+              <button class="quiet">Abrir carpeta</button>
+              <button class="primary">Generar informe</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Piezas sueltas -->
+  <div class="muestra">
+    <div class="panel">
+      <div class="barra"></div>
+      <h3>Optimizaciones a aplicar</h3>
+      <p style="color:var(--text-dim);font-size:12px">El estado actual se guarda antes de aplicar. Todo esto se
+         revierte desde «Restaurar estado».</p>
+      <div class="opcion on"><div class="franja" style="background:var(--ok)"></div><div class="caja"></div>
+        <div><b>Vaciar la caché DNS</b><small>Sin riesgo. Fuerza a resolver de nuevo los nombres de dominio.</small></div></div>
+      <div class="opcion on"><div class="franja" style="background:var(--ok)"></div><div class="caja"></div>
+        <div><b>Vaciar la caché ARP</b><small>Sin riesgo. Fuerza a redescubrir los equipos de la red local.</small></div></div>
+      <div class="opcion"><div class="franja" style="background:var(--warn)"></div><div class="caja"></div>
+        <div><b>Adaptador Wi-Fi en máximo rendimiento</b><small>Desactiva el ahorro de energía de la radio cuando el
+             equipo está enchufado.</small></div></div>
+      <div class="opcion"><div class="franja" style="background:var(--bad)"></div><div class="caja"></div>
+        <div><b>Reiniciar Winsock y la pila TCP/IP</b><small>Riesgo alto. Borra IP fija, DNS personalizados y
+             configuración de VPN.</small></div></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+        <button class="quiet" style="border-color:var(--stroke);background:var(--surface-alt)">Cancelar</button>
+        <button class="primary">Aplicar</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="barra" style="background:var(--bad)"></div>
+      <h3>Hallazgos</h3>
+      <div style="margin-top:14px;border-top:1px solid var(--stroke-soft)">
+        <div class="fila-hallazgo" style="background:rgba(139,124,255,.16)">
+          <div class="sev"></div><span class="chip-sev">Crítico</span>
+          <div class="area">Red</div><div class="txt">Jitter de 148 ms hacia la salida a internet</div>
+        </div>
+        <div class="fila-hallazgo">
+          <div class="sev" style="background:var(--warn)"></div>
+          <span class="chip-sev" style="background:rgba(245,165,36,.15);color:var(--warn)">Aviso</span>
+          <div class="area">Térmicas</div><div class="txt">La CPU alcanzó 84 °C durante el muestreo</div>
+        </div>
+        <div class="fila-hallazgo">
+          <div class="sev" style="background:var(--ok)"></div>
+          <span class="chip-sev" style="background:rgba(53,214,160,.15);color:var(--ok)">Correcto</span>
+          <div class="area">Seguridad</div><div class="txt">Defender, Firewall y BitLocker activos</div>
+        </div>
+      </div>
+      <div style="margin-top:18px">
+        <div class="eyebrow">RECOMENDACIÓN</div>
+        <p style="margin:0">El jitter alto suele venir de la cola del router cuando hay subidas simultáneas.
+           Comprueba si coincide con copias de seguridad o actualizaciones en segundo plano.</p>
+        <button class="primary" style="margin-top:16px;width:100%">Revisar la configuración Wi-Fi</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="nota-final">
+    Maqueta con fines de revisión: no ejecuta código de la aplicación. La paleta, las medidas y los textos
+    salen de <code>Ui/Theme.xaml</code>, <code>Ui/MainWindow.xaml</code> y <code>docs/DISENO.md</code>.
+    Las cifras que aparecen son de ejemplo.
+  </p>
+</div>
+</body>
+</html>

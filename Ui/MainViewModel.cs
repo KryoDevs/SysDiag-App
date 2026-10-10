@@ -56,7 +56,7 @@ public class MetricCard
             Acento = acento,
             Modulo = modulo,
             TicksOn = Ticks(((SolidColorBrush)acento).Color),
-            TicksOff = Ticks(Color.FromRgb(0x2A, 0x32, 0x3D)),
+            TicksOff = Ticks(Color.FromRgb(0x1A, 0x22, 0x40)),
             FillStar = new GridLength(fill, GridUnitType.Star),
             RestStar = new GridLength(1 - fill, GridUnitType.Star)
         };
@@ -166,7 +166,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
     }
 
     public string TextoVacio => AppEnv.IsAdmin
-        ? "Elige un módulo del panel izquierdo. Si es la primera vez, «Diagnóstico completo» recopila red, rendimiento, térmicas, almacenamiento y estabilidad en una sola pasada."
+        ? "Pulsa «Diagnóstico completo» para recopilar red, rendimiento, térmicas, almacenamiento y estabilidad en una sola pasada, o elige un módulo del panel izquierdo para medir una sola parte."
         : "Todavía no hay mediciones útiles. Algunos módulos requieren permisos de administrador para consultar WMI, el registro y los contadores del sistema. Reinicia la app como administrador para completar el diagnóstico.";
 
     private Finding _hallazgoSel;
@@ -207,6 +207,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(AvisoDrivers));
             OnPropertyChanged(nameof(TextoAvisoDrivers));
             OnPropertyChanged(nameof(MostrarAyudaUpdates));
+            OnPropertyChanged(nameof(MostrarAccionesTabla));
         }
     }
 
@@ -224,6 +225,13 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         ? "Windows Update no ofrece drivers más recientes para este equipo. Si un driver concreto sigue apareciendo viejo en la tabla «Drivers», el fabricante puede publicar una versión que Microsoft todavía no distribuye."
         : DriverUpdateModule.UltimoError;
     public bool MostrarAyudaUpdates => _tablaSel == "Actualizaciones disponibles";
+
+    /// <summary>
+    /// Alguna de las tres barras de acciones de la vista Datos está visible.
+    /// La vista lo necesita para no dejar un panel vacío con marco cuando la
+    /// tabla elegida es de solo lectura (Equipo, Discos, Temporales…).
+    /// </summary>
+    public bool MostrarAccionesTabla => MostrarAyudaDrivers || MostrarAccionesDrivers || MostrarAyudaUpdates;
 
     private int _puntaje = -1;
     public int Puntaje { get => _puntaje; private set => Set(ref _puntaje, value); }
@@ -325,12 +333,18 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
             completed = true;
             if (diagnostic)
             {
+                // Cobertura de ESTA corrida, no del reporte fusionado (que conserva módulos de corridas anteriores).
+                // Tendencia y comparación usan la misma cobertura: no mezclar un «Red» suelto con uno completo.
+                string[] ejecutados = pasos.Select(p => p.Clave)
+                    .Where(k => DiagnosticReport.NombresModulos.ContainsKey(k))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
                 // JSON y lectura de historial pueden ser grandes: nunca bloquear el dispatcher.
                 var history = await Task.Run(() =>
                 {
-                    int previous = Exporter.PuntajeAnterior(Report.Inicio, modulos: Report.ModulosCompletados.Keys.ToArray());
-                    bool saved = Exporter.Archivar(Report);
-                    return (previous, saved, series: Exporter.Historial());
+                    int previous = Exporter.PuntajeAnterior(Report.Inicio, modulos: ejecutados);
+                    bool saved = Exporter.Archivar(Report.ParaArchivo(ejecutados));
+                    return (previous, saved, series: Exporter.Historial(modulos: ejecutados));
                 });
                 _previousScore = history.previous;
                 archived = history.saved;
@@ -618,7 +632,15 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
             Hallazgos.Add(f);
 
         HallazgoSeleccionado = Hallazgos.FirstOrDefault();
+        OnPropertyChanged(nameof(SinHallazgos));
     }
+
+    /// <summary>
+    /// La vista de hallazgos avisa cuando la lista está vacía en vez de
+    /// quedarse en blanco: si no, «sin hallazgos» y «todavía no medí nada»
+    /// se ven exactamente igual.
+    /// </summary>
+    public bool SinHallazgos => Hallazgos.Count == 0;
 
     private void BuildTables()
     {
@@ -672,7 +694,16 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         TablaSeleccionada = previa != null && Tablas.Contains(previa)
             ? previa
             : Tablas.FirstOrDefault();
+
+        OnPropertyChanged(nameof(SinTablas));
     }
+
+    /// <summary>
+    /// La vista Datos se puede abrir antes de medir nada. Sin tablas, el
+    /// selector vacío y la rejilla en blanco parecen un fallo; este estado
+    /// lo distingue de «medí y no salió nada».
+    /// </summary>
+    public bool SinTablas => Tablas.Count == 0;
 
     private void Offer(string nombre, IList lista, bool aunqueVacia = false)
     {
