@@ -29,6 +29,16 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Comprobar el XAML (recursos y ámbitos de nombres)
+        # Advertencia y no puerta, por ahora: encuentra los errores que el
+        # autotest no ve (los triggers de una plantilla solo se materializan al
+        # pasar el cursor), pero todavía no tiene corridas encima como para
+        # bloquear una rama por él. Promoverlo a gate cuando pese.
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          .\Tools\validate_xaml.ps1 -Root .
+
       - name: Restaurar dependencias
         run: dotnet restore SysDiag.sln
 

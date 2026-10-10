@@ -1,10 +1,13 @@
-﻿<Window x:Class="SysDiag.Ui.CleanupWindow"
+<Window x:Class="SysDiag.Ui.CleanupWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:SysDiag.Ui"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         SizeToContent="Height" Width="640" ResizeMode="NoResize" MaxHeight="720"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
-  <Border Style="{StaticResource PanelShell}">
+  <!-- Al abrirse, el panel sube y aparece: el gesto que explica de
+       dónde salió respecto de la ventana madre. -->
+  <Border Style="{StaticResource PanelShell}" ui:Motion.Enter="True">
     <StackPanel>
       <Rectangle Height="4" Width="46" HorizontalAlignment="Left" RadiusX="2" RadiusY="2"
                  Fill="{StaticResource BAccent}" Margin="0,0,0,16"/>

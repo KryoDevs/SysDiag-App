@@ -13,12 +13,18 @@ namespace SysDiag.Ui;
 /// debajo del borde de la pantalla y el pie (Exportar, Generar informe) queda
 /// inalcanzable: sin poder arrastrarla, porque el borde también está fuera.
 ///
-/// Se resuelve acá y no en el XAML por dos razones: los números del XAML son
-/// la intención de diseño (860 en un monitor grande sigue siendo lo correcto),
-/// y el área de trabajo no se puede enlazar en una ventana sin chrome propio.
-/// El enganche es un class handler sobre <see cref="FrameworkElement.InitializedEvent"/>,
-/// que corre después de leer los atributos del XAML y antes de la primera
-/// pasada de layout: la ventana aparece ya con su tamaño, sin salto.
+/// Se resuelve acá y no en el XAML por dos razones: los números del XAML son la
+/// intención de diseño (860 en un monitor grande sigue siendo lo correcto), y el
+/// área de trabajo no se puede enlazar en una ventana sin chrome propio.
+///
+/// Se llama desde cada constructor, justo después de <c>InitializeComponent()</c>:
+/// es el punto donde el XAML ya fijó los tamaños declarados y todavía no hubo
+/// ninguna pasada de layout, así que la ventana aparece ya con su tamaño
+/// ajustado y sin salto. Se prefirió esto a un class handler global sobre
+/// <c>InitializedEvent</c> porque ese evento es de enrutado directo —no se
+/// propaga por el árbol— y su manejo desde <c>OnStartup</c> no se puede
+/// comprobar sin ejecutar; y porque llamar en los diez constructores hace que
+/// <c>--self-test</c>, que construye las diez ventanas, recorra este código.
 ///
 /// Limitación conocida y aceptada: <see cref="SystemParameters.WorkArea"/> es
 /// el área del monitor principal. Con la ventana centrada en ese monitor es el

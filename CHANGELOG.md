@@ -2,6 +2,77 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Sin publicar] - 2026-10-10 (capa de movimiento)
+
+### Interfaz
+- **Sistema de movimiento con reglas propias** (`Ui/Motion.cs` y el bloque
+  MOVIMIENTO de `Ui/Theme.xaml`): tres tiempos —0,11 s el puntero, 0,19 s lo que
+  entra y sale, 0,34 s lo que acompaña un resultado— y cuatro curvas compartidas.
+  Antes había **dos** animaciones en todo el programa (el latido y la barra
+  indeterminada) y cuarenta y tantos `Setter` instantáneos: cada hover, cada
+  pulsado, cada selección y cada foco cambiaban de estado en un solo cuadro.
+- **Puntaje animado**: el número se cuenta y el arco barre hasta el valor nuevo.
+  Se enlaza el valor *objetivo* (`ui:Motion.Number`, `ui:Motion.Sweep`) y el
+  animador interpola un adjunto aparte, para que re-apuntar a mitad de una
+  corrida funcione solo. La trigonometría del anillo pasa a `ScoreArc`, fuente
+  única del convertidor y de la animación.
+- **Cruce de vistas**: resumen, hallazgos, datos y registro entran con
+  desvanecimiento y un empujón de 12 px; la ventana se arma en cascada corta
+  (rail → cabecera → pie) con `ui:Motion.Enter` y `EnterDelay`.
+- **Cascada en las mediciones**: las tarjetas entran escalonadas 24 ms por fila,
+  con tope de 12 filas, y se elevan 1,4 % bajo el puntero (`ui:Motion.Lift`).
+  Las barras de los gráficos se estiran desde la etiqueta hasta su longitud.
+- **Pastillas de vista**: el relleno violeta y la etiqueta se cruzan (dos
+  presentadores que se pasan el testigo) en vez de conmutarse, para no dar un
+  parpadeo de tinta oscura sobre fondo oscuro.
+- **Casillas y hallazgos**: la palomita se dibuja con `StrokeDashOffset`; el
+  filete del módulo activo y el de severidad crecen con un ligero exceso
+  (`BackEase`), que es lo que los hace ver encajados.
+- **Foco por teclado**: los botones ganan un anillo cian exterior animado. Antes
+  el foco solo recoloría el borde, que se perdía contra el color del estado.
+- **Barras de desplazamiento** al 35 % y opacas al entrar en su carril.
+- **La palomita, el riel y el hover usan capas superpuestas**, no cambios de
+  color: los pinceles del tema son compartidos y animar su `Color` repintaría
+  cada superficie de la aplicación a la vez.
+
+### Corregido
+- **Las ventanas se cortaban en pantallas de 768 px**: `MainWindow` nacía con
+  alto 860 y `TweaksWindow` con `MaxHeight` 820. En un portátil de oficina o de
+  universidad —el equipo típico de esta aplicación— el área de trabajo son ~728
+  px: el pie con «Generar informe» quedaba fuera y el borde de arrastre también.
+  `Ui/Ventana.cs` recorta alto/ancho y `MaxHeight`/`MaxWidth` al área real,
+  respetando los mínimos, en las diez ventanas.
+- **Barra indeterminada mal dimensionada**: viajaba de −160 a 900 px, un número
+  escrito a mano. En un pie de 1.300 px nunca llegaba al borde y el reinicio se
+  veía como un salto; en una ventana angosta quedaba medio segundo fuera de
+  escena. Ahora crece escalando sobre el ancho real del riel.
+- **Ajustes corregía en silencio**: `AppSettings.LeerCampo` no falla, corrige —
+  «3,5» guardaba 5 y 9999 guardaba 90 — y la ventana se cerraba con un
+  «guardado» que describía otra cosa. Los campos se vuelcan con lo que quedó
+  guardado y el aviso lista lo ajustado.
+- **`AccionTile` y `AccionTilePrimary`** duplicaban la plantilla de `BtnBase` y
+  por eso su hover seguía instantáneo. Se retira la duplicación.
+- **El latido de la barra superior** era lineal (rampa de 1 a 0,25): ahora
+  respira con una curva `EaseInOut`.
+
+### Accesibilidad y rendimiento
+- `Ui/Motion.cs` respeta la preferencia del sistema de no animar controles
+  (`SystemParameters.ClientAreaAnimation`) y aplica el valor final en seco: la
+  información nunca depende de la animación.
+- Las entradas usan `BitmapCache` durante la transición y lo sueltan al terminar:
+  una vista entera con tarjetas sombreadas se recomponía y re-sombreaba por
+  cuadro sin él.
+- Ninguna animación toca layout (`Opacity` y transformaciones; nunca `Margin` ni
+  `Width`), que es lo que impedía que una cascada de tarjetas corriera a las
+  vecinas.
+
+### Herramientas
+- `Tools/validate_xaml.ps1`: bien formado, resolución de `{StaticResource}` y
+  ámbito de cada `TargetName` dentro de su plantilla. Cubre el hueco que deja
+  tocar plantillas: los `Storyboard` de un trigger solo se materializan al pasar
+  el cursor, y el autotest del EXE no los mira. Entra en `build.yml` como
+  advertencia (`continue-on-error`) hasta que tenga corridas encima.
+
 ## [Sin publicar] - 2026-10-10 (secciones propias, licencia y ajustes de Windows)
 
 ### Interfaz

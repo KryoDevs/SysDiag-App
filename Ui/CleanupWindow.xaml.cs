@@ -14,6 +14,10 @@ public partial class CleanupWindow : Window
     public CleanupWindow()
     {
         InitializeComponent();
+        // Se ajusta antes de cualquier otra cosa: si la pantalla es más chica
+        // que el alto declarado en el XAML, el pie de la ventana quedaría fuera
+        // del área de trabajo y no habría cómo arrastrarla de vuelta.
+        Ventana.AjustarAPantalla(this);
         MouseLeftButtonDown += (_, _) => DragMove();
 
         var o = CleanupModule.Opts;

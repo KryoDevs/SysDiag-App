@@ -162,6 +162,9 @@ reiniciarse elevado.
 - Windows compila la solución, ejecuta regresiones y conserva TRX. Se incluyen ramas
   `arena/**`; no se publica un release por trabajar en una rama.
 - `Tools/validate_tests.ps1` exige ≥114 pruebas (el mínimo de la suite auditada), todas aprobadas y sin omisiones.
+- `Tools/validate_xaml.ps1` comprueba bien formado, resolución de `{StaticResource}` y el ámbito de
+  cada `TargetName` dentro de su plantilla: los triggers de una plantilla solo se materializan al pasar
+  el cursor, que es justo donde el autotest del EXE no mira. Corre como advertencia en CI.
 - Headless está en la solución y comparte `ScanService`; `--self-test` usa un doble
   sintético explícito, nunca sustituye mediciones de un diagnóstico real.
 - `Tools/validate_release.ps1` arranca el **EXE publicado** con `--self-test` y comprueba
@@ -251,6 +254,12 @@ Decisiones de diseño:
 - **Tres roles tipográficos**: Segoe UI Variable Display para titulares, Segoe UI
   Variable Text para el cuerpo, y Cascadia Mono con cifras tabulares para todo dato
   numérico, así las columnas no bailan al actualizarse.
+- **El movimiento señala cambios de estado, no decora**: tres tiempos (0,11 s el
+  puntero, 0,19 s lo que entra y sale, 0,34 s lo que acompaña un resultado) y
+  cuatro curvas. El puntaje se cuenta y el arco barre; las vistas se cruzan con
+  un desvanecimiento; la cascada de tarjetas tiene tope. Se anima solo `Opacity`
+  y transformaciones —nunca layout ni el color de un pincel compartido—, y
+  `Ui/Motion.cs` respeta la preferencia del sistema de no animar controles.
 - **La regla de escala**: cada métrica del Resumen lleva debajo una serie de marcas
   que se llenan según su magnitud, como la escala de un instrumento. Es el elemento
   que da identidad a la interfaz y codifica lo que la aplicación hace: medir.

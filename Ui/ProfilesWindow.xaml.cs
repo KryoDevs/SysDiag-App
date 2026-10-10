@@ -12,6 +12,10 @@ public partial class ProfilesWindow : Window
     public ProfilesWindow()
     {
         InitializeComponent();
+        // Se ajusta antes de cualquier otra cosa: si la pantalla es más chica
+        // que el alto declarado en el XAML, el pie de la ventana quedaría fuera
+        // del área de trabajo y no habría cómo arrastrarla de vuelta.
+        Ventana.AjustarAPantalla(this);
         MouseLeftButtonDown += (_, _) => DragMove();
         Closing += (_, e) => { if (_applying) e.Cancel = true; };
     }

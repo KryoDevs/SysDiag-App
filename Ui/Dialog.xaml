@@ -1,10 +1,13 @@
-﻿<Window x:Class="SysDiag.Ui.DialogWindow"
+<Window x:Class="SysDiag.Ui.DialogWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:SysDiag.Ui"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         SizeToContent="Height" Width="480" ResizeMode="NoResize" MaxHeight="660"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
-  <Border Style="{StaticResource PanelShell}">
+  <!-- Al abrirse, el panel sube y aparece: el gesto que explica de
+       dónde salió respecto de la ventana madre. -->
+  <Border Style="{StaticResource PanelShell}" ui:Motion.Enter="True">
     <DockPanel LastChildFill="True">
       <StackPanel DockPanel.Dock="Top">
         <Rectangle x:Name="Acento" Height="4" Width="46" HorizontalAlignment="Left"
