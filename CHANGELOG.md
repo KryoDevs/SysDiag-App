@@ -3,6 +3,32 @@
 Los cambios notables de este proyecto se documentan en este archivo. Las secciones
 `[Sin publicar]` son lotes de una rama: se consolidan al cortar el siguiente release.
 
+## [Sin publicar] - 2026-10-10 (SMART por atributos)
+
+Sube la versión a **5.12.0**. Cierra el 2.3 de `docs/HERRAMIENTAS_NUEVAS.md`,
+el último del lote 3 («Explicar») que faltaba junto con 2.4 y 2.6.
+
+El estado que reporta Windows llega tarde: dice «correcto» hasta el día que
+dice «fallido», y entre medio no dice nada. Los atributos que avisan antes
+están en el propio disco y ninguno se veía en la tabla de almacenamiento.
+
+- **`Core/Storage/SmartModule.cs`**. Lee `MSStorageDriver_ATAPISmartData` y sus
+  umbrales, y parsea el bloque `VendorSpecific`: hasta 30 entradas de 12 bytes
+  con identificador, banderas, valor normalizado, peor valor y seis bytes de
+  valor crudo. Sin binario externo. Cuando el bloque no llega —sin
+  administrador, o detrás de un puente USB sin paso de comandos— cae sobre los
+  contadores de fiabilidad de Windows y lo dice.
+- **El umbral del fabricante va antes que el nuestro**, y un valor normalizado
+  en 0 no se compara contra él: cero no es una medición, es una entrada que el
+  disco no llenó.
+- **Lo que no sabemos interpretar se muestra, pero no se califica.** Esas filas
+  salen sin semáforo, porque «no hay datos» y «está bien» son cosas distintas y
+  llevan a decisiones opuestas.
+- **`Ui/SmartWindow`**: una tarjeta por disco, con el motivo cuando no se pudo
+  medir, y una nota al pie recordando que estos atributos son una foto del
+  momento: lo que dice si un daño avanza es la serie, no la foto.
+- Umbral de pruebas del CI: 253.
+
 ## [Sin publicar] - 2026-10-10 (comparar dos diagnósticos)
 
 Sube la versión a **5.11.0**. Cierra el lote 3 de `docs/HERRAMIENTAS_NUEVAS.md

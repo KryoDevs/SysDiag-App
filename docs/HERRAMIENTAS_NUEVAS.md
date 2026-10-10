@@ -73,6 +73,28 @@ salen de `MSFT_StorageReliabilityInformation` en Windows 10+ sin binario externo
 «Quedan 340 de 1000 ciclos de escritura» es la medición más accionable de todas.
 **Riesgo:** requiere administrador en algunos equipos; reportar «n/d» con la razón.
 
+**Hecho en 5.12.** `Core/Storage/SmartModule.cs` + `Ui/SmartWindow`, con 21
+pruebas. Se lee el bloque en crudo (`MSStorageDriver_ATAPISmartData`) en vez de
+quedarse con los contadores de fiabilidad, porque son los que traen sectores
+reasignados y pendientes; el riesgo previsto se resolvió declarando el motivo
+(sin administrador, o sin paso de comandos) en lugar de un «n/d» a secas.
+
+Tres decisiones que el análisis original no previó:
+
+- **El umbral del fabricante va antes que el nuestro.** Cada atributo trae su
+  propio umbral; si el valor normalizado cae por debajo, es el disco el que
+  dice que falló. Nuestra tabla solo corre cuando el disco no trae umbral.
+- **Lo que SysDiag no sabe interpretar se muestra sin semáforo.** El crudo de
+  la tasa de errores de lectura depende de cada marca: compararlo contra un
+  número propio inventaría fallas que el disco no reportó.
+- **Un valor normalizado en 0 no se compara contra el umbral.** Cero no es una
+  medición, es una entrada que el disco no llenó.
+
+Nota: el «340 de 1000 ciclos» del análisis original no existe como tal en los
+datos. Lo que el disco entrega es el porcentaje de vida útil restante (o el
+desgaste, en los contadores); convertirlo en «ciclos» exigiría un total que
+ninguna de las dos fuentes publica. Se reporta el porcentaje.
+
 ### 2.4 Diagnóstico de red con pérdida por salto — [m / alto]
 `Traceroute` existe; falta medir pérdida y jitter **por tramo**. Localiza «la pérdida
 está en el segundo salto» y evita la conclusión cómoda de siempre («es el proveedor»).

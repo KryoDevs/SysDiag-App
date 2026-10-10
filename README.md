@@ -1,4 +1,4 @@
-# SysDiag 5.11.0
+# SysDiag 5.12.0
 
 [![Compilar y probar](https://github.com/KryoDevs/SysDiag-App/actions/workflows/build.yml/badge.svg)](https://github.com/KryoDevs/SysDiag-App/actions/workflows/build.yml) [![Validar fixture](https://github.com/KryoDevs/SysDiag-App/actions/workflows/validate-fixture.yml/badge.svg)](https://github.com/KryoDevs/SysDiag-App/actions/workflows/validate-fixture.yml)
 
@@ -76,6 +76,7 @@ SysDiag/
    ├─ Dialog.xaml                 Diálogos propios (no MessageBox)
    ├─ CleanupWindow / OptimizeWindow / ProfilesWindow   acciones con confirmación
    ├─ HistoryWindow / CompararWindow / SettingsWindow      historial y diff entre dos diagnósticos
+   ├─ SmartWindow                           atributos SMART del disco, uno por uno
    ├─ PingMonitorWindow                     monitor de latencia en vivo
    └─ ActivacionWindowsWindow     licencia de Windows 10/11 (solo canales oficiales)
 ```
@@ -94,7 +95,7 @@ SysDiag/
 | Optimizar | DNS, reparación de WLAN, plan de energía, reinicio de pila TCP/IP | sí |
 | Restaurar | Revierte los valores capturados antes del primer ajuste pendiente; no TCP/IP/IP fija/VPN | sí |
 | Monitor de ping | Latencia en vivo hacia el router o internet: último valor, promedio, máximo y pérdida | no |
-| Historial | Diagnósticos archivados con su puntaje y cobertura; la tendencia compara solo cobertura equivalente | no |
+| SMART del disco | Atributos SMART: sectores reasignados y pendientes, errores de la interfaz, vida útil restante del SSD | recomendado |
 | Comparar | Diferencia entre dos diagnósticos: hallazgos nuevos, resueltos, los que empeoraron y los que mejoraron | no |
 | Perfiles | Combinaciones de optimización (universidad, trabajo, juego) con respaldo previo | sí |
 | Ajustes | Muestreo, ventanas de eventos, retención de historial y registros | no |
@@ -264,7 +265,7 @@ lista lo accionable sin instalar nada.
 
 - Windows compila la solución, ejecuta regresiones y conserva TRX. Se incluyen ramas
   `arena/**`; no se publica un release por trabajar en una rama.
-- `Tools/validate_tests.ps1` exige ≥232 pruebas (114 de la suite auditada + 34 que miden el sistema visual + 4 de licencia + 11 del recorte de ventanas + 40 sobre funciones puras del lote 5.9 + 15 del lote «Confiar» + 14 del diff entre diagnósticos), todas aprobadas y sin omisiones.
+- `Tools/validate_tests.ps1` exige ≥253 pruebas (114 de la suite auditada + 34 que miden el sistema visual + 4 de licencia + 11 del recorte de ventanas + 40 sobre funciones puras del lote 5.9 + 15 del lote «Confiar» + 14 del diff entre diagnósticos + 21 de SMART), todas aprobadas y sin omisiones.
 - `Tools/validate_xaml.ps1` comprueba seis cosas sobre los XAML: bien formado, resolución de
   `{StaticResource}`, ámbito de cada `TargetName` dentro de su plantilla, que la propiedad animada exista
   en el tipo del elemento destino, que todo `RepeatBehavior="Forever"` nacido en un `Trigger` tenga su

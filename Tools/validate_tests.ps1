@@ -17,7 +17,7 @@ foreach ($file in $files) {
 # El mínimo es una barrera contra la pérdida silenciosa de cobertura: si una
 # prueba desaparece, el número baja y la compilación falla. Sube con cada lote
 # que agrega pruebas; no se baja nunca.
-if ($total -lt 232 -or $passed -ne $total -or $failed -gt 0) {
-    throw "Suite incompleta o fallida: $passed/$total aprobadas, $failed fallidas; mínimo 232 (114 auditadas + 34 del sistema visual + 4 de licencia + 11 del recorte de ventanas + 40 de funciones puras del lote 5.9 + 15 del lote «Confiar» + 14 del diff entre diagnósticos) — no eliminar pruebas sin reemplazarlas"
+if ($total -lt 253 -or $passed -ne $total -or $failed -gt 0) {
+    throw "Suite incompleta o fallida: $passed/$total aprobadas, $failed fallidas; mínimo 253 (114 auditadas + 34 del sistema visual + 4 de licencia + 11 del recorte de ventanas + 40 de funciones puras del lote 5.9 + 15 del lote «Confiar» + 14 del diff entre diagnósticos + 21 de SMART) — no eliminar pruebas sin reemplazarlas"
 }
 Write-Output "::notice title=Pruebas de regresión::$passed/$total pruebas aprobadas, sin omisiones ni fallos"
