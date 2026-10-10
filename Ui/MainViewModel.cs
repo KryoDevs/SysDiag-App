@@ -440,6 +440,8 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
     private DispatcherTimer _cronometro;
     private Stopwatch _relojPaso;
     private int _segundosPaso;
+    /// <summary>Mide lo que la propia corrida le cuesta al equipo. Ver MedidorCoste.</summary>
+    private readonly MedidorCoste _coste = new();
 
     /// <summary>Segundos que lleva el módulo actual midiendo.</summary>
     public int SegundosPaso
@@ -461,6 +463,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         _cronometro.Tick += (_, _) =>
         {
             if (_disposed || _relojPaso is null) return;
+            _coste.Muestrear();
             int antes = SegundosPaso;
             SegundosPaso = (int)_relojPaso.Elapsed.TotalSeconds;
             // Una sola vez, en el umbral: si el usuario tarda más, el log no tiene
@@ -503,6 +506,24 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         < SegundosLentos => $"{modulo} · {_segundosPaso} s",
         _ => $"{modulo} · {_segundosPaso} s (lento)"
     };
+
+    private string _costeTexto = "";
+    /// <summary>
+    /// Lo que costó la última corrida, listo para el pie. Se guarda aparte del
+    /// informe porque el pie se muestra también después de una acción que no
+    /// es diagnóstico (una limpieza, un ajuste) y que igual consumió CPU.
+    /// </summary>
+    public string CosteTexto
+    {
+        get => _costeTexto;
+        private set
+        {
+            Set(ref _costeTexto, value);
+            OnPropertyChanged(nameof(CosteVisible));
+        }
+    }
+
+    public bool CosteVisible => !string.IsNullOrWhiteSpace(_costeTexto);
 
     public bool Libre => !_ocupado;
     public bool PuedeCancelar => _ocupado && _cancelable;
@@ -748,6 +769,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
             Report.Fin = null;
         }
         Wmi.ResetAccessState();
+        _coste.Iniciar();
         try
         {
             // El conteo se lleva acá y no dentro de ScanService a propósito: el
@@ -804,6 +826,12 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         finally
         {
             if (diagnostic) Report.Fin = DateTime.Now;
+            string coste = _coste.Detener();
+            // Va al informe archivado y al HTML, no solo al pie: dentro de tres
+            // meses, la pregunta «¿esta medición es fiable?» se responde con
+            // esto, y el pie de la interfaz ya no está.
+            Report.CosteMedicion = coste;
+            CosteTexto = coste;
             DetenerCronometro();
             _cts.Dispose();
             _cts = null;

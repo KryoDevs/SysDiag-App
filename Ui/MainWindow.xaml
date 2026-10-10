@@ -1099,6 +1099,15 @@
                          ToolTip="{Binding RutaSalidaTexto}"
                          Text="{Binding RutaSalidaTexto}"/>
               <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <!-- El coste de la corrida se muestra acá, junto a los botones
+                     y no dentro del camino del archivo: es una cifra corta que
+                     se lee de reojo, y el camino necesita todo el ancho para no
+                     recortarse. ElToolTip explica por qué está. -->
+                <TextBlock Text="{Binding CosteTexto}" Style="{StaticResource Dim}"
+                           FontFamily="{StaticResource FMono}" FontSize="11"
+                           VerticalAlignment="Center" Margin="0,0,12,0"
+                           Visibility="{Binding CosteVisible, Converter={StaticResource BoolVis}}"
+                           ToolTip="Lo que la corrida le costó al equipo, no al revés: si esta cifra es alta, las mediciones de rendimiento de esa corrida están algo infladas por el propio SysDiag."/>
                 <Button Content="Cancelar" Style="{StaticResource BtnQuiet}" Margin="0,0,6,0"
                         IsEnabled="{Binding PuedeCancelar}" Click="Cancelar_Click"/>
                 <Button Content="Exportar tabla (CSV)" Style="{StaticResource BtnQuiet}" Margin="0,0,6,0"
