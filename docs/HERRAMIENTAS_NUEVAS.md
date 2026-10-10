@@ -102,6 +102,19 @@ está en el segundo salto» y evita la conclusión cómoda de siempre («es el p
 con estadística por salto en vez de un solo valor.
 **Riesgo:** tarda; necesita progreso real y poder cancelar.
 
+**Hecho en 5.14.** `Core/Network/TraceRouteModule.cs` + `Ui/TrazaWindow`, con 16
+pruebas. El riesgo previsto se resolvió con avance por salto y un botón que
+cancela. Lo que el análisis original no previó es lo que define la herramienta:
+
+- **Un salto intermedio con pérdida y los siguientes limpios no está perdiendo
+  paquetes.** Está limitando los ICMP que contesta. La pérdida real se
+  arrastra, porque los paquetes perdidos nunca llegan más lejos. `Interpretar`
+  distingue los dos casos y solo en el segundo dice de quién es el tramo: sin
+  eso, la conclusión vuelve a ser la cómoda.
+- **Un salto que no responde no es un salto que pierde paquetes.** Se muestra
+  como hueco y sin medir; ponerle «100 % de pérdida» sería la conclusión más
+  injusta y la más frecuente de todas.
+
 ### 2.5 Mapa de canales Wi-Fi — [c / alto]
 El escaneo ya trae BSSID, canal, banda y señal. Dibujar el histograma de canales con
 los puntos de acceso del vecino encima y recomendar uno libre **explicando por qué**
@@ -284,7 +297,7 @@ Cinco lotes, cada uno compilable y verificable por separado.
 |---|---|---|---|
 | 1 | **Medir en vivo** | 2.1, 2.2, 2.5 | Es lo que se deja abierto y lo que cambia la percepción. |
 | 2 | **Confiar** | 3.1, 3.2, 3.3, 3.4, verificación general | Sin ensayo y deshacer, todo lo demás se prueba con miedo. |
-| 3 | **Explicar** | 2.3, 2.4, 2.6, 2.7, 4.1, 4.2 | Las herramientas que convierten datos en una causa. |
+| 3 | **Explicar** | 2.3, 2.4, 2.6, 2.7, 4.1, 4.2 — **hecho** | Las herramientas que convierten datos en una causa. |
 | 4 | **Producto** | 5.1, 5.2, 5.3, 5.6, 4.3, 4.4 | Lo que hace que se use todos los días y en más de un equipo. |
 | 5 | **Distribución** | 5.5, 5.4, i18n | Depende de decisiones comerciales, no solo de código. |
 

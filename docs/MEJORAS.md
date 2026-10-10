@@ -1,4 +1,4 @@
-# Análisis y plan de mejoras — SysDiag 5.13.0
+# Análisis y plan de mejoras — SysDiag 5.14.0
 
 Fecha: 2026-10-10 · Rama: `arena/e864cf80-sysdiag-app` · Base: `34a2aa1`
 Continúa [AUDITORIA.md](AUDITORIA.md) y [AUDITORIA_2026-10-09.md](AUDITORIA_2026-10-09.md).
@@ -659,7 +659,7 @@ unidades en el HTML, **11** más pruebas de funciones puras, **12**
 firma, **15** persistencia de la ventana.
 
 De `HERRAMIENTAS_NUEVAS.md` quedan: 2.1 monitor en vivo, 2.2 línea térmica,
-2.4 pérdida por salto, 2.5 mapa de canales, 2.8 batería,
+2.5 mapa de canales, 2.8 batería,
 3.5 desinstalación asistida, 4.4 modo equipos,
 5.2 editor de umbrales, 5.3 perfiles editables, 5.4 programador, 5.5
 actualizaciones y firma, 5.6 tema claro y alto contraste.

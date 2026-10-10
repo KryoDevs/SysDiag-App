@@ -3,6 +3,32 @@
 Los cambios notables de este proyecto se documentan en este archivo. Las secciones
 `[Sin publicar]` son lotes de una rama: se consolidan al cortar el siguiente release.
 
+## [Sin publicar] - 2026-10-10 (pérdida por salto)
+
+Sube la versión a **5.14.0**. Cierra el 2.4 de `docs/HERRAMIENTAS_NUEVAS.md` y
+con él el lote 3 («Explicar») completo: 2.3, 2.4, 2.6, 2.7, 4.1 y 4.2.
+
+El traceroute decía por dónde pasan los paquetes, no dónde se pierden: con un
+solo ping por salto no hay forma de medir pérdida, y medir pérdida es justo lo
+que localiza el tramo.
+
+- **`Core/Network/TraceRouteModule.cs`**. Dos fases: primero se descubre la
+  ruta con un par de pings por salto y después se manda la tanda completa a los
+  saltos que responden. Mandar diez pings a un salto mudo cuesta diez segundos
+  para descubrir que no contesta.
+- **Lo difícil no es medir, es no concluir de más.** Un router intermedio con
+  pérdida y los saltos siguientes limpios está limitando los ICMP que contesta,
+  no perdiendo paquetes: la pérdida real se arrastra, porque los paquetes
+  perdidos nunca llegan más lejos. `TraceMath.Interpretar` distingue los dos
+  casos y solo en el segundo dice de quién es el tramo.
+- **Un salto que no responde no es un salto que pierde paquetes.** Se muestra
+  como hueco y sin medir.
+- Con una sola muestra no se reporta jitter: «0 ms de jitter» afirma que el
+  enlace es estable cuando lo que pasa es que no alcanzó la medición.
+- **`Ui/TrazaWindow`**: avance real por salto y un botón que cancela, porque la
+  medición puede tardar medio minuto y sin las dos cosas parece un cuelgue.
+- Umbral de pruebas del CI: 282.
+
 ## [Sin publicar] - 2026-10-10 (consumo por proceso)
 
 Sube la versión a **5.13.0**. Cierra el 2.6 de `docs/HERRAMIENTAS_NUEVAS.md`.
