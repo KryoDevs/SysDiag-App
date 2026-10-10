@@ -1,6 +1,33 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+Los cambios notables de este proyecto se documentan en este archivo. Las secciones
+`[Sin publicar]` son lotes de una rama: se consolidan al cortar el siguiente release.
+
+## [Sin publicar] - 2026-10-10 (la documentación y las puertas, al día)
+
+### Herramientas
+- `validate_xaml.ps1` corría solo en `build.yml`. Ahora `release.yml` lo ejecuta antes de
+  restaurar: un `Trigger` con un `TargetName` mal escrito compila, pasa las pruebas y
+  construye la ventana, y solo se rompe al pasar el cursor —no debería poder llegar a un
+  `v*` publicado. No necesita compilar, así que falla en segundos.
+- Sale del repositorio `sysdiag-1.0.0.sha256`, huérfano desde la auditoría 2 (F12). Sus dos
+  sumas se trasladan a la entrada `[1.0.0]` de este archivo: era el único registro que había.
+- La maqueta `docs/preview/index.html` deja de mostrar lo que el tema ya no hace: la barra
+  indeterminada del pie crece escalando sobre el ancho real del riel, como `Pulse`, en lugar
+  del recorrido de 160 px escritos a mano que era el defecto original; y el pie estrena el
+  rótulo con módulo y segundos (`3 de 5 · Red y latencia · 14 s`).
+
+### Documentación
+- README, `docs/MEJORAS.md` y `docs/DISENO.md` vuelven a describir el árbol actual: el umbral
+  de pruebas es 163 (los textos seguían diciendo 114, 148 y 152), el validador de XAML son
+  cinco comprobaciones y es puerta, y el progreso por módulo incluye el cronómetro.
+- El README enlaza por fin los tres documentos de `docs/` y la maqueta; hasta ahora solo
+  existía el enlace a la primera auditoría.
+- Se corrigen los recuentos con los que arranca `docs/MEJORAS.md`: son 93 archivos `.cs`,
+  12 XAML y **un** proyecto de prueba con siete archivos, no cuatro.
+
+### Formato
+- La línea de cabecera del CHANGELOG estaba en inglés en un repositorio en español.
 
 ## [Sin publicar] - 2026-10-10 (movimiento, legibilidad y licencia)
 
@@ -300,3 +327,14 @@ See `docs/AUDITORIA_2026-10-09.md` para el detalle, la evidencia de CI y los pen
 ### Known issues
 - Some modules depend on WMI or registry access and may return partial data without admin privileges
 - Full code signing requires an Authenticode certificate and a valid timestamp service
+
+### Sumas de control del paquete
+Estas dos líneas vivían en `sysdiag-1.0.0.sha256` en la raíz del repositorio, un archivo que
+ningún script ni workflow leía y que apuntaba a los dos binarios que la auditoría 2 dejó de
+versionar (A20). Eran el único registro de esas sumas, así que se trasladan acá en lugar de
+borrarse; el archivo sale del repositorio.
+
+```
+3AD3B07B22794E6435D6E1EA2CE0057BCC32C7F421D94E4C8D4CB6AFDCD454D6  sysdiag-1.0.0.zip
+421A80EFA727F92C009A19330980DC650839E331002D9FBCE6C9A3E62E6A1AF8  sysdiag-1.0.0.exe
+```

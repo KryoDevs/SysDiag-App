@@ -131,8 +131,20 @@
   .barras .num{font-family:var(--mono);font-size:12px;margin-left:16px;min-width:64px}
 
   .pie{margin:16px 24px}
-  .progreso{height:3px;background:var(--stroke-soft);border-radius:2px;margin-bottom:12px;overflow:hidden}
-  .progreso i{display:block;height:3px;width:160px;background:linear-gradient(90deg,var(--accent2),var(--accent))}
+  .progreso{height:3px;background:var(--stroke-soft);border-radius:2px;margin-bottom:8px;overflow:hidden;position:relative}
+  /* Como en WPF (Pulse): la barra crece ESCALANDO sobre el ancho real del riel. El
+     intento anterior usaba un recorrido de 160 px escritos a mano, que es justo el
+     defecto que se arregló en el tema: en un pie de 1300 px la barra nunca llegaba al
+     borde y el ciclo reiniciaba con un salto. */
+  .progreso i{position:absolute;left:0;top:0;height:3px;width:100%;transform-origin:0 50%;
+              background:linear-gradient(90deg,var(--accent2),var(--accent));
+              animation:recorrido 1.6s var(--ease-inout) infinite alternate}
+  @keyframes recorrido{from{transform:scaleX(.18)}to{transform:scaleX(1)}}
+  /* Y el rótulo que hoy lleva el pie real: módulo, posición y segundos midiendo. */
+  .avance{display:flex;align-items:center;gap:8px;margin:0 0 10px;
+          color:var(--text-muted);font-size:12px;font-family:var(--body)}
+  .avance b{color:var(--text-dim);font-weight:600}
+  .avance .reloj-avance{font-family:var(--mono)}
   .barra-pie{background:var(--surface);border:1px solid var(--stroke-soft);border-radius:10px;padding:10px 14px;
              display:flex;align-items:center}
   .barra-pie span{color:var(--text-dim);font-size:12px}
@@ -341,6 +353,8 @@
         <!-- PIE -->
         <div class="pie">
           <div class="progreso"><i></i></div>
+          <div class="avance"><span class="dot"></span><span><b>3 de 5</b> · Red y latencia ·
+            <span class="reloj-avance">14 s</span></span></div>
           <div class="barra-pie">
             <span>Los informes y registros se guardan en Documentos\SysDiag</span>
             <div class="acciones">

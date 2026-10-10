@@ -162,9 +162,12 @@ reiniciarse elevado.
 - Windows compila la solución, ejecuta regresiones y conserva TRX. Se incluyen ramas
   `arena/**`; no se publica un release por trabajar en una rama.
 - `Tools/validate_tests.ps1` exige ≥163 pruebas (114 de la suite auditada + 34 que miden el sistema visual + 4 de licencia + 11 del recorte de ventanas), todas aprobadas y sin omisiones.
-- `Tools/validate_xaml.ps1` comprueba bien formado, resolución de `{StaticResource}` y el ámbito de
-  cada `TargetName` dentro de su plantilla: los triggers de una plantilla solo se materializan al pasar
-  el cursor, que es justo donde el autotest del EXE no mira. Corre como advertencia en CI.
+- `Tools/validate_xaml.ps1` comprueba cinco cosas sobre los doce XAML: bien formado, resolución de
+  `{StaticResource}`, ámbito de cada `TargetName` dentro de su plantilla, que la propiedad animada exista
+  en el tipo del elemento destino, y que todo `RepeatBehavior="Forever"` nacido en un `Trigger` tenga su
+  `StopStoryboard`. Es puerta en `build.yml` y también en `release.yml`: las dos últimas las traga WPF en
+  silencio —animar `ScaleX` sobre un `TranslateTransform`, u `Opacity` sobre un pincel, no lanza
+  excepción; simplemente no anima, y la ventana se ve muerta en el primer hover—.
 - Headless está en la solución y comparte `ScanService`; `--self-test` usa un doble
   sintético explícito, nunca sustituye mediciones de un diagnóstico real.
 - `Tools/validate_release.ps1` arranca el **EXE publicado** con `--self-test` y comprueba
@@ -194,8 +197,17 @@ dotnet publish SysDiag.csproj -c Release -o publish
 > política del sistema.
 
 Consulta [la auditoría y sus tres listas de diez](docs/AUDITORIA.md) para los fallos,
-correcciones, evidencia de CI y límites pendientes. Un CI anterior no certifica cambios
-posteriores; el informe identifica expresamente el SHA validado.
+correcciones, evidencia de CI y límites pendientes, y [la segunda auditoría](docs/AUDITORIA_2026-10-09.md)
+para la tanda posterior con su propia evidencia. Un CI anterior no certifica cambios posteriores;
+cada informe identifica expresamente el SHA que validó.
+
+El resto del conocimiento vive en tres archivos: [el análisis y el plan](docs/MEJORAS.md),
+que es donde está qué se arregló, qué no y por qué; [la guía de diseño](docs/DISENO.md)
+(paleta, tipografía, escalas, movimiento, componentes y lo que no se hace); y
+`docs/preview/index.html`, una maqueta en HTML que reproduce el tema —ábrela en el navegador
+para ver el movimiento y el contraste sin compilar nada. La maqueta usa los mismos tokens que
+`Ui/Theme.xaml` por convención: si se cambia un tiempo o un color allá y no acá, la maqueta
+pasa a mentir.
 
 ## Sobre la arquitectura (5.0)
 

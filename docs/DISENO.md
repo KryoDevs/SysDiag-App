@@ -133,7 +133,12 @@ estado, no se mueve. De ahí sale todo lo demás.
 - **Solo `Opacity` y transformaciones.** Nunca `Margin`, `Width` ni nada de
   layout: una propiedad de layout animada dentro de un `WrapPanel` reabre la
   medida de todas las tarjetas en cada cuadro. El único caso que vuelve a medir
-  es el número del puntaje, y su caja está centrada en un hueco fijo.
+  es el número del puntaje, y su caja está centrada en un hueco fijo. Y la
+  propiedad tiene que existir **en el tipo del destino**: `ScaleX` solo es animable
+  sobre un `ScaleTransform`, `X`/`Y` sobre un `TranslateTransform`, `Angle` sobre un
+  `RotateTransform`. WPF no avisa cuando no coincide —no anima, y punto—.
+  `Tools/validate_xaml.ps1` lo comprueba en CI sobre los doce XAML, junto con el
+  ámbito de cada `TargetName` y que ningún `Forever` se quede sin `StopStoryboard`.
 - **El dato nuevo se cuenta, no se reemplaza.** El puntaje sube de 60 a 82 y el
   arco barre hasta el valor nuevo; las barras se estiran desde la etiqueta. Un
   número que aparece de golpe no informa de la dirección del cambio, que es
@@ -141,6 +146,11 @@ estado, no se mueve. De ahí sale todo lo demás.
 - **Cascada, con tope.** Las tarjetas entran escalonadas 24 ms por fila, cortadas
   a 12 filas: el ojo sigue un recorrido en lugar de descubrir veinte números a la
   vez, y una lista larga no se pone a tiras.
+- **La espera también tiene que decir algo.** Un indicador que respira no informa:
+  dice que algo vive, no cuánto falta. Por eso el pie nombra el módulo que se está
+  midiendo y los segundos que lleva (`3 de 5 · Red y latencia · 14 s`), y a los 90 s lo
+  anota una vez en el registro. La animación señala el cambio; el número es lo que
+  permite decidir si esperar o reiniciar.
 - **Se respeta la preferencia del sistema.** `Ui/Motion.cs` lee
   `SystemParameters.ClientAreaAnimation`; si está apagada aplica el valor final
   en seco. La información nunca puede depender de la animación.
@@ -155,8 +165,12 @@ interpola un adjunto *distinto* del enlazado está en `Ui/Motion.cs`: es el
 detalle que hace que re-apuntar a mitad de corrida funcione solo.
 
 Para ajustar tiempos sin compilar está `docs/preview/index.html`: la maqueta usa
-los mismos tokens que el tema, así que el movimiento se puede ver en el navegador
-antes de tocar `Theme.xaml`. Si se cambian las duraciones, se cambian en los dos.
+los mismos tokens que el tema —los tres tiempos y las curvas están ahí como
+variables, y el latido, la elevación y la barra del pie imitan lo que hace
+`Pulse`—, así que el movimiento se puede ver en el navegador antes de tocar
+`Theme.xaml`. Si se cambian las duraciones, se cambian en los dos. Es una
+convención, no un mecanismo: una maqueta que deja de ser espejo miente con más
+seguridad que una que no existe.
 
 ---
 
@@ -182,6 +196,10 @@ antes de tocar `Theme.xaml`. Si se cambian las duraciones, se cambian en los dos
 
 **Por qué esta disposición**
 
+- **El pie trabaja mientras se mide**: ahí viven la barra indeterminada y el
+  rótulo del avance. Es el único sitio de la ventana que cambia de contenido una vez
+  por segundo durante una corrida sin obligar a desplazar nada, y es lo que
+  distingue «tarda» de «se colgó» sin abrir el registro.
 - **Barra superior**: la marca y el estado del equipo valen en cualquier
   módulo, así que no pueden vivir dentro de uno. El reloj y el indicador de
   corrida se ven siempre, incluso con la vista desplazada.
@@ -263,6 +281,9 @@ dibuja.
   `Opacity` o una transformación, sobre una capa propia del control.
 - Añadir un tiempo de animación nuevo. Si 0,19 s no alcanza, el problema es el
   cambio que se está animando, no la duración.
+- Confiar en que WPF avise de una animación mal apuntada: no avisa. `Opacity`
+  sobre un `ScaleTransform` o sobre un pincel se traga en silencio y deja el
+  control sin efecto, que es peor que una excepción porque se publica.
 - Dejar un `RepeatBehavior="Forever"` sin manera de detenerlo. Solo se repite lo
   que representa algo vivo y acotado: el punto de la barra superior mientras mide
   y el latido del monitor de ping.

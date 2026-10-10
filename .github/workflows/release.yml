@@ -39,6 +39,14 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '8.0.x'
+      - name: Comprobar el XAML antes de publicar
+        # La misma puerta de build.yml. Estaba solo en la rama, y un Trigger con un
+        # TargetName mal escrito compila, pasa las pruebas y construye la ventana:
+        # solo se rompe al pasar el cursor. No debería poder llegar a un tag.
+        # Va primero porque no necesita compilar nada y falla en segundos.
+        shell: pwsh
+        run: |
+          .\Tools\validate_xaml.ps1 -Root .
       - name: Restaurar, compilar y probar antes de publicar
         shell: pwsh
         run: |

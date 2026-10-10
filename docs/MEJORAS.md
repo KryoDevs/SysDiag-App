@@ -5,9 +5,11 @@ Continúa [AUDITORIA.md](AUDITORIA.md) y [AUDITORIA_2026-10-09.md](AUDITORIA_202
 
 ## 0. Base del análisis y sus límites
 
-Se leyó el proyecto completo: los 89 archivos `.cs`, los 12 XAML, los cuatro
-proyectos de prueba, los tres workflows, los cinco `validate_*.ps1`, `build.bat`,
-el instalador y el manifiesto. Cada afirmación de abajo tiene su evidencia al lado.
+Se leyó el proyecto completo: los 93 archivos `.cs`, los doce XAML, el proyecto de
+prueba (siete archivos en `Tools/IntegrationTests`) y el `HeadlessRunner`, los tres
+workflows, los cinco `validate_*.ps1`, `build.bat`, el instalador y el manifiesto. Los
+recuentos de esta sección se volvieron a tomar sobre el árbol de hoy: los de la primera
+lectura ya estaban desfasados. Cada afirmación de abajo tiene su evidencia al lado.
 
 El sandbox es Linux: aquí no se compila ni se ejecuta (WPF, WMI y `netsh` solo
 existen en Windows, y no hay SDK de .NET instalado). La verificación real la hizo
@@ -18,10 +20,18 @@ pasada honesta del trabajo:
   `--self-test` del EXE publicado, que construye las diez ventanas) también. Es
   decir: el tema reescrito, los adjuntos `ui:Motion.*` en las diez ventanas y el
   recorte de tamaño por área de trabajo se cargan en WPF de verdad.
-- Suite de regresión: **114/114** en el primer empujón y **148/148** tras la segunda
-  tanda (las 34 pruebas nuevas del sistema visual). El gate de `validate_tests.ps1`
-  subió a 148 para que el umbral siga apretando.
-- `Tools/validate_xaml.ps1`, que entró con este cambio, pasó sobre el XAML real.
+- Suite de regresión: **163/163** en el último empujón de la rama, tras la serie
+  114 → 148 → 152 → 160 → 163. El umbral de `validate_tests.ps1` se subió en cada tanda
+  para que siga apretando: que la cuenta sea exacta es lo que impide que se cuele una
+  prueba eliminada sin reemplazo.
+- `Tools/validate_xaml.ps1` pasó los doce XAML reales y **es puerta** en `build.yml` y
+  desde hoy también en `release.yml`. Cinco comprobaciones, incluidas las dos que WPF
+  traga en silencio: propiedad animada que el tipo del destino no tiene, y
+  `RepeatBehavior="Forever"` de `Trigger.EnterActions` sin `StopStoryboard`.
+- Nada de lo anterior se pudo ejecutar en el sandbox, que no tiene PowerShell ni .NET.
+  Las reglas nuevas se calibraron contra un gemelo en Python (cero hallazgos sobre el
+  repo, tres de tres sobre errores sembrados); la sintaxis del `.ps1` solo la certifica
+  el CI. Es la misma limitación que el primer empujón ya puso en evidencia.
 - El primer empujón **no compilaba**: `Motion.Transicion` pedía `Animatable` y
   recibía `FrameworkElement` en dos de sus siete llamadas (`CS1503`,
   `Ui/Motion.cs:110` y `:351`). Lo detectó el CI en 80 segundos. Ninguna de las
@@ -35,10 +45,11 @@ terceros.
 
 Las verificaciones mecánicas que sí corrieron en el sandbox:
 
-- Sintaxis C# de los 89 archivos con un parser independiente (tree-sitter). Solo
+- Sintaxis C# de los `.cs` (93 en el árbol de hoy) con un parser independiente
+  (tree-sitter). Solo
   `Core/WmiHelper.cs` marca 5 nodos de error, que es la limitación ya conocida de
   la gramática con `row?[property]`: C# válido.
-- Bien formado de los 12 XAML, resolución de los 112 `{StaticResource}` y ámbito
+- Bien formado de los doce XAML, resolución de los 627 `{StaticResource}` y ámbito
   de cada `TargetName` dentro de su plantilla. Todo pasa. Esos tres chequeos
   quedaron como herramienta: `Tools/validate_xaml.ps1`.
 - Contraste WCAG calculado sobre los tokens de la paleta (ver F08).
@@ -58,7 +69,7 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
 
 | ID | Sev. | Defecto | Tratamiento |
 |---|---|---|---|
-| R01 | Alta | `MainWindow` nace con `Height="860"` y `TweaksWindow` con `MaxHeight="820"`. Sobre un panel de 1366×768 —el equipo típico de una oficina o una universidad— el área de trabajo son ~728 px: el pie con «Generar informe» y «Exportar» queda fuera de la pantalla, y el borde para arrastrar también. Sin salida visible. | `Ui/Ventana.cs` recorta `Height`/`MaxHeight`/`Width`/`MaxWidth` al área de trabajo real respetando los mínimos, llamado desde las diez ventanas antes de cualquier otra cosa. |
+| R01 | Alta | `MainWindow` nace con `Height="860"` y `TweaksWindow` con `MaxHeight="820"`. Sobre un panel de 1366×768 —el equipo típico de una oficina o una universidad— el área de trabajo son ~728 px: el pie con «Generar informe» y «Exportar» queda fuera de la pantalla, y el borde para arrastrar también. Sin salida visible. | `Ui/Ventana.cs` recorta `Height`/`MaxHeight`/`Width`/`MaxWidth` al área de trabajo real respetando los mínimos, llamado desde las diez ventanas antes de cualquier otra cosa. La regla vive separada en `Ventana.Recortar(declarado, piso, disponible)` y tiene once pruebas; al separarla salió que su guarda solo miraba `NaN`, cuando el valor por defecto de `MaxHeight` es `+∞` —recortaba el máximo de las nueve ventanas que no declaran ninguno—. Corregido. |
 | R02 | Media | `Ajustes` corregía en silencio. `AppSettings.LeerCampo` (`Models/AppSettings.cs:48`) no falla: devuelve el valor por defecto si el texto no es entero, y recorta al rango. Escribir «3,5» guardaba 5 y 9999 guardaba 90, y la ventana se cerraba con un «Ajustes guardados» que describía otra cosa. | Se vuelca en los campos lo que efectivamente quedó guardado y el aviso lista qué se ajustó y a cuánto. |
 | R03 | Media | La barra indeterminada viajaba de −160 a 900 px, un número escrito a mano sobre un riel de ancho variable. En un pie de 1.300 px la barra nunca llegaba al borde y el ciclo reiniciaba con un salto visible; en una ventana angosta pasaba ~0,5 s fuera de escena. | Reescrita para crecer escalando (`ScaleX`) sobre el ancho real: el recorrido es exacto a cualquier ancho, DPI o escala. |
 | R04 | Baja | `AccionTile` y `AccionTilePrimary` duplicaban la plantilla de `BtnBase` solo para cambiar el relleno. Consecuencia real: su hover seguía siendo instantáneo mientras el resto del tema respondía. | Se retira la duplicación; las variantes heredan la plantilla animada. |
@@ -75,6 +86,16 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
 | F09 | Baja | `int.Parse` sin cultura sobre el substring de la fecha WMI en `DriverModule`. Hoy está cubierto porque el arranque fuerza `es-CL`, y un fallo se tragaba en el `catch` como «fecha ilegible». | `CultureInfo.InvariantCulture` en los tres parses, con la razón escrita al lado: son dígitos ASCII de un protocolo, no texto localizable. |
 | F13 | Baja | Nada fijaba las reglas de contraste del tema: el defecto de F05 pudo entrar porque ninguna prueba lo miraba. | `Tools/IntegrationTests/ThemeRegressionTests.cs` mide los ocho tintes de texto contra los cuatro fundos del tema sobre el propio `Theme.xaml` (32 combinaciones) y deja constancia de la restricción real: sobre la superficie elevada solo puede ir `CText`, que es lo que hace la plantilla del ToolTip. Y fija el embudo de procesos con `Core_OnlyProcessRunnerCreatesAProcess`. |
 
+### Cerrado en la tanda de 2026-10-10 (CI verde: 163/163)
+
+| # | Qué | Evidencia |
+|---|---|---|
+| R01+ | La regla de recorte es una función y está probada: `Ventana.Recortar(declarado, piso, disponible)`, once casos que fijan la frontera del contrato —un recorte **solo achica**: ni un mínimo de 900 empuja hacia arriba un alto de 860, ni un `MaxHeight` de 660 se estira hasta los 704 disponibles—. | `Tools/IntegrationTests/WindowSizingTests.cs`. El CI rechazó dos expectativas que había escrito mal quien hizo el arreglo, y quedó dicho dentro del propio archivo. |
+| §4.1.1 | El pie dice **cuánto lleva** el módulo: `3 de 5 · Red y latencia · 14 s`, y a los 90 s deja una línea `WARN` única en el registro. Con WMI colgado, «midiendo» y «no va a terminar» eran el mismo fotograma. | `Ui/MainViewModel.cs`; el reloj es un `DispatcherTimer` que solo vive durante la corrida. El `Timeout` que cancele un módulo sigue sin existir: esto nombra el problema, no lo corta. |
+| — | `validate_xaml.ps1` gana dos reglas y deja de ser advertencia: es puerta en `build.yml` y ahora también en `release.yml`, antes de que un tag pueda publicarse. | Calibrado contra un gemelo en Python: cero hallazgos en el XAML real, tres de tres en errores sembrados. |
+| F12 | `sysdiag-1.0.0.sha256` fuera del repositorio, con sus dos sumas trasladadas a la entrada `[1.0.0]` del CHANGELOG. | `git rm` + bloque «Sumas de control del paquete». |
+| — | La maqueta `docs/preview/index.html` vuelve a ser espejo del tema. | Tiempos y curvas como variables, hover con transición, elevación, latido con curva, barra del pie escalando y rótulo de avance. |
+
 ### Pendientes
 
 | ID | Sev. | Defecto | Evidencia y tratamiento propuesto |
@@ -85,7 +106,6 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
 | F08 | — | **Corregido: esto no era un defecto.** Aquí afirmé que había 15 sitios creando procesos fuera de `ProcessRunner`. Al contarlo bien, los 15 golpes del grep eran `new ProcessStartInfo` para abrir una URL, un archivo o una página de `ms-settings` —el API correcto para eso, sin nada que esperar ni drenar—. `new Process` aparece **una sola vez en todo el repo**, en `Core/ProcessRunner.cs:58`. | Queda un detalle de forma: `AbrirDeviceManager_Click` (`Ui/MainWindow.xaml.cs:415`) arma el `StartInfo` con el helper del runner y luego llama a `Process.Start` a mano, que es lo correcto escrito dos veces. En vez de migrarlo, se fijó la regla con una prueba: `Core_OnlyProcessRunnerCreatesAProcess` falla si algún día aparece un `new Process` fuera del embudo. |
 | F10 | Baja | `AppEnv.LogsMaximo`, `SettingsService.Aplicar` y `AppSettings` se comunican por **estáticos mutables** leídos desde los recolectores de `Core/`. Funciona, pero ninguna prueba puede variar un umbral sin pisar al resto de la suite (el orden de ejecución importa), y un módulo puede leer un valor que otra ventana cambió a media corrida. | Pasar un `OpcionesDiagnostico` inmutable como argumento a los módulos que lo necesitan (son cuatro: muestreo, pings, ventana de días, retención). Deja de ser necesario `Aplicar` antes de usar, y las pruebas de umbrales se escriben solas. |
 | F11 | Baja | El latido del punto de la barra superior es un reloj `Forever` atado a `Loaded`: sigue corriendo en reposo bajo una pastilla `Collapsed`. Es un coste menor (una animación de opacidad sobre un elemento no visible), y **no lo cambié a propósito**: gobernarlo por estado exige `StopStoryboard` sobre un `BeginStoryboard` con nombre dentro de un `Style`, que vive en otro ámbito de nombres que dentro de una plantilla y no se puede verificar aquí compilando. Queda documentado en el propio estilo. | Mover el punto a un control con plantilla (`ControlTrafico` con su `ControlTemplate`) y atar el latido al estado. Ahí el `StopStoryboard` es seguro y el reloj se apaga de verdad. |
-| F12 | Baja | `sysdiag-1.0.0.sha256` sigue en la raíz del repositorio y apunta a los dos binarios que la auditoría 2 dejó de versionar (A20). Está huérfano: ningún script ni workflow lo lee. | Mover los dos checksums a las notas del release 1.0.0 y borrar el archivo. (No lo borré acá: es el único registro de esos hashes, y eso lo decide quien publica.) |
 
 ---
 
@@ -95,7 +115,7 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
 
 1. `<Nullable>disable</Nullable>` en un proyecto que toca disco, registro y COM. Es
    el tipo de bug que la auditoría 1 y la 2 persiguen a mano. Habilitarlo de golpe
-   sobre 89 archivos es un lote entero; el camino corto es `<Nullable>annotations</Nullable>`
+   sobre los 93 archivos de hoy es un lote entero; el camino corto es `<Nullable>annotations</Nullable>`
    primero (anotaciones sin avisos), y luego activar por carpeta: `Models/` y
    `Diagnostics/` son candidatos directos, `Core/` después.
 2. Cero analizadores. `EnableNETAnalyzers` + `AnalysisLevel=latest-recommended` no
@@ -115,10 +135,12 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
 
 **Pruebas**
 
-0. El gate de `validate_tests.ps1` sigue diciendo «mínimo 114»; hay que subirlo al
-   nuevo total cuando esta tanda entre a `main`, o el umbral deja de apretar nada.
+0. ~~El gate de `validate_tests.ps1` sigue diciendo «mínimo 114»~~ — **subido y
+   verificado**: 163 hoy (114 auditadas + 34 del sistema visual + 4 de licencia + 11 del
+   recorte de ventanas). El número se sube en el mismo commit que añade pruebas, y el
+   mensaje del script repite el desglose para que se sepa qué lo compone.
 
-5. Las 114 pruebas originales (ahora 148 con las del tema) son de lógica pura (`Exporter`, parsers, umbrales, fusiones) y son
+5. Las 114 pruebas originales (163 hoy) son de lógica pura (`Exporter`, parsers, umbrales, fusiones) y son
    buenas; ningún binding, conversor ni template está cubierto más allá de «la ventana
    se construye`. El hueco concreto: `Converters.cs` (seis convertidores con ramas de
    `switch` y un `Clamp`) se puede probar en 20 minutos sin WPF... pero `ScoreArc.Geometria`
@@ -127,8 +149,11 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
    que **dispare los triggers** de las plantillas: un `Trigger.IsMouseOver` roto no
    aparece al construirlas. Aprobar esto en un `ICommand` interno es un fin en sí mismo;
    lo simple es aplicar `Style`/`Template` con `FrameworkElement.ApplyTemplate()` y
-   forzar `BeginAnimation` sobre cada nombre declarado en el XAML — `Tools/validate_xaml.ps1`
-   cubre la parte estática de esto hoy.
+   forzar `BeginAnimation` sobre cada nombre declarado en el XAML.
+   `Tools/validate_xaml.ps1` cubre hoy la parte estática de eso, y desde esta tanda también
+   dos cosas que el parseo no veía: que la propiedad animada exista en el tipo del destino
+   y que ningún `Forever` de `Trigger` se quede sin `StopStoryboard`. Sigue sin haber
+   disparo real de los triggers, que es lo que falta aquí.
 7. Sin cobertura medida. `coverlet.collector` + `--collect:"XPlat Code Coverage"` en el
    `dotnet test` del CI y publicar el informe como artefacto; sin umbral al principio,
    con umbral de no-regresión cuando se sepa dónde está (los números de `Core/Storage`
@@ -143,7 +168,7 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
    pasar (F05 es precisamente eso: se detectó midiendo, no con una prueba).
    ~~y esta brecha quedó cerrada en la tanda siguiente~~: `Inicializar` acepta una
    ruta, `LicenseRegressionTests` prueba el comportamiento corregido, y el umbral del
-   gate subió a 152. Queda la misma limitación para `SettingsService`, que escribe el
+   gate subió a 152 (163 hoy). Queda la misma limitación para `SettingsService`, que escribe el
    registro al leer y sigue sin camino de prueba. Nano-deuda recién vista: `Activar`
    guarda el texto tal como se tecleó (con espacios en vez de guiones) en lugar de la
    forma canónica; la lectura lo tolera porque `Normalizar` los descarta, pero el
@@ -214,12 +239,13 @@ preferencia «no animar controles».
    diálogo a seco es correcto (confirma la acción); cerrar una ventana de resultados
    sin salida es lo que hace dudar de si se guardó algo. Decidir por tipo, no por
    simetría.
-7. **Un único `--self-test` visual**: la maqueta `docs/preview/index.html` usa los mismos
-   tokens que el tema y hoy tiene una sola animación (el latido lineal, también
-   desactualizado). Mantenerla sincronizada con el sistema de movimiento la convierte en el
-   sitio donde ajustar tiempos en el navegador antes de tocar `Theme.xaml`. Si se
-   prefiere no tener dos fuentes de verdad, mejor borrar la maqueta que dejarla
-   mentir.
+7. ~~La maqueta estaba desactualizada~~ — **sincronizada**: `docs/preview/index.html`
+   toma los tres tiempos y las curvas como variables (`--t1/--t2/--t3`,
+   `--ease-out/--ease-inout`), tiene transición en los hovers que no la tenían, elevación
+   en las tarjetas, el latido con curva en vez de rampa lineal, la barra del pie escalando
+   sobre el ancho real como `Pulse` y el rótulo de avance con segundos. Cumple la condición
+   que ella misma se puso: o es espejo del tema, o se borra. Lo que **no** sustituye es el
+   `--self-test`: sigue sin haber un autotest visual que dispare los triggers.
 
 ---
 
@@ -381,6 +407,14 @@ Seis lotes, cada uno compile y CI-verificable por separado.
 | 5 | §4.1.1 (progreso real), #3 (SMART por atributos), #4 (histórico térmico), #2 (diff con la última corrida) | El salto de «informe» a «herramienta de diagnóstico». Cuatro funciones que un usuario nota el primer día. |
 | 6 | Firma (Trusted Signing), #11 instalador en CI, #12 winget, #13 notas desde el CHANGELOG | Distribución: es lo que hace que todo lo anterior llegue a otra máquina sin el aviso de SmartScreen. |
 
+**Estado al 2026-10-10.** El lote 2 está cerrado (F04, F06 paso 1, F05, F07, y además
+F03, F09, F13 y las pruebas de licencia). Del lote 5 entró §4.1.1 completo —progreso real
+por módulo, con cronómetro y aviso a los 90 s—, que no era lo que ese lote prometía: se
+adelantó porque era verificable desde la rama. Siguen abiertos el 1 (F01 y F02, que son
+decisiones de negocio y no técnicas), el 3 (`.editorconfig`, analizadores, nullable por
+capas: hoy el `.csproj` dice `Nullable=disable`), el 4 en su mayor parte y el 6 entero. Ninguno
+se cerró «a medias sin decir»: el punto 0 de §2 y esta línea son el estado real.
+
 ## 6. Lo que no conviene hacer
 
 - **No** poner el catálogo de drivers a instalar sin confirmación y sin punto de
@@ -402,9 +436,9 @@ Seis lotes, cada uno compile y CI-verificable por separado.
 
 ## 7. Cómo verificar esto
 
-La parte de compilación y pruebas ya corrió en el CI de esta rama (commit
-`d9e54b0` y siguientes: build verde, 114/114, paquete publicado validado). En una
-máquina propia, lo mismo:
+La parte de compilación y pruebas corre en el CI de esta rama en cada empujón; la última
+foto es `0a0a0a9`: build Release verde, **163/163**, puerta de XAML, `--self-test` sobre el
+EXE publicado y validación del paquete. En una máquina propia, lo mismo:
 
 ```powershell
 dotnet restore SysDiag.sln
@@ -422,7 +456,8 @@ piensó:
 1. Abrir la app: el rail, la cabecera y el pie tienen que aparecer en una cascada de
    ~340 ms, no de golpe.
 2. Correr «Diagnóstico completo»: el contenido se atenúa **suave** (0,34 s), la barra
-   del pie crece y se desvanece **sin saltar** al reiniciar el ciclo, y al terminar el
+   del pie crece escalando sobre el ancho real y se desvanece **sin saltar** al reiniciar
+   el ciclo, el rótulo del pie nombra el módulo y cuenta los segundos, y al terminar el
    puntaje **sube contando** mientras el arco barre.
 3. Pasar el cursor por el rail: velo + 2 px de empuje; al seleccionar, el filete crece.
 4. Conmutar Resumen/Hallazgos/Datos/Registro: la pastilla se rellena y la etiqueta se
