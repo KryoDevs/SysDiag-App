@@ -131,7 +131,15 @@ public partial class MainWindow : Window
 
     private async void Nav_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (Nav.SelectedItem is not ListBoxItem item || item.Tag is not string clave) return;
+        // Los rótulos de grupo viajan dentro de la lista para que el desplazamiento
+        // los arrastre con su sección. No son un destino: si por la precedencia de
+        // estilos alguno llegara a ser seleccionable, se desmarca en el acto para
+        // que no quede pintado como módulo activo.
+        if (Nav.SelectedItem is not ListBoxItem item || item.Tag is not string clave)
+        {
+            Nav.SelectedIndex = -1;
+            return;
+        }
         if (_vm.Ocupado)
         {
             // Si el ítem quedara marcado, volver a pulsarlo al terminar la operación no dispararía este evento.
