@@ -1,4 +1,4 @@
-# SysDiag 5.12.0
+# SysDiag 5.13.0
 
 [![Compilar y probar](https://github.com/KryoDevs/SysDiag-App/actions/workflows/build.yml/badge.svg)](https://github.com/KryoDevs/SysDiag-App/actions/workflows/build.yml) [![Validar fixture](https://github.com/KryoDevs/SysDiag-App/actions/workflows/validate-fixture.yml/badge.svg)](https://github.com/KryoDevs/SysDiag-App/actions/workflows/validate-fixture.yml)
 
@@ -77,6 +77,7 @@ SysDiag/
    ├─ CleanupWindow / OptimizeWindow / ProfilesWindow   acciones con confirmación
    ├─ HistoryWindow / CompararWindow / SettingsWindow      historial y diff entre dos diagnósticos
    ├─ SmartWindow                           atributos SMART del disco, uno por uno
+   ├─ ConsumoWindow                         quién mueve el disco y quién tiene la red abierta
    ├─ PingMonitorWindow                     monitor de latencia en vivo
    └─ ActivacionWindowsWindow     licencia de Windows 10/11 (solo canales oficiales)
 ```
@@ -88,6 +89,7 @@ SysDiag/
 | Diagnóstico completo | Todos los de abajo en una pasada | recomendado |
 | Red y latencia | RTT, jitter y pérdida contra router, internet y chat regional de Riot (LAS/LAN); señal, banda y canal Wi-Fi; traceroute hacia el destino más relevante | no |
 | Rendimiento | CPU por proceso con muestreo real, RAM, cola de disco | no |
+| Consumo por proceso | Lectura y escritura de disco por proceso, y conexiones de red por PID con su destino | no |
 | Térmicas y energía | Temperatura ACPI, frecuencia actual vs. nominal, throttling, plan de energía, desgaste de batería (capacidad de diseño vs. actual) | no |
 | Estabilidad | Kernel-Power 41, BugCheck, WHEA (catálogo general + escaneo dedicado por proveedor), errores de disco, minidumps | recomendado |
 | Limpieza | Calcula, confirma y borra temporales reportando lo liberado | parcial |
@@ -265,7 +267,7 @@ lista lo accionable sin instalar nada.
 
 - Windows compila la solución, ejecuta regresiones y conserva TRX. Se incluyen ramas
   `arena/**`; no se publica un release por trabajar en una rama.
-- `Tools/validate_tests.ps1` exige ≥253 pruebas (114 de la suite auditada + 34 que miden el sistema visual + 4 de licencia + 11 del recorte de ventanas + 40 sobre funciones puras del lote 5.9 + 15 del lote «Confiar» + 14 del diff entre diagnósticos + 21 de SMART), todas aprobadas y sin omisiones.
+- `Tools/validate_tests.ps1` exige ≥266 pruebas (114 de la suite auditada + 34 que miden el sistema visual + 4 de licencia + 11 del recorte de ventanas + 40 sobre funciones puras del lote 5.9 + 15 del lote «Confiar» + 14 del diff entre diagnósticos + 21 de SMART + 13 de consumo por proceso), todas aprobadas y sin omisiones.
 - `Tools/validate_xaml.ps1` comprueba seis cosas sobre los XAML: bien formado, resolución de
   `{StaticResource}`, ámbito de cada `TargetName` dentro de su plantilla, que la propiedad animada exista
   en el tipo del elemento destino, que todo `RepeatBehavior="Forever"` nacido en un `Trigger` tenga su

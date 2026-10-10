@@ -3,6 +3,31 @@
 Los cambios notables de este proyecto se documentan en este archivo. Las secciones
 `[Sin publicar]` son lotes de una rama: se consolidan al cortar el siguiente release.
 
+## [Sin publicar] - 2026-10-10 (consumo por proceso)
+
+Sube la versión a **5.13.0**. Cierra el 2.6 de `docs/HERRAMIENTAS_NUEVAS.md`.
+
+CPU por proceso ya estaba. Sin esto, la pregunta «¿quién tiene el disco al
+100 %?» exigía salir de la aplicación y abrir el Monitor de recursos, que es
+justo la pregunta que se hace cuando el equipo está lento.
+
+- **`Core/Performance/ProcessIoModule.cs`**. Dos muestras de
+  `GetProcessIoCounters` separadas en el tiempo, comparadas entre sí: leer el
+  acumulado solo premia al proceso más antiguo. De la red, las conexiones TCP
+  por PID con `GetExtendedTcpTable`, en IPv4 e IPv6.
+- **De la red se cuentan conexiones, no bytes.** Windows no expone un contador
+  de red por proceso sin ETW; dibujar uno a partir de otra cosa sería inventar
+  la medición más difícil de todas. La tabla dice lo que mide.
+- **Lo que no se puede medir no se reporta**: ni el proceso que apareció
+  después de la primera muestra, ni el contador que bajó porque el PID se
+  reutilizó. En esta pantalla un número inventado manda a matar el proceso
+  equivocado.
+- Se ordena por movimiento total y no por cantidad de operaciones: mil lecturas
+  de 4 KB no son mil de 4 MB.
+- **`Ui/ConsumoWindow`**, bajo demanda: mide al abrirla y se puede volver a
+  medir. La nota al pie aclara que el intervalo es un promedio y no un máximo.
+- Umbral de pruebas del CI: 266.
+
 ## [Sin publicar] - 2026-10-10 (SMART por atributos)
 
 Sube la versión a **5.12.0**. Cierra el 2.3 de `docs/HERRAMIENTAS_NUEVAS.md`,

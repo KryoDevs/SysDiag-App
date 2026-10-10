@@ -114,6 +114,21 @@ tiene el disco al 100 %» sin abrir el Monitor de recursos.
 **Dato:** `GetProcessIoCounters` vía P/Invoke, y `Win32_PerfFormattedData_*` por PID.
 **Riesgo:** los contadores por proceso son caros; solo bajo demanda.
 
+**Hecho en 5.13.** `Core/Performance/ProcessIoModule.cs` + `Ui/ConsumoWindow`,
+con 13 pruebas sobre las partes puras. Bajo demanda, como pedía el riesgo
+previsto: la ventana mide al abrirla y se puede volver a medir.
+
+Dos correcciones sobre lo previsto:
+
+- **La red se mide en conexiones, no en bytes.** `Win32_PerfFormattedData_*` no
+  tiene contadores de red por PID: lo que hay es `GetExtendedTcpTable`, que da
+  conexiones y hacia dónde. Windows no expone bytes por proceso sin ETW, así
+  que la tabla declara lo que mide en lugar de dibujar un número.
+- **Se mide por diferencia entre dos muestras**, no leyendo el acumulado como
+  hacen los scripts habituales: el acumulado solo premia al proceso más antiguo.
+  Lo que no se puede medir (un proceso que apareció después, un contador que
+  bajó porque el PID se reutilizó) se descarta y no se reporta.
+
 ### 2.7 Decodificador de pantallazos — [c / medio]
 `StabilityModule` ya encuentra los minidumps. Leer el código `BUGCHECK` y sus cuatro
 parámetros del encabezado del volcado, más el módulo culpables del `MODULES_LIST`,
