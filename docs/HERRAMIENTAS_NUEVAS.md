@@ -1,7 +1,15 @@
 # Catálogo de herramientas nuevas — SysDiag
 
 **Fecha:** 2026-10-10 · **Base:** lote 5.9 (gráficos, mediciones, interfaz por sección,
-activación de Windows).
+activación de Windows) · **Actualizado:** lote 5.10.
+
+> **Estado al 5.10.** Ya están implementados **2.7** (decodificador de
+> pantallazos), **3.1 a 3.4** (ensayo, deshacer por paso, verificación
+> post-cambio, restauración selectiva), **4.2** (informe redactado), **4.3**
+> (Markdown) y **5.1** (paleta de comandos). El resto del catálogo sigue
+> abierto y en el orden de §6. Cada entrada implementada conserva su texto
+> original, que explica por qué entró; al final de cada una se agregó una nota
+> con lo que finalmente se hizo.
 
 Este documento responde a una pregunta concreta: *qué herramientas nuevas harían que
 SysDiag se sintiera profesional y no un script con ventanas*. Está escrito para poder
@@ -89,6 +97,13 @@ tiene el disco al 100 %» sin abrir el Monitor de recursos.
 parámetros del encabezado del volcado, más el módulo culpables del `MODULES_LIST`,
 permite decir «0x116 apuntando a `nvlddmkm.sys`» sin WinDbg. Es parseo, no depuración.
 
+**Hecho en 5.10.** `Core/Diagnostics/BugCheckDecoder.cs` + tabla «Pantallazos».
+Con dos correcciones sobre lo previsto: el código de detención **no** está en el
+minidump —se lee del informe de errores de Windows (evento 1001 de WER), que es
+de donde lo sacan también las herramientas de terceros— y los módulos se listan
+como candidatos, no como culpables, porque señalar cuál falló exige análisis de
+pila.
+
 ### 2.8 Batería: ciclos, voltaje y por qué se apaga al 12 % — [c / medio]
 El desgaste ya se reporta. Sumar ciclos de carga, capacidad de diseño contra actual y
 voltaje de reposo (`MSFT_Battery`) explica el apagón repentino, que es la queja real.
@@ -102,19 +117,34 @@ Un modo «mostrar qué se tocaría, sin tocarlo», que además alimenta el infor
 soporte. `OptimizationBackupStore` ya guarda el estado previo; falta el paso de
 presentación. Es la diferencia entre una herramienta que se prueba y una que da miedo.
 
+**Hecho en 5.10.** `TweakModule.Ensayar` y botón «Ensayar (no aplica nada)» en
+la ventana de ajustes, primero y a la izquierda del grupo: es la acción sin
+consecuencias y hay que encontrarla antes que la que escribe.
+
 ### 3.2 Deshacer por paso — [m / muy alto]
 Un registro de acciones (fecha, módulo, clave y valor anterior) con un botón por paso.
 Convierte la reversión global de «Restaurar estado» en algo granular.
+
+**Hecho en 5.10.** `Core/Windows/ActionLog.cs` + `Ui/CambiosWindow`. No
+duplica la lógica de reversión: delega en el módulo que aplicó el cambio, porque
+dos reversiones que pueden divergir son peores que una.
 
 ### 3.3 Verificación post-cambio en todo — [c / alto]
 Releer y comparar después de cada ajuste; si el valor no coincide (política de grupo,
 antivirus, `Winlogon` protegido), decir que **no se aplicó**. Hoy esa comprobación
 existe solo en parte de los tweaks.
 
+**Hecho en 5.10.** `Core/Windows/ChangeVerifier.cs`, aplicado en
+`TweakModule.Aplicar`. `Restore` de optimizaciones y el resto de los módulos
+siguen sin verificar: extenderlos es el siguiente paso natural de este lote.
+
 ### 3.4 Restauración selectiva — [m / medio]
 Si un plan de energía del respaldo ya no existe, hoy falla la restauración completa.
 Omitir lo que falta con aviso explícito es mejor que no restaurar nada, y deja de
 contradecir el texto del botón.
+
+**Hecho en 5.10.** `OptimizeModule.Restore` omite y nombra lo que ya no
+existe, y solo se niega a tocar nada cuando no queda nada restaurable.
 
 ### 3.5 Desinstalación asistida de software — [m / medio]
 El inventario ya está (`StartupModule`). Una vista que agrupe por editor, tamaño y
@@ -135,9 +165,19 @@ archivados. Es la pantalla de un técnico.
 Nombre de equipo, usuario, rutas y SSID redactados por la app. Hoy el README
 **aconseja** editar a mano, y nadie lo hace. Tiene que ser una opción del exportador.
 
+**Hecho en 5.10.** `Core/Diagnostics/Redactor.cs`, sobre una copia. Se
+agregaron dos precauciones que el análisis original no previó: sustitución con
+límite de palabra (un nombre corto no puede comerse una palabra dentro de
+otra) y una cabecera en el propio informe diciendo qué se le quitó.
+
 ### 4.3 Exportar a Markdown y PDF — [c / bajo]
 Markdown para pegar en un foro o un ticket; PDF por impresión, sin dependencias, para
 adjuntar. El HTML ya existe.
+
+**Hecho en 5.10 (Markdown).** `Core/Diagnostics/MarkdownReport.cs`, con
+alcance antes de hallazgos: un 92 sobre un diagnóstico incompleto no significa
+lo mismo que un 92 sobre uno completo. El PDF sigue pendiente: se haría por
+impresión, sin dependencias.
 
 ### 4.4 Modo equipos: una tabla de muchos JSON — [c / medio]
 `HeadlessRunner` ya corre sin interfaz. Un `--informe-equipos carpeta\*.json` que
@@ -152,6 +192,9 @@ quien atiende varios equipos. Es el salto de «mi PC» a «los PC del laboratori
 Con casi veinte destinos de navegación, módulos, acciones rápidas y ajustes, un campo
 que filtra y ejecuta es el atajo más barato para quien ya sabe lo que quiere. Es la
 señal menos ambigua de «esto se usa todos los días».
+
+**Hecho en 5.10.** `Ui/PaletteWindow` + botón «Buscar Ctrl+K» en la barra
+superior. Un atajo de teclado que nadie ve no existe.
 
 ### 5.2 Editor de umbrales — [m / medio]
 El puntaje y las reglas tienen números fijos que hoy son un juicio del autor. Un panel

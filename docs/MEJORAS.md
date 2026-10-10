@@ -1,4 +1,4 @@
-# Análisis y plan de mejoras — SysDiag 5.9.0
+# Análisis y plan de mejoras — SysDiag 5.10.0
 
 Fecha: 2026-10-10 · Rama: `arena/e864cf80-sysdiag-app` · Base: `34a2aa1`
 Continúa [AUDITORIA.md](AUDITORIA.md) y [AUDITORIA_2026-10-09.md](AUDITORIA_2026-10-09.md).
@@ -579,3 +579,84 @@ hechas y se concentra en lo que apareció al tocar esas cuatro cosas. Coste:
   (§4.3 punto 22) cubren la necesidad sin sacar nada del equipo.
 - **Activación que no sea por un canal oficial**. Ver
   `docs/HERRAMIENTAS_NUEVAS.md §1.9`.
+
+---
+
+## 9. Lote 5.10 — «Confiar» y primeras herramientas nuevas (2026-10-10)
+
+Esta sección cierra parte de §8.2 y arranca el lote 2 de
+`docs/HERRAMIENTAS_NUEVAS.md §6`, que ese documento declara **no negociable**:
+agregar herramientas que tocan el sistema sin ensayo ni deshacer aumenta la
+superficie de daño a la misma velocidad que el valor.
+
+### 9.1 Aplicado
+
+**Infraestructura de medición**
+- **§8.2.3 Caché WMI con vigencia.** Inventario que no cambia en segundos se
+  consulta una vez por corrida. Nunca se cachean contadores de rendimiento: el
+  módulo de rendimiento mide por diferencia entre dos muestras, y servirle dos
+  veces la misma fila congelada no da un valor viejo, da un cero. Tampoco se
+  cachean las consultas que fallaron.
+- **§8.2.2 Límite de tiempo por módulo.** Cada paso tiene su plazo (4 min para
+  red, que hace traceroute; 1 min para térmicas). Al vencer, el módulo se marca
+  y la corrida sigue. Lo que el módulo traiga a medias no se fusiona: se
+  descarta y queda la corrida anterior de ese módulo, que es más útil que un
+  «Red y latencia» vacío. El módulo omitido es un hallazgo propio, no una nota
+  al pie. Se distingue la cancelación del usuario (propaga) del vencimiento
+  (avisa y continúa).
+- **§8.2.8 Presupuesto de medición propio.** Tiempo de CPU del proceso y pico
+  de memoria de la corrida, en el pie y en el informe archivado. Una
+  herramienta que mide perturba aquello que mide.
+- **§8.2.10 Puerta de XAML ampliada.** Comprobación 6: todo `{Binding X}` tiene
+  que corresponder a un miembro de su clase de datos. Un binding a un nombre
+  que no existe no rompe la compilación: rompe en tiempo de ejecución y en
+  silencio.
+
+**Lote 2, «Confiar» (`HERRAMIENTAS §3`)**
+- **3.3 Verificación post-cambio.** `Core/Windows/ChangeVerifier.cs`: releer y
+  comparar en vez de suponer. Un ajuste se escribe y la llamada devuelve sin
+  error en tres casos muy distintos, y solo volviendo a leer se distinguen.
+  `TweakModule.Aplicar` devuelve un resultado que separa «ya estaba así» de «se
+  escribió y no quedó».
+- **3.1 Ensayo antes de aplicar.** `TweakModule.Ensayar` y el botón «Ensayar (no
+  aplica nada)». Antes, la única forma de saber qué iba a tocar SysDiag era
+  aplicarlo y mirar el registro después.
+- **3.2 Deshacer por paso.** `Core/Windows/ActionLog.cs` + `Ui/CambiosWindow`:
+  fecha, origen, alcance y un botón por paso. No duplica la lógica de
+  reversión, delega en el módulo que aplicó el cambio. Lo no reversible se
+  registra igual y marcado.
+- **3.4 Restauración selectiva.** `OptimizeModule.Restore` ya no aborta entero
+  cuando un plan de energía del respaldo desapareció: lo que falta se omite y
+  se nombra. Sigue sin tocar nada si no queda nada restaurable.
+
+**Herramientas nuevas**
+- **4.2 Informe redactado.** Quita nombre del equipo, del usuario, ruta del
+  perfil, números de serie, nombres de red Wi-Fi y MAC, sobre una copia. Con
+  límite de palabra: un usuario llamado «Ana» no puede hacer desaparecer la
+  «Ana» de «Analytics» en el nombre de un driver.
+- **4.3 Markdown.** Para pegar en un foro o un ticket, que es donde casi
+  siempre se pide ayuda. `Ui/ExportarWindow` ofrece los cinco formatos.
+- **2.7 Decodificador de pantallazos.** Lee cabecera, módulos y versión de
+  Windows del minidump, y cruza el código de detención con el informe de
+  errores de Windows. El código **no** está en el minidump: todas las
+  herramientas que lo muestran lo leen del registro de eventos, y esta hace lo
+  mismo en vez de fingir lo contrario. Códigos sin traducción local se dicen
+  sin traducir.
+- **5.1 Paleta de comandos (Ctrl+K).** Filtra y ejecuta sobre módulos, acciones
+  de la sección activa, exportaciones y vistas, armada desde las mismas
+  estructuras que pintan la interfaz.
+
+### 9.2 Lo que sigue, actualizado
+
+De §8.2 quedan pendientes: **1** contrato de medición con unidad, **5** línea de
+base y diff entre diagnósticos, **7** accesibilidad más allá del foco, **9**
+unidades en el HTML, **11** más pruebas de funciones puras, **12**
+`docs/REGLAS.md` generado, **13** decisión de i18n, **14** actualizaciones y
+firma, **15** persistencia de la ventana.
+
+De `HERRAMIENTAS_NUEVAS.md` quedan: 2.1 monitor en vivo, 2.2 línea térmica,
+2.3 SMART por atributos, 2.4 pérdida por salto, 2.5 mapa de canales, 2.6 I/O
+por proceso, 2.8 batería, 3.5 desinstalación asistida, 4.1 comparar dos
+diagnósticos, 4.4 modo equipos, 5.2 editor de umbrales, 5.3 perfiles
+editables, 5.4 programador, 5.5 actualizaciones y firma, 5.6 tema claro y alto
+contraste.

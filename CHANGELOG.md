@@ -3,6 +3,57 @@
 Los cambios notables de este proyecto se documentan en este archivo. Las secciones
 `[Sin publicar]` son lotes de una rama: se consolidan al cortar el siguiente release.
 
+## [Sin publicar] - 2026-10-10 (confiar: ensayo, verificación y deshacer por paso)
+
+Sube la versión a **5.10.0**. Es el lote 2 de `docs/HERRAMIENTAS_NUEVAS.md §6`,
+que ese documento declara no negociable: agregar herramientas que tocan el
+sistema sin ensayo ni deshacer aumenta la superficie de daño a la misma
+velocidad que el valor.
+
+### Medición, más corta y más honesta
+- **Caché WMI por corrida** (§8.2.3). El inventario que no cambia en segundos se
+  consulta una vez. Nunca se cachean contadores de rendimiento: el módulo de
+  rendimiento mide por diferencia entre dos muestras, y servirle dos veces la
+  misma fila congelada no da un valor viejo, da un cero. Tampoco se cachean las
+  consultas que fallaron.
+- **Límite de tiempo por módulo** (§8.2.2). Cada paso tiene su plazo. Al vencer,
+  el módulo se marca y la corrida sigue, y lo que traiga a medias no se fusiona.
+  El módulo omitido es un **hallazgo propio**, no una nota al pie: «no hay
+  problemas de red» cuando lo que pasó es que la red no se pudo medir es la
+  forma más dañina de estar en lo correcto. Se distingue la cancelación del
+  usuario (propaga) del vencimiento (avisa y continúa).
+- **Presupuesto de medición propio** (§8.2.8): tiempo de CPU y pico de memoria
+  de la corrida, en el pie y en el informe archivado.
+- **Puerta de XAML ampliada** (§8.2.10): cada `{Binding X}` tiene que
+  corresponder a un miembro real de su clase de datos.
+
+### Lote «Confiar»
+- **Verificación post-cambio** (3.3, §8.2.4). `Core/Windows/ChangeVerifier.cs`:
+  releer y comparar en vez de suponer. `TweakModule.Aplicar` devuelve un
+  resultado que separa «ya estaba así» de «se escribió y no quedó».
+- **Ensayo antes de aplicar** (3.1). `TweakModule.Ensayar` y botón «Ensayar (no
+  aplica nada)».
+- **Deshacer por paso** (3.2, §8.2.6). `Core/Windows/ActionLog.cs` +
+  `Ui/CambiosWindow`: un botón por paso, delegando en el módulo que aplicó el
+  cambio. Lo no reversible se registra igual y marcado.
+- **Restauración selectiva** (3.4). `OptimizeModule.Restore` omite y nombra lo
+  que ya no existe, en vez de no restaurar nada por una pieza que borró otro
+  programa.
+
+### Herramientas nuevas
+- **Informe redactado para soporte** (4.2). Quita equipo, usuario, ruta del
+  perfil, series, nombres de red y MAC, sobre una copia.
+- **Exportación a Markdown** (4.3) y ventana `ExportarWindow` con los cinco
+  formatos (HTML, HTML redactado, Markdown, Markdown redactado, JSON).
+- **Decodificador de pantallazos** (2.7). Código de detención, qué significa y
+  qué controladores de terceros estaban cargados, sin WinDbg.
+- **Paleta de comandos Ctrl+K** (5.1), armada desde las mismas estructuras que
+  pintan la interfaz para no mantener dos listas paralelas.
+
+### Documentación
+- `docs/MEJORAS.md §9` y `docs/HERRAMIENTAS_NUEVAS.md` actualizado con lo que
+  ya está hecho y lo que queda.
+
 ## [Sin publicar] - 2026-10-10 (gráficos, mediciones, interfaz por sección y activación)
 
 Sube la versión a **5.9.0**.
