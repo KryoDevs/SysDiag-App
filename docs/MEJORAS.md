@@ -9,9 +9,29 @@ Se leyó el proyecto completo: los 89 archivos `.cs`, los 12 XAML, los cuatro
 proyectos de prueba, los tres workflows, los cinco `validate_*.ps1`, `build.bat`,
 el instalador y el manifiesto. Cada afirmación de abajo tiene su evidencia al lado.
 
-Lo que **no** se pudo hacer aquí: compilar ni ejecutar. El sandbox es Linux y WPF,
-WMI y `netsh` solo existen en Windows; no hay SDK de .NET. Las verificaciones
-mecánicas que sí corrieron:
+El sandbox es Linux: aquí no se compila ni se ejecuta (WPF, WMI y `netsh` solo
+existen en Windows, y no hay SDK de .NET instalado). La verificación real la hizo
+**el CI de Windows de esta rama**, y hay que leerla como lo que es — la primera
+pasada honesta del trabajo:
+
+- `Compilar (Release)`: **en verde**, y `Validar el paquete publicado` (el
+  `--self-test` del EXE publicado, que construye las diez ventanas) también. Es
+  decir: el tema reescrito, los adjuntos `ui:Motion.*` en las diez ventanas y el
+  recorte de tamaño por área de trabajo se cargan en WPF de verdad.
+- Suite de regresión: **114/114** aprobadas, sin omisiones.
+- `Tools/validate_xaml.ps1`, que entró con este cambio, pasó sobre el XAML real.
+- El primer empujón **no compilaba**: `Motion.Transicion` pedía `Animatable` y
+  recibía `FrameworkElement` en dos de sus siete llamadas (`CS1503`,
+  `Ui/Motion.cs:110` y `:351`). Lo detectó el CI en 80 segundos. Ninguna de las
+  verificaciones locales —parseo de XAML, árbol tree-sitter, cruce de adjuntos—
+  podía verlo: es exactamente el argumento de §5 y de por qué el paso de CI de
+  este repo no se puede sustituir por comprobaciones estáticas.
+
+Lo que el CI **no** cubre: el aspecto y el tiempo de cada transición, que siguen
+siendo a ojo (ver §7), y todo lo que exige un equipo con hardware o drivers de
+terceros.
+
+Las verificaciones mecánicas que sí corrieron en el sandbox:
 
 - Sintaxis C# de los 89 archivos con un parser independiente (tree-sitter). Solo
   `Core/WmiHelper.cs` marca 5 nodos de error, que es la limitación ya conocida de
@@ -349,7 +369,9 @@ Seis lotes, cada uno compile y CI-verificable por separado.
 
 ## 7. Cómo verificar esto
 
-En Windows, sobre `arena/e864cf80-sysdiag-app`:
+La parte de compilación y pruebas ya corrió en el CI de esta rama (commit
+`d9e54b0` y siguientes: build verde, 114/114, paquete publicado validado). En una
+máquina propia, lo mismo:
 
 ```powershell
 dotnet restore SysDiag.sln
@@ -361,7 +383,8 @@ dotnet publish SysDiag.csproj -c Release -o publish
 .\Tools\validate_release.ps1 -Root .\publish
 ```
 
-Para el movimiento, además, a ojo (ninguna prueba lo cubre):
+Queda lo que ninguna prueba cubre — el movimiento, a ojo, en el orden en que se
+piensó:
 
 1. Abrir la app: el rail, la cabecera y el pie tienen que aparecer en una cascada de
    ~340 ms, no de golpe.
