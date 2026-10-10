@@ -149,6 +149,15 @@ dotnet publish SysDiag.csproj -c Release -o publish
 .\Tools\validate_version.ps1 -Root .\publish
 ```
 
+> **Política de ejecución de PowerShell:** si al correr un `.ps1` aparece
+> `UnauthorizedAccess` o «la ejecución de scripts está deshabilitada en este sistema»,
+> es la política de ejecución de Windows (o la marca de web del ZIP descargado), no un
+> fallo del proyecto. Ejecuta los scripts con
+> `powershell -NoProfile -ExecutionPolicy Bypass -File .\Tools\validate_release.ps1 ...`
+> o usa `Set-ExecutionPolicy -Scope Process Bypass` en tu sesión. `build.bat` ya invoca
+> la validación con `-ExecutionPolicy Bypass`: solo afecta a esa sesión y no cambia la
+> política del sistema.
+
 Consulta [la auditoría y sus tres listas de diez](docs/AUDITORIA.md) para los fallos,
 correcciones, evidencia de CI y límites pendientes. Un CI anterior no certifica cambios
 posteriores; el informe identifica expresamente el SHA validado.

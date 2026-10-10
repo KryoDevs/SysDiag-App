@@ -40,6 +40,11 @@ All notable changes to this project will be documented in this file.
 - El arco del puntaje y el aro de fondo del anillo quedaban descentrados al
   cambiar de tamaño: las medidas del aro se atan a las del convertidor
   (`ScoreArcConverter`, lienzo de 120×120, radio 50).
+- `build.bat` invocaba `Tools\validate_release.ps1` sin `-ExecutionPolicy Bypass` y
+  abortaba en equipos con política de ejecución restrictiva o con archivos marcados
+  por MOTW (ZIP descargado de GitHub): la compilación y la publicación sí terminaban
+  y solo fallaba la validación. Ahora usa bypass de sesión (sin cambiar la política
+  del sistema) y distingue «falló la compilación» de «falló solo la validación».
 
 ### Documentación
 - `docs/DISENO.md`: sistema de diseño (paleta, roles tipográficos, escalas,
