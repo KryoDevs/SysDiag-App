@@ -87,6 +87,34 @@
     <GradientStop Color="#FF8B7CFF" Offset="1"/>
   </LinearGradientBrush>
 
+  <!-- =========================== MOVIMIENTO ==========================
+       Tres tiempos y cuatro curvas. Como con las medidas, el movimiento deja
+       de ser un número suelto cuando se elige de una escala:
+
+         · 0,11 s  — lo que sigue al puntero. Tiene que sentirse inmediato;
+                     pasado ese umbral se lee como lag.
+         · 0,19 s  — lo que entra y sale (hover, selección, casilla marcada).
+         · 0,34 s  — lo que acompaña un resultado nuevo (el puntaje, atenuar
+                     la vista mientras se mide). Es el único lento.
+
+       Ninguna animación decora: cada una señala un cambio de estado. Si un
+       elemento no cambia de estado, no se mueve.
+
+       Las duraciones van escritas en cada animación y no como recursos
+       {StaticResource}: un recurso de tipo Duration obligaría al lector de
+       XAML a convertir una cadena en una estructura, y ese es el tipo de
+       detalle que rompe la carga del diccionario entero. Las curvas sí se
+       comparten: son objetos normales, sin conversión de por medio.
+
+       El sistema puede pedir no animar los controles; Ui/Motion.cs lo respeta
+       y aplica el valor final en seco. Los hovers viven en el tema y siguen
+       animando, que es lo correcto: son realimentación, no decoración.
+       ==================================================================== -->
+  <CubicEase x:Key="EEaseSalida" EasingMode="EaseOut"/>
+  <CubicEase x:Key="EEaseSuave" EasingMode="EaseInOut"/>
+  <QuadraticEase x:Key="EEaseAcelerando" EasingMode="EaseIn"/>
+  <BackEase x:Key="EEaseSalto" EasingMode="EaseOut" Amplitude="0.28"/>
+
   <!-- ============================= SOMBRAS =========================== -->
   <DropShadowEffect x:Key="CardShadow" Color="#FF000000" Direction="270"
                     ShadowDepth="3" BlurRadius="14" Opacity="0.40"/>
@@ -238,7 +266,16 @@
     <Setter Property="VerticalAlignment" Value="Center"/>
   </Style>
 
-  <!-- Punto que late solo mientras hay una operación en curso. -->
+  <!-- Punto que late solo mientras hay una operación en curso.
+
+       El latido anterior era lineal (rampa de 1 a 0,25), que es lo que lo hacía
+       ver mecánico; ahora respira con una curva. Sigue atado a Loaded y no a un
+       DataTrigger de Ocupado: para detener el reloj al terminar la corrida
+       haría falta StopStoryboard sobre un BeginStoryboard con nombre, y eso
+       dentro de un Style —no dentro de una plantilla— depende de un ámbito de
+       nombres distinto. No vale la pena arriesgar el arranque de la app por
+       apagar un reloj que además está invisible en reposo. Pendiente: mover
+       el punto a una plantilla propia y gobernar el latido por estado. -->
   <Style x:Key="PuntoVivo" TargetType="Ellipse">
     <Setter Property="Width" Value="7"/>
     <Setter Property="Height" Value="7"/>
@@ -248,7 +285,8 @@
       <EventTrigger RoutedEvent="Loaded">
         <BeginStoryboard>
           <Storyboard RepeatBehavior="Forever" AutoReverse="True">
-            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0.25" Duration="0:0:0.7"/>
+            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0.25"
+                             Duration="0:0:0.62" EasingFunction="{StaticResource EEaseSuave}"/>
           </Storyboard>
         </BeginStoryboard>
       </EventTrigger>
@@ -304,6 +342,23 @@
        Botones. El hover es una capa blanca translúcida sobre el fondo,
        no un cambio de opacidad: así el texto sigue siendo legible sobre
        el violeta y sobre el fantasma por igual.
+
+       La capa superpuesta no es un capricho: es la única forma correcta de
+       interpolar un color acá. Los pinceles del tema son compartidos, y
+       animar el Color de BHover cambiaría de una vez todos los sitios donde
+       se usa. Lo que se anima entonces es la Opacity de una capa propia del
+       control, que no comparte nada con nadie.
+
+       Cada botón tiene cuatro capas, y cada una va a su tiempo:
+         · Luz      — realimentación del puntero (0,16 s adentro, 0,22 s
+                      fuera: entrar tiene que responder, salir tiene que
+                      despejar sin dejar resabio).
+         · Prensa   — oscurece al apretar, para que el clic se sienta aunque
+                      la acción tarde; un diagnóstico tarda segundos.
+         · Contorno — el filete violeta del hover entra con la capa, no a seco.
+         · Enfoque  — anillo cian por teclado, por fuera del borde para que no
+                      se pelee con el color del estado. Es accesibilidad, no
+                      adorno: antes el foco solo recoloría el borde.
        ================================================================ -->
   <Style x:Key="BtnBase" TargetType="Button">
     <Setter Property="FontFamily" Value="{StaticResource FBody}"/>
@@ -323,19 +378,91 @@
                                 Margin="{TemplateBinding Padding}"/>
               <Border x:Name="Luz" Background="{StaticResource BHover}"
                       CornerRadius="{StaticResource RSm}" Opacity="0" IsHitTestVisible="False"/>
+              <Border x:Name="Prensa" Background="#3A000000"
+                      CornerRadius="{StaticResource RSm}" Opacity="0" IsHitTestVisible="False"/>
+              <Border x:Name="Contorno" BorderBrush="{StaticResource BAccent}" BorderThickness="1"
+                      CornerRadius="{StaticResource RSm}" Opacity="0" IsHitTestVisible="False"/>
+              <Border x:Name="Enfoque" BorderBrush="{StaticResource BAccent2}" BorderThickness="1.5"
+                      CornerRadius="7" Margin="-2" Opacity="0" IsHitTestVisible="False"/>
             </Grid>
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Luz" Property="Opacity" Value="1"/>
-              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BAccent}"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Luz" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.16"/>
+                    <DoubleAnimation Storyboard.TargetName="Contorno" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.16"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Luz" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.22"/>
+                    <DoubleAnimation Storyboard.TargetName="Contorno" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.22"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
-            <Trigger Property="IsEnabled" Value="False">
-              <Setter TargetName="Bd" Property="Opacity" Value="0.35"/>
-              <Setter Property="Cursor" Value="Arrow"/>
+            <Trigger Property="IsPressed" Value="True">
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Prensa" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.06"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Prensa" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.2"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
             <Trigger Property="IsKeyboardFocused" Value="True">
-              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BAccent2}"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Enfoque" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.16"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Enfoque" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.16"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Cursor" Value="Arrow"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Bd" Storyboard.TargetProperty="Opacity"
+                                     To="0.35" Duration="0:0:0.19"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Bd" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.19"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -369,20 +496,93 @@
           <Border x:Name="Bd" Background="{TemplateBinding Background}"
                   BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="1" CornerRadius="{StaticResource RSm}">
-            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
-                              Margin="{TemplateBinding Padding}"/>
+            <Grid>
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Margin="{TemplateBinding Padding}"/>
+              <Border x:Name="Luz" Background="{StaticResource BHover}"
+                      CornerRadius="{StaticResource RSm}" Opacity="0" IsHitTestVisible="False"/>
+              <Border x:Name="Prensa" Background="#3A000000"
+                      CornerRadius="{StaticResource RSm}" Opacity="0" IsHitTestVisible="False"/>
+              <Border x:Name="Enfoque" BorderBrush="{StaticResource BAccent2}" BorderThickness="1.5"
+                      CornerRadius="7" Margin="-2" Opacity="0" IsHitTestVisible="False"/>
+            </Grid>
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource BHover}"/>
+              <!-- El texto cambia de tono en el acto y la capa entra suave: el
+                   color del rótulo es un pincel compartido del tema. -->
               <Setter Property="Foreground" Value="{StaticResource BText}"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Luz" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.16"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Luz" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.22"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
-            <Trigger Property="IsEnabled" Value="False">
-              <Setter TargetName="Bd" Property="Opacity" Value="0.35"/>
-              <Setter Property="Cursor" Value="Arrow"/>
+            <Trigger Property="IsPressed" Value="True">
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Prensa" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.06"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Prensa" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.2"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
             <Trigger Property="IsKeyboardFocused" Value="True">
-              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BAccent2}"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Enfoque" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.16"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Enfoque" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.16"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Cursor" Value="Arrow"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Bd" Storyboard.TargetProperty="Opacity"
+                                     To="0.35" Duration="0:0:0.19"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Bd" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.19"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -401,12 +601,30 @@
       <Setter.Value>
         <ControlTemplate TargetType="Button">
           <Border x:Name="Bd" Background="Transparent">
-            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <Grid>
+              <Border x:Name="Velo" Background="{StaticResource BHover}" Opacity="0"/>
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource BHover}"/>
               <Setter Property="Foreground" Value="{StaticResource BText}"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Velo" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.11"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Velo" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.16"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -419,12 +637,32 @@
       <Setter.Value>
         <ControlTemplate TargetType="Button">
           <Border x:Name="Bd" Background="Transparent">
-            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <Grid>
+              <!-- Cerrar es lo único de la barra que destruye algo: el rojo
+                   entra desvaneciéndose para que el aviso no sea un parpadeo. -->
+              <Border x:Name="Velo" Background="{StaticResource BBad}" Opacity="0"/>
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource BBad}"/>
               <Setter Property="Foreground" Value="White"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Velo" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.11"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Velo" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.16"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -456,16 +694,68 @@
       <Setter.Value>
         <ControlTemplate TargetType="RadioButton">
           <Border x:Name="Bd" Background="Transparent" CornerRadius="6" Padding="14,6">
-            <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
+            <Grid>
+              <Border x:Name="Luz" Background="{StaticResource BHover}" Opacity="0" IsHitTestVisible="False"/>
+              <!-- El relleno de la pastilla activa entra y sale desvaneciéndose.
+                   Es la única manera de animarlo sin tocar GAccent, que es un
+                   degradado del tema compartido con todos los botones primarios. -->
+              <Border x:Name="Sel" Background="{StaticResource GAccent}" CornerRadius="6"
+                      Opacity="0" IsHitTestVisible="False"/>
+              <!-- La etiqueta se cruza: la versión tenue y la versión tinta son
+                   dos presentadores del mismo contenido que se pasan el testigo
+                   mientras el relleno sube. Un solo presentador conmutando el
+                   color daría un parpadeo de tinta oscura sobre fondo oscuro. -->
+              <ContentPresenter x:Name="Normal" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                TextBlock.Foreground="{StaticResource BTextDim}"/>
+              <ContentPresenter x:Name="Tinta" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                TextBlock.Foreground="{StaticResource BInk}" TextBlock.FontWeight="SemiBold"
+                                Opacity="0" IsHitTestVisible="False"/>
+            </Grid>
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource BHover}"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Luz" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.11"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Luz" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.16"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
             <Trigger Property="IsChecked" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource GAccent}"/>
-              <Setter Property="Foreground" Value="{StaticResource BInk}"/>
-              <Setter Property="FontWeight" Value="SemiBold"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Sel" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.19" EasingFunction="{StaticResource EEaseSalida}"/>
+                    <DoubleAnimation Storyboard.TargetName="Tinta" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.19"/>
+                    <DoubleAnimation Storyboard.TargetName="Normal" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.11"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Sel" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.19"/>
+                    <DoubleAnimation Storyboard.TargetName="Tinta" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.16"/>
+                    <DoubleAnimation Storyboard.TargetName="Normal" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.16"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
