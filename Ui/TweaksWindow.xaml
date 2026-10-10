@@ -1,0 +1,41 @@
+<Window x:Class="SysDiag.Ui.TweaksWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        SizeToContent="Height" Width="780" ResizeMode="NoResize" MaxHeight="820"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+
+  <Border Style="{StaticResource PanelShell}">
+    <DockPanel LastChildFill="True">
+      <StackPanel DockPanel.Dock="Top">
+        <Rectangle Height="4" Width="46" HorizontalAlignment="Left" RadiusX="2" RadiusY="2"
+                   Fill="{StaticResource BAccent}" Margin="0,0,0,16"/>
+        <TextBlock Text="Ajustes de Windows" Style="{StaticResource H2}"/>
+        <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,8,0,12"
+                   Text="Ajustes de Windows 10 y 11 agrupados por intención. Antes de escribir nada se guarda el estado actual: todo se revierte desde aquí o desde «Restaurar estado»."/>
+        <TextBlock x:Name="TxtResumen" Style="{StaticResource Eyebrow}"/>
+        <Grid Margin="0,14,0,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <TextBox x:Name="TxtBuscar" Grid.Column="0" Style="{StaticResource CampoTexto}"
+                   Height="36" VerticalContentAlignment="Center" TextChanged="Buscar_TextChanged"
+                   ToolTip="Filtra por nombre o descripción"/>
+          <Button Grid.Column="1" Content="Seleccionar lo visible" Style="{StaticResource BtnQuiet}"
+                  Margin="8,0,0,0" Click="Seleccionar_Click"/>
+        </Grid>
+      </StackPanel>
+
+      <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+        <Button Content="Revertir todos los cambios" Style="{StaticResource BtnGhost}" Margin="0,0,8,0" Click="RevertirTodo_Click"/>
+        <Button Content="Cerrar" Style="{StaticResource BtnGhost}" Margin="0,0,8,0" Click="Cerrar_Click"/>
+        <Button x:Name="BtnAplicar" Content="Aplicar seleccionados" Style="{StaticResource BtnPrimary}" Click="Aplicar_Click" IsDefault="True"/>
+      </StackPanel>
+
+      <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,0,-14,0" Padding="0,0,14,0">
+        <StackPanel x:Name="PanelAjustes"/>
+      </ScrollViewer>
+    </DockPanel>
+  </Border>
+</Window>

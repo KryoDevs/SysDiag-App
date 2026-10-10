@@ -1,4 +1,4 @@
-﻿<Window x:Class="SysDiag.Ui.PingMonitorWindow"
+<Window x:Class="SysDiag.Ui.PingMonitorWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
@@ -110,14 +110,36 @@
           </Grid>
 
           <Grid Grid.Row="1">
-            <!-- Franjas de referencia: dan escala al ojo sin números en cada línea. -->
+            <Grid.Resources>
+              <!-- Relleno del área: cian vivo arriba, casi transparente abajo. -->
+              <LinearGradientBrush x:Key="GAreaCian" StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Color="#3838D6F0" Offset="0"/>
+                <GradientStop Color="#0738D6F0" Offset="1"/>
+              </LinearGradientBrush>
+            </Grid.Resources>
+
+            <!-- Franjas de referencia: dan escala al ojo. La etiqueta de la
+                 derecha dice cuánto vale cada franja, para poder leer el
+                 gráfico sin adivinar. -->
             <Canvas x:Name="Lienzo" ClipToBounds="True">
               <Line X1="0" Y1="0" X2="0" Y2="0" x:Name="LineaTope" Stroke="{StaticResource BStrokeSoft}" StrokeThickness="1"/>
               <Line X1="0" Y1="0" X2="0" Y2="0" x:Name="LineaMedio" Stroke="{StaticResource BStrokeSoft}" StrokeThickness="1"/>
               <Line X1="0" Y1="0" X2="0" Y2="0" x:Name="LineaBase" Stroke="{StaticResource BStroke}" StrokeThickness="1"/>
-              <Polygon x:Name="Area" Fill="{StaticResource BAccent2Wash}"/>
+              <Polygon x:Name="Area" Fill="{StaticResource GAreaCian}"/>
               <Polyline x:Name="Linea" Stroke="{StaticResource BAccent2}" StrokeThickness="2" StrokeLineJoin="Round"/>
+              <Ellipse x:Name="PuntoFinal" Width="9" Height="9" Fill="{StaticResource BAccent2}"
+                       Stroke="{StaticResource BSurface}" StrokeThickness="2" Visibility="Collapsed"/>
             </Canvas>
+
+            <Grid Margin="8,2,10,2" IsHitTestVisible="False">
+              <TextBlock x:Name="TxtEscalaTope" Style="{StaticResource Eyebrow}" HorizontalAlignment="Right"
+                         VerticalAlignment="Top" Foreground="{StaticResource BTextMuted}"/>
+              <TextBlock x:Name="TxtEscalaMedio" Style="{StaticResource Eyebrow}" HorizontalAlignment="Right"
+                         VerticalAlignment="Center" Foreground="{StaticResource BTextMuted}"/>
+              <TextBlock x:Name="TxtEscalaBase" Style="{StaticResource Eyebrow}" HorizontalAlignment="Right"
+                         VerticalAlignment="Bottom" Foreground="{StaticResource BTextMuted}"/>
+            </Grid>
+
             <TextBlock x:Name="TxtVacio" Style="{StaticResource Dim}" HorizontalAlignment="Center"
                        VerticalAlignment="Center" Text="Elegí un destino y tocá Iniciar."/>
           </Grid>

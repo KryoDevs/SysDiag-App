@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Sin publicar] - 2026-10-10 (secciones propias, licencia y ajustes de Windows)
+
+### Interfaz
+- **Banda de sección en cada módulo**: icono, color por familia (análisis cian,
+  mantenimiento violeta, sistema ámbar, datos verde), descripción propia y
+  acciones rápidas del módulo — cada sección se presenta a su manera y ofrece
+  sus herramientas sin salir de la pantalla.
+- **Pie corregido**: la ruta de salida y los botones ya no se superponen; el
+  texto vive en su propia columna con elipsis y muestra la ruta real.
+- **Monitor de ping**: gráfico con relleno degradado, punto vivo en la última
+  muestra y etiquetas de escala en las franjas de referencia.
+- **Ajustes**: nueva fila de licencia con el estado actual y acceso a la activación.
+
+### Funcionalidad
+- **Códigos de activación** (`SDG7-…`): verificación local por HMAC-SHA256 con
+  formato base32 Crockford, prueba de 14 días, licencia Pro por código y modo
+  lectura al vencer (el diagnóstico nunca se bloquea). Incluye la herramienta
+  `Tools/New-ActivationCode.ps1` para emitir y verificar códigos.
+- **Ajustes de Windows 10/11** (`Ui/TweaksWindow`): ~25 ajustes reversibles
+  agrupados en Privacidad, Rendimiento, Explorador y Sistema — telemetría,
+  anuncios, efectos visuales, programación de GPU por hardware, modo Juego,
+  arranque rápido, prioridad para juegos, extensiones de archivo, menú
+  contextual clásico, barra de tareas, Widgets/Chat, servicios (SysMain,
+  WSearch, DiagTrack), drivers de Windows Update y más. Cada ajuste declara su
+  riesgo, guarda el estado anterior antes de escribir y se revierte de uno en
+  uno o todos a la vez.
+- **Actualizaciones**: botón «Buscar actualizaciones de Windows» junto a las
+  acciones de winget en la vista Datos.
+
 ## [Sin publicar] - 2026-10-10 (rediseño de la interfaz)
 
 ### Interfaz

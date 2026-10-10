@@ -60,6 +60,7 @@ public partial class PingMonitorWindow : Window
 
         _muestras.Clear();
         _ultimoValido = null;
+        PuntoFinal.Visibility = Visibility.Collapsed;
         _generacion++;
         _cts = new CancellationTokenSource();
         _corriendo = true;
@@ -178,6 +179,19 @@ public partial class PingMonitorWindow : Window
         LineaTope.X1 = 0; LineaTope.X2 = w; LineaTope.Y1 = 0; LineaTope.Y2 = 0;
         LineaMedio.X1 = 0; LineaMedio.X2 = w; LineaMedio.Y1 = h / 2; LineaMedio.Y2 = h / 2;
         LineaBase.X1 = 0; LineaBase.X2 = w; LineaBase.Y1 = h - 1; LineaBase.Y2 = h - 1;
+
+        // Punto vivo en la última muestra: el ojo encuentra el presente sin
+        // tener que seguir la línea hasta el borde.
+        var ultimoPunto = puntos[puntos.Count - 1];
+        Canvas.SetLeft(PuntoFinal, ultimoPunto.X - 4.5);
+        Canvas.SetTop(PuntoFinal, ultimoPunto.Y - 4.5);
+        PuntoFinal.Visibility = Visibility.Visible;
+
+        // Las franjas dicen cuánto miden: sin estas etiquetas el gráfico
+        // solo mostraba «una punta», no cuántos milisegundos.
+        TxtEscalaTope.Text = $"{max:0} ms";
+        TxtEscalaMedio.Text = $"{max / 2:0} ms";
+        TxtEscalaBase.Text = "0 ms";
     }
 
     private static Brush Res(string clave) => (Brush)Application.Current.Resources[clave];

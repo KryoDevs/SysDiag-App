@@ -41,6 +41,10 @@
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
                     shell:WindowChrome.IsHitTestVisibleInChrome="True">
 
+          <Button Content="{Binding LicenciaEtiqueta}" Style="{StaticResource BtnQuiet}"
+                  Margin="0,0,10,0" Padding="11,5" FontSize="11.5" Click="Licencia_Click"
+                  ToolTip="Estado de la licencia: prueba, activación y compra de códigos"/>
+
           <Border Style="{StaticResource EstadoPill}" Margin="0,0,14,0">
             <Grid>
               <StackPanel Orientation="Horizontal" Visibility="{Binding Ocupado, Converter={StaticResource BoolVis}}">
@@ -197,6 +201,12 @@
                     <TextBlock Text="Optimizar" Style="{StaticResource NavLabel}"/>
                   </StackPanel>
                 </ListBoxItem>
+                <ListBoxItem Tag="tweaks" ToolTip="Ajustes de Windows 10 y 11 por categorías, con respaldo y reversión total">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE72E;" Style="{StaticResource NavIcon}"/>
+                    <TextBlock Text="Ajustes de Windows" Style="{StaticResource NavLabel}"/>
+                  </StackPanel>
+                </ListBoxItem>
                 <ListBoxItem Tag="perfiles" ToolTip="Universidad, Trabajo o Juego: combinaciones listas de energía y red">
                   <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE8FC;" Style="{StaticResource NavIcon}"/>
@@ -277,6 +287,7 @@
       <Grid Grid.Column="1">
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
           <RowDefinition Height="*"/>
           <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -299,8 +310,61 @@
           </Border>
         </Grid>
 
+        <!-- ===================== BANDA DE SECCIÓN ==========================
+             Identidad del módulo activo y sus acciones propias: cada sección
+             tiene su color, su icono y sus herramientas a mano, siempre en
+             el mismo sitio. Es lo que hace que cada sección se vea propia y
+             no una copia de las demás. -->
+        <Grid Grid.Row="1" Margin="24,0,24,14">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+
+          <Border Grid.Column="0" Style="{StaticResource ModuleTile}" Background="{Binding ModuloLavado}"
+                  Margin="0,0,14,0">
+            <TextBlock Text="{Binding Contexto.Icono}" Style="{StaticResource ModuleTileIcon}"
+                       Foreground="{Binding ModuloAcento}"/>
+          </Border>
+
+          <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+            <TextBlock Text="{Binding Contexto.Nombre}" Style="{StaticResource Body}" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding Contexto.Descripcion}" Style="{StaticResource Dim}"
+                       TextTrimming="CharacterEllipsis" MaxWidth="520"/>
+          </StackPanel>
+
+          <ItemsControl Grid.Column="2" VerticalAlignment="Center" ItemsSource="{Binding Contexto.Acciones}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Button Tag="{Binding Id}" Click="AccionRapida_Click" ToolTip="{Binding Texto}">
+                  <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource AccionTile}">
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding EsPrimario}" Value="True">
+                          <Setter Property="Background" Value="{StaticResource GAccent}"/>
+                          <Setter Property="Foreground" Value="{StaticResource BInk}"/>
+                          <Setter Property="BorderThickness" Value="0"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </Button.Style>
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding Icono}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                               FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBlock Text="{Binding Texto}" VerticalAlignment="Center" FontSize="12"/>
+                  </StackPanel>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </Grid>
+
         <!-- ============================ VISTAS ============================ -->
-        <Grid Grid.Row="1" Margin="24,0,24,0" Opacity="{Binding ContenidoOpacidad}">
+        <Grid Grid.Row="2" Margin="24,0,24,0" Opacity="{Binding ContenidoOpacidad}">
 
           <!-- ========================== Resumen ========================== -->
           <Grid Visibility="{Binding IsChecked, ElementName=VResumen, Converter={StaticResource BoolVis}}">
@@ -651,7 +715,10 @@
                           Padding="12,7" FontSize="12" Margin="0,0,6,0" Click="ActualizarTodo_Click"
                           ToolTip="Abre una consola visible con winget: verás qué se instala y puedes cortarlo"/>
                   <Button Content="Actualizar solo el seleccionado" Style="{StaticResource BtnQuiet}"
-                          Padding="12,7" FontSize="12" Click="ActualizarUno_Click"/>
+                          Padding="12,7" FontSize="12" Margin="0,0,6,0" Click="ActualizarUno_Click"/>
+                  <Button Content="Buscar actualizaciones de Windows" Style="{StaticResource BtnQuiet}"
+                          Padding="12,7" FontSize="12" Click="AbrirWindowsUpdateSistema_Click"
+                          ToolTip="Abre Windows Update para buscar e instalar las actualizaciones del sistema"/>
                 </StackPanel>
               </WrapPanel>
             </Border>
@@ -716,8 +783,11 @@
 
         <!-- ============================== PIE ==============================
              La barra de progreso y los botones ocupan siempre el mismo
-             sitio: la interfaz no salta al empezar y terminar una corrida. -->
-        <Grid Grid.Row="2" Margin="24,16,24,16">
+             sitio: la interfaz no salta al empezar y terminar una corrida.
+             El texto de la ruta vive en su propia columna y se recorta con
+             elipsis: antes se superponía con los botones en pantallas no
+             muy anchas. -->
+        <Grid Grid.Row="3" Margin="24,16,24,16">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -729,9 +799,15 @@
           <Border Grid.Row="1" Background="{StaticResource BSurface}" CornerRadius="{StaticResource RMd}"
                   BorderBrush="{StaticResource BStrokeSoft}" BorderThickness="1" Padding="14,10">
             <Grid>
-              <TextBlock Style="{StaticResource Dim}" VerticalAlignment="Center"
-                         Text="Los informes y registros se guardan en Documentos\SysDiag"/>
-              <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.Column="0" Style="{StaticResource Dim}" VerticalAlignment="Center"
+                         TextTrimming="CharacterEllipsis" Margin="0,0,16,0"
+                         ToolTip="{Binding RutaSalidaTexto}"
+                         Text="{Binding RutaSalidaTexto}"/>
+              <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <Button Content="Cancelar" Style="{StaticResource BtnQuiet}" Margin="0,0,6,0"
                         IsEnabled="{Binding PuedeCancelar}" Click="Cancelar_Click"/>
                 <Button Content="Exportar tabla (CSV)" Style="{StaticResource BtnQuiet}" Margin="0,0,6,0"
