@@ -314,7 +314,11 @@
       <Setter.Value>
         <ControlTemplate TargetType="ScrollBar">
           <Grid Background="Transparent">
-            <Track x:Name="PART_Track" IsDirectionReversed="True">
+            <!-- La barra queda apenas visible y sube a opacidad plena cuando el
+                 puntero entra en su carril de 10 px. Sigue ahí para el ratón
+                 (el carril no se oculta, solo se atenúa), pero deja de
+                 interrumpir la lectura de una tabla larga. -->
+            <Track x:Name="PART_Track" IsDirectionReversed="True" Opacity="0.35">
               <Track.DecreaseRepeatButton>
                 <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" Focusable="False"/>
               </Track.DecreaseRepeatButton>
@@ -331,6 +335,24 @@
               <Setter Property="Height" Value="10"/>
               <Setter Property="Width" Value="Auto"/>
               <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False"/>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="PART_Track" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.11"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="PART_Track" Storyboard.TargetProperty="Opacity"
+                                     To="0.35" Duration="0:0:0.26"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -417,7 +439,7 @@
                                      To="1" Duration="0:0:0.06"/>
                   </Storyboard>
                 </BeginStoryboard>
-              </Trigger.ExitActions>
+              </Trigger.EnterActions>
               <Trigger.ExitActions>
                 <BeginStoryboard>
                   <Storyboard>
@@ -435,7 +457,7 @@
                                      To="1" Duration="0:0:0.16"/>
                   </Storyboard>
                 </BeginStoryboard>
-              </Trigger.ExitActions>
+              </Trigger.EnterActions>
               <Trigger.ExitActions>
                 <BeginStoryboard>
                   <Storyboard>
@@ -454,7 +476,7 @@
                                      To="0.35" Duration="0:0:0.19"/>
                   </Storyboard>
                 </BeginStoryboard>
-              </Trigger.ExitActions>
+              </Trigger.EnterActions>
               <Trigger.ExitActions>
                 <BeginStoryboard>
                   <Storyboard>
@@ -519,7 +541,7 @@
                                      To="1" Duration="0:0:0.16"/>
                   </Storyboard>
                 </BeginStoryboard>
-              </Trigger.ExitActions>
+              </Trigger.EnterActions>
               <Trigger.ExitActions>
                 <BeginStoryboard>
                   <Storyboard>
@@ -537,7 +559,7 @@
                                      To="1" Duration="0:0:0.06"/>
                   </Storyboard>
                 </BeginStoryboard>
-              </Trigger.ExitActions>
+              </Trigger.EnterActions>
               <Trigger.ExitActions>
                 <BeginStoryboard>
                   <Storyboard>
@@ -555,7 +577,7 @@
                                      To="1" Duration="0:0:0.16"/>
                   </Storyboard>
                 </BeginStoryboard>
-              </Trigger.ExitActions>
+              </Trigger.EnterActions>
               <Trigger.ExitActions>
                 <BeginStoryboard>
                   <Storyboard>
@@ -574,7 +596,7 @@
                                      To="0.35" Duration="0:0:0.19"/>
                   </Storyboard>
                 </BeginStoryboard>
-              </Trigger.ExitActions>
+              </Trigger.EnterActions>
               <Trigger.ExitActions>
                 <BeginStoryboard>
                   <Storyboard>
@@ -654,7 +676,7 @@
                                      To="1" Duration="0:0:0.11"/>
                   </Storyboard>
                 </BeginStoryboard>
-              </Trigger.ExitActions>
+              </Trigger.EnterActions>
               <Trigger.ExitActions>
                 <BeginStoryboard>
                   <Storyboard>
@@ -721,7 +743,7 @@
                                      To="1" Duration="0:0:0.11"/>
                   </Storyboard>
                 </BeginStoryboard>
-              </Trigger.ExitActions>
+              </Trigger.EnterActions>
               <Trigger.ExitActions>
                 <BeginStoryboard>
                   <Storyboard>
@@ -743,7 +765,7 @@
                                      To="0" Duration="0:0:0.11"/>
                   </Storyboard>
                 </BeginStoryboard>
-              </Trigger.ExitActions>
+              </Trigger.EnterActions>
               <Trigger.ExitActions>
                 <BeginStoryboard>
                   <Storyboard>
@@ -774,25 +796,100 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="ListBoxItem">
-          <Grid>
+          <Grid x:Name="Root">
             <Border x:Name="Bd" Background="Transparent" CornerRadius="0"/>
+            <Border x:Name="Velo" Background="{StaticResource BHover}" Opacity="0" IsHitTestVisible="False"/>
+            <Border x:Name="Lavado" Background="{StaticResource BAccentWash}" Opacity="0" IsHitTestVisible="False"/>
+            <!-- El filete del módulo activo crece desde el centro en vez de
+                 aparecer: es la única señal de «estás acá», y un trazo que se
+                 estira se lee como algo que se acomoda, no como un parpadeo.
+                 El contenido empuja 2 px al pasar y 4 al quedar seleccionado,
+                 que es lo que hace que la selección se sienta tocada. -->
             <Rectangle x:Name="Mark" Width="3" RadiusX="2" RadiusY="2" Margin="0,7"
                        HorizontalAlignment="Left" Fill="{StaticResource BAccent}"
-                       Visibility="Collapsed"/>
-            <ContentPresenter Margin="15,9" VerticalAlignment="Center"/>
+                       Opacity="0" RenderTransformOrigin="0.5,0.5">
+              <Rectangle.RenderTransform>
+                <ScaleTransform x:Name="MarkEscala" ScaleY="0.2"/>
+              </Rectangle.RenderTransform>
+            </Rectangle>
+            <ContentPresenter x:Name="Cuerpo" Margin="15,9" VerticalAlignment="Center"
+                              RenderTransformOrigin="0,0.5">
+              <ContentPresenter.RenderTransform>
+                <TranslateTransform x:Name="Empuje" X="0"/>
+              </ContentPresenter.RenderTransform>
+            </ContentPresenter>
           </Grid>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource BHover}"/>
               <Setter Property="Foreground" Value="{StaticResource BText}"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Velo" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.11"/>
+                    <DoubleAnimation Storyboard.TargetName="Empuje" Storyboard.TargetProperty="X"
+                                     To="2" Duration="0:0:0.16" EasingFunction="{StaticResource EEaseSalida}"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Velo" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.16"/>
+                    <DoubleAnimation Storyboard.TargetName="Empuje" Storyboard.TargetProperty="X"
+                                     To="0" Duration="0:0:0.16" EasingFunction="{StaticResource EEaseSalida}"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
             <Trigger Property="IsSelected" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource BAccentWash}"/>
-              <Setter TargetName="Mark" Property="Visibility" Value="Visible"/>
-              <Setter Property="Foreground" Value="{StaticResource BText}"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Lavado" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.19" EasingFunction="{StaticResource EEaseSalida}"/>
+                    <DoubleAnimation Storyboard.TargetName="Mark" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.11"/>
+                    <DoubleAnimation Storyboard.TargetName="MarkEscala" Storyboard.TargetProperty="ScaleY"
+                                     To="1" Duration="0:0:0.24" EasingFunction="{StaticResource EEaseSalto}"/>
+                    <DoubleAnimation Storyboard.TargetName="Empuje" Storyboard.TargetProperty="X"
+                                     To="4" Duration="0:0:0.19" EasingFunction="{StaticResource EEaseSalida}"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Lavado" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.22"/>
+                    <DoubleAnimation Storyboard.TargetName="Mark" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.16"/>
+                    <DoubleAnimation Storyboard.TargetName="MarkEscala" Storyboard.TargetProperty="ScaleY"
+                                     To="0.2" Duration="0:0:0.16"/>
+                    <DoubleAnimation Storyboard.TargetName="Empuje" Storyboard.TargetProperty="X"
+                                     To="0" Duration="0:0:0.22"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
-              <Setter Property="Opacity" Value="0.45"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Root" Storyboard.TargetProperty="Opacity"
+                                     To="0.45" Duration="0:0:0.19"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Root" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.19"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -885,18 +982,63 @@
           <Border x:Name="Bd" Background="Transparent" BorderBrush="{StaticResource BStrokeSoft}"
                   BorderThickness="0,0,0,1">
             <Grid>
-              <Rectangle x:Name="Marca" Width="3" HorizontalAlignment="Left"
-                         Fill="{StaticResource BAccent}" Visibility="Collapsed"/>
+              <Border x:Name="Velo" Background="{StaticResource BHover}" Opacity="0" IsHitTestVisible="False"/>
+              <Border x:Name="Sel" Background="{StaticResource BSurfaceAlt}" Opacity="0" IsHitTestVisible="False"/>
+              <!-- La marca de severidad se estira en vez de aparecer: al recorrer
+                   la lista con las flechas, la selección se sigue sola. -->
+              <Rectangle x:Name="Marca" Width="3" HorizontalAlignment="Left" Opacity="0"
+                         RenderTransformOrigin="0.5,0.5" Fill="{StaticResource BAccent}">
+                <Rectangle.RenderTransform>
+                  <ScaleTransform x:Name="MarcaEscala" ScaleY="0.15"/>
+                </Rectangle.RenderTransform>
+              </Rectangle>
               <ContentPresenter Margin="0"/>
             </Grid>
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource BHover}"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Velo" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.11"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Velo" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.16"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
             <Trigger Property="IsSelected" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource BSurfaceAlt}"/>
-              <Setter TargetName="Marca" Property="Visibility" Value="Visible"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Sel" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.19" EasingFunction="{StaticResource EEaseSalida}"/>
+                    <DoubleAnimation Storyboard.TargetName="Marca" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.11"/>
+                    <DoubleAnimation Storyboard.TargetName="MarcaEscala" Storyboard.TargetProperty="ScaleY"
+                                     To="1" Duration="0:0:0.24" EasingFunction="{StaticResource EEaseSalto}"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Sel" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.19"/>
+                    <DoubleAnimation Storyboard.TargetName="Marca" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.16"/>
+                    <DoubleAnimation Storyboard.TargetName="MarcaEscala" Storyboard.TargetProperty="ScaleY"
+                                     To="0.15" Duration="0:0:0.16"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -908,19 +1050,65 @@
        ComboBox retemplado por completo: el nativo despliega en blanco.
        ================================================================ -->
   <ControlTemplate x:Key="ComboToggle" TargetType="ToggleButton">
-    <Border Background="{StaticResource BSurfaceAlt}" BorderBrush="{StaticResource BStroke}"
+    <Border x:Name="Bd" Background="{StaticResource BSurfaceAlt}" BorderBrush="{StaticResource BStroke}"
             BorderThickness="1" CornerRadius="{StaticResource RSm}">
       <Grid>
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*"/>
           <ColumnDefinition Width="30"/>
         </Grid.ColumnDefinitions>
+        <Border x:Name="Velo" Grid.ColumnSpan="2" Background="{StaticResource BHover}"
+                CornerRadius="{StaticResource RSm}" Opacity="0" IsHitTestVisible="False"/>
         <ContentPresenter Grid.Column="0" Margin="13,0,0,0" VerticalAlignment="Center"
                           Content="{Binding SelectedItem, RelativeSource={RelativeSource AncestorType=ComboBox}}"/>
+        <!-- La flecha gira con la lista: dice que el mismo gesto que abre
+             cierra, y evita el parpadeo de un triángulo que se invierte a seco. -->
         <Path Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
-              Data="M0,0 L8,0 L4,5 Z" Fill="{StaticResource BTextDim}"/>
+              Data="M0,0 L8,0 L4,5 Z" Fill="{StaticResource BTextDim}" RenderTransformOrigin="0.5,0.5">
+          <Path.RenderTransform>
+            <RotateTransform x:Name="Giro" Angle="0"/>
+          </Path.RenderTransform>
+        </Path>
       </Grid>
     </Border>
+    <ControlTemplate.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Trigger.EnterActions>
+          <BeginStoryboard>
+            <Storyboard>
+              <DoubleAnimation Storyboard.TargetName="Velo" Storyboard.TargetProperty="Opacity"
+                               To="1" Duration="0:0:0.11"/>
+            </Storyboard>
+          </BeginStoryboard>
+        </Trigger.EnterActions>
+        <Trigger.ExitActions>
+          <BeginStoryboard>
+            <Storyboard>
+              <DoubleAnimation Storyboard.TargetName="Velo" Storyboard.TargetProperty="Opacity"
+                               To="0" Duration="0:0:0.16"/>
+            </Storyboard>
+          </BeginStoryboard>
+        </Trigger.ExitActions>
+      </Trigger>
+      <Trigger Property="IsChecked" Value="True">
+        <Trigger.EnterActions>
+          <BeginStoryboard>
+            <Storyboard>
+              <DoubleAnimation Storyboard.TargetName="Giro" Storyboard.TargetProperty="Angle"
+                               To="180" Duration="0:0:0.19" EasingFunction="{StaticResource EEaseSalida}"/>
+            </Storyboard>
+          </BeginStoryboard>
+        </Trigger.EnterActions>
+        <Trigger.ExitActions>
+          <BeginStoryboard>
+            <Storyboard>
+              <DoubleAnimation Storyboard.TargetName="Giro" Storyboard.TargetProperty="Angle"
+                               To="0" Duration="0:0:0.16"/>
+            </Storyboard>
+          </BeginStoryboard>
+        </Trigger.ExitActions>
+      </Trigger>
+    </ControlTemplate.Triggers>
   </ControlTemplate>
 
   <Style TargetType="ComboBox">
@@ -958,15 +1146,49 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="ComboBoxItem">
-          <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}">
-            <ContentPresenter/>
-          </Border>
+          <Grid>
+            <Border x:Name="Velo" Background="{StaticResource BHover}" Opacity="0" IsHitTestVisible="False"/>
+            <Border x:Name="Sel" Background="{StaticResource BAccentWash}" Opacity="0" IsHitTestVisible="False"/>
+            <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}">
+              <ContentPresenter/>
+            </Border>
+          </Grid>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource BHover}"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Velo" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.09"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Velo" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.12"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
             <Trigger Property="IsSelected" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource BAccentWash}"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Sel" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.16" EasingFunction="{StaticResource EEaseSalida}"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Sel" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.16"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -1048,7 +1270,15 @@
     <Setter Property="RowHeaderWidth" Value="0"/>
   </Style>
 
-  <!-- Barra de progreso indeterminada propia: la nativa ignora el color. -->
+  <!-- Barra de progreso indeterminada propia: la nativa ignora el color.
+
+       El trazo crece de izquierda a derecha escalando (ScaleX) en lugar de
+       desplazarse en píxeles. No es un gusto: la versión anterior viajaba de
+       -160 a 900 px, un número escrito a mano. En un pie de 1.300 px la barra
+       nunca llegaba al borde y el reinicio se veía como un salto; en una
+       ventana angosta quedaba medio segundo fuera de escena. Una escala es
+       relativa al ancho real, así que el recorrido siempre es exacto y la
+       animación sobrevive a cualquier cambio de layout, de DPI o de idioma. -->
   <Style x:Key="Pulse" TargetType="ProgressBar">
     <Setter Property="Height" Value="3"/>
     <Setter Property="IsIndeterminate" Value="True"/>
@@ -1056,10 +1286,10 @@
       <Setter.Value>
         <ControlTemplate TargetType="ProgressBar">
           <Grid x:Name="Root" Background="{StaticResource BStrokeSoft}" ClipToBounds="True">
-            <Border x:Name="Bar" Background="{StaticResource GPulse}" Width="160"
-                    HorizontalAlignment="Left">
+            <Border x:Name="Bar" Background="{StaticResource GPulse}" Height="3" VerticalAlignment="Center"
+                    Opacity="0" RenderTransformOrigin="0,0.5">
               <Border.RenderTransform>
-                <TranslateTransform x:Name="Slide" X="-160"/>
+                <ScaleTransform x:Name="Crecer" ScaleX="0"/>
               </Border.RenderTransform>
             </Border>
           </Grid>
@@ -1067,9 +1297,25 @@
             <Trigger Property="IsIndeterminate" Value="True">
               <Trigger.EnterActions>
                 <BeginStoryboard x:Name="Anim">
+                  <!-- Se desvanece justo cuando termina de llenarse: los dos
+                       tramos cierran en el mismo cuadro, y por eso el reinicio
+                       del ciclo no se nota. -->
                   <Storyboard RepeatBehavior="Forever">
-                    <DoubleAnimation Storyboard.TargetName="Slide" Storyboard.TargetProperty="X"
-                                     From="-160" To="900" Duration="0:0:1.5"/>
+                    <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Crecer"
+                                                   Storyboard.TargetProperty="ScaleX">
+                      <LinearDoubleKeyFrame Value="0" KeyTime="0:0:0"/>
+                      <EasingDoubleKeyFrame Value="0.62" KeyTime="0:0:1"
+                                            EasingFunction="{StaticResource EEaseSalida}"/>
+                      <EasingDoubleKeyFrame Value="1" KeyTime="0:0:1.75"
+                                            EasingFunction="{StaticResource EEaseAcelerando}"/>
+                    </DoubleAnimationUsingKeyFrames>
+                    <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Bar"
+                                                   Storyboard.TargetProperty="Opacity">
+                      <EasingDoubleKeyFrame Value="1" KeyTime="0:0:0.18"
+                                            EasingFunction="{StaticResource EEaseSalida}"/>
+                      <LinearDoubleKeyFrame Value="1" KeyTime="0:0:1.3"/>
+                      <LinearDoubleKeyFrame Value="0" KeyTime="0:0:1.75"/>
+                    </DoubleAnimationUsingKeyFrames>
                   </Storyboard>
                 </BeginStoryboard>
               </Trigger.EnterActions>
@@ -1131,32 +1377,100 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="CheckBox">
-          <Border x:Name="Bd" Background="Transparent" CornerRadius="8" Padding="14,12" Margin="0,0,0,8">
-            <Grid>
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="3"/>
-                <ColumnDefinition Width="30"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <Rectangle Grid.Column="0" Width="3" RadiusX="2" RadiusY="2"
-                         Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"/>
-              <Border x:Name="Box" Grid.Column="1" Width="18" Height="18" CornerRadius="5"
-                      BorderBrush="{StaticResource BStroke}" BorderThickness="1.5"
-                      VerticalAlignment="Top" Margin="12,1,0,0" Background="Transparent">
-                <Path x:Name="Tick" Data="M0,4.5 L3.5,8 L10,0" Stroke="{StaticResource BInk}"
-                      StrokeThickness="2" Stretch="None" Margin="3,4,0,0" Visibility="Collapsed"/>
-              </Border>
-              <ContentPresenter Grid.Column="2" Margin="12,0,0,0"/>
-            </Grid>
-          </Border>
+          <Grid>
+            <!-- El velo va fuera del padding, y no como Background de Bd, para
+                 que el hover llene la fila completa igual que antes. -->
+            <Border x:Name="Velo" Background="{StaticResource BHover}" CornerRadius="8"
+                    Margin="0,0,0,8" Opacity="0" IsHitTestVisible="False"/>
+            <Border x:Name="Bd" Background="Transparent" CornerRadius="8" Padding="14,12" Margin="0,0,0,8">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="3"/>
+                  <ColumnDefinition Width="30"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Rectangle Grid.Column="0" Width="3" RadiusX="2" RadiusY="2"
+                           Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"/>
+                <Border x:Name="Box" Grid.Column="1" Width="18" Height="18" CornerRadius="5"
+                        BorderBrush="{StaticResource BStroke}" BorderThickness="1.5"
+                        VerticalAlignment="Top" Margin="12,1,0,0" Background="Transparent">
+                  <Grid>
+                    <Border x:Name="Relleno" Background="{StaticResource GAccent}" CornerRadius="3.5"
+                            Opacity="0"/>
+                    <!-- La palomita se dibuja con un trazo (dash) en lugar de
+                         aparecer: es la única forma de animar un Path sin
+                         recalcular su geometría en cada cuadro. Con
+                         StrokeThickness 2, una raya de 12 cubre los ~15
+                         píxeles del zigzag, así que en 12 está entera oculta
+                         y en 0 está entera trazada. -->
+                    <Path x:Name="Tick" Data="M0,4.5 L3.5,8 L10,0" Stroke="{StaticResource BInk}"
+                          StrokeThickness="2" Stretch="None" Margin="3,4,0,0" Opacity="0"
+                          StrokeDashArray="12 12" StrokeDashOffset="12"
+                          RenderTransformOrigin="0.5,0.5">
+                      <Path.RenderTransform>
+                        <ScaleTransform x:Name="TickEscala" ScaleX="0.7" ScaleY="0.7"/>
+                      </Path.RenderTransform>
+                    </Path>
+                  </Grid>
+                </Border>
+                <ContentPresenter Grid.Column="2" Margin="12,0,0,0"/>
+              </Grid>
+            </Border>
+          </Grid>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource BHover}"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Velo" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.11"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Velo" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.16"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
             <Trigger Property="IsChecked" Value="True">
-              <Setter TargetName="Box" Property="Background" Value="{StaticResource GAccent}"/>
               <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource BAccentDeep}"/>
-              <Setter TargetName="Tick" Property="Visibility" Value="Visible"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Relleno" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.19" EasingFunction="{StaticResource EEaseSalida}"/>
+                    <DoubleAnimation Storyboard.TargetName="Tick" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.06"/>
+                    <DoubleAnimation Storyboard.TargetName="Tick" Storyboard.TargetProperty="StrokeDashOffset"
+                                     From="12" To="0" Duration="0:0:0.22"
+                                     EasingFunction="{StaticResource EEaseSalida}"/>
+                    <DoubleAnimation Storyboard.TargetName="TickEscala" Storyboard.TargetProperty="ScaleX"
+                                     To="1" Duration="0:0:0.22" EasingFunction="{StaticResource EEaseSalto}"/>
+                    <DoubleAnimation Storyboard.TargetName="TickEscala" Storyboard.TargetProperty="ScaleY"
+                                     To="1" Duration="0:0:0.22" EasingFunction="{StaticResource EEaseSalto}"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Relleno" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.16"/>
+                    <DoubleAnimation Storyboard.TargetName="Tick" Storyboard.TargetProperty="StrokeDashOffset"
+                                     To="12" Duration="0:0:0.12"/>
+                    <DoubleAnimation Storyboard.TargetName="Tick" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.12" BeginTime="0:0:0.06"/>
+                    <DoubleAnimation Storyboard.TargetName="TickEscala" Storyboard.TargetProperty="ScaleX"
+                                     To="0.7" Duration="0:0:0.12"/>
+                    <DoubleAnimation Storyboard.TargetName="TickEscala" Storyboard.TargetProperty="ScaleY"
+                                     To="0.7" Duration="0:0:0.12"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -1199,7 +1513,13 @@
     <Setter Property="VerticalAlignment" Value="Center"/>
   </Style>
 
-  <!-- Botón de acción rápida de la banda de sección (icono + texto). -->
+  <!-- Botón de acción rápida de la banda de sección (icono + texto).
+
+       No trae plantilla propia: reutiliza la de BtnBase, que ya tiene las capas
+       de hover, pulsado y foco animadas. Duplicar la plantilla para cambiar
+       solo el relleno era un segundo camino por el que el botón podía dejar de
+       responder al resto del sistema — y de hecho así había quedado, con el
+       hover de estas dos variantes todavía instantáneo. -->
   <Style x:Key="AccionTile" TargetType="Button" BasedOn="{StaticResource BtnBase}">
     <Setter Property="Padding" Value="12,8"/>
     <Setter Property="FontSize" Value="12"/>
@@ -1207,29 +1527,6 @@
     <Setter Property="Background" Value="{StaticResource BSurfaceAlt}"/>
     <Setter Property="Foreground" Value="{StaticResource BTextDim}"/>
     <Setter Property="BorderBrush" Value="{StaticResource BStrokeSoft}"/>
-    <Setter Property="BorderThickness" Value="1"/>
-    <Setter Property="Template">
-      <Setter.Value>
-        <ControlTemplate TargetType="Button">
-          <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                  BorderBrush="{TemplateBinding BorderBrush}"
-                  BorderThickness="{TemplateBinding BorderThickness}"
-                  CornerRadius="{StaticResource RSm}" Padding="{TemplateBinding Padding}">
-            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-          </Border>
-          <ControlTemplate.Triggers>
-            <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource BSurfaceHi}"/>
-              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BStroke}"/>
-              <Setter Property="Foreground" Value="{StaticResource BText}"/>
-            </Trigger>
-            <Trigger Property="IsEnabled" Value="False">
-              <Setter Property="Opacity" Value="0.45"/>
-            </Trigger>
-          </ControlTemplate.Triggers>
-        </ControlTemplate>
-      </Setter.Value>
-    </Setter>
   </Style>
 
   <!-- Botón primario con el mismo formato que AccionTile. -->
@@ -1239,25 +1536,7 @@
     <Setter Property="Margin" Value="0,0,7,0"/>
     <Setter Property="Background" Value="{StaticResource GAccent}"/>
     <Setter Property="Foreground" Value="{StaticResource BInk}"/>
-    <Setter Property="BorderThickness" Value="0"/>
-    <Setter Property="Template">
-      <Setter.Value>
-        <ControlTemplate TargetType="Button">
-          <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                  CornerRadius="{StaticResource RSm}" Padding="{TemplateBinding Padding}">
-            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-          </Border>
-          <ControlTemplate.Triggers>
-            <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Bd" Property="Opacity" Value="0.88"/>
-            </Trigger>
-            <Trigger Property="IsEnabled" Value="False">
-              <Setter Property="Opacity" Value="0.45"/>
-            </Trigger>
-          </ControlTemplate.Triggers>
-        </ControlTemplate>
-      </Setter.Value>
-    </Setter>
+    <Setter Property="BorderBrush" Value="{StaticResource BAccentDeep}"/>
   </Style>
 
   <!-- Campo de texto ancho (búsqueda, código de activación). -->
@@ -1308,8 +1587,32 @@
       <Grid Grid.Column="1" VerticalAlignment="Center">
         <Rectangle Width="420" Height="10" RadiusX="5" RadiusY="5"
                    Fill="{StaticResource BTrack}" HorizontalAlignment="Left"/>
-        <Rectangle Height="10" RadiusX="5" RadiusY="5" HorizontalAlignment="Left"
-                   Fill="{Binding Color}" Width="{Binding Ancho}"/>
+        <!-- La barra se estira hasta su longitud en vez de aparecer dibujada:
+             es el gesto que explica que la cifra se midió contra el riel. Se
+             escala (no se anima Width) para no provocar una pasada de layout
+             por cuadro dentro de la lista, y el origen en el borde izquierdo es
+             lo que la mantiene pegada a la etiqueta. Se empieza en 0,5 y no en
+             0 para que el radio de las puntas no se deforme de forma visible. -->
+        <Rectangle x:Name="Barra" Height="10" RadiusX="5" RadiusY="5" HorizontalAlignment="Left"
+                   Fill="{Binding Color}" Width="{Binding Ancho}" Opacity="0"
+                   RenderTransformOrigin="0,0.5">
+          <Rectangle.RenderTransform>
+            <ScaleTransform x:Name="BarraEscala" ScaleX="0.5"/>
+          </Rectangle.RenderTransform>
+          <Rectangle.Triggers>
+            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+              <BeginStoryboard>
+                <Storyboard>
+                  <DoubleAnimation Storyboard.TargetName="BarraEscala" Storyboard.TargetProperty="ScaleX"
+                                   From="0.5" To="1" Duration="0:0:0.34"
+                                   EasingFunction="{StaticResource EEaseSalida}"/>
+                  <DoubleAnimation Storyboard.TargetName="Barra" Storyboard.TargetProperty="Opacity"
+                                   From="0" To="1" Duration="0:0:0.14"/>
+                </Storyboard>
+              </BeginStoryboard>
+            </EventTrigger>
+          </Rectangle.Triggers>
+        </Rectangle>
       </Grid>
       <TextBlock Grid.Column="2" Text="{Binding ValorTexto}" FontFamily="{StaticResource FMono}"
                  FontSize="12" Foreground="{Binding Color}" VerticalAlignment="Center"
