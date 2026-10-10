@@ -374,6 +374,58 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
+    // ---- Avance de la corrida ---------------------------------------------
+    //
+    // La barra del pie era indeterminada incluso cuando este propio ViewModel
+    // tenía el conteo: RunCoreAsync recibe la lista de pasos. «3 de 5 · Red y
+    // latencia» no es una estimación, es el estado real, y cambia cómo se
+    // atraviesa una corrida de cuarenta segundos. Se conserva el modo
+    // indeterminado para las acciones de un solo paso (optimizar, limpiar),
+    // donde no hay nada que contar y un 0/1 quieto sería peor que la barra que
+    // respira: ahí la señal de vida la da el punto de la cabecera.
+
+    private int _avadeTotal;
+    private int _avadeHechos;
+    private bool _avadeIndeterminado;
+    private string _avadeModulo = "";
+
+    public int AvadeTotal
+    {
+        get => _avadeTotal;
+        set { Set(ref _avadeTotal, value); OnPropertyChanged(nameof(AvadeTexto)); }
+    }
+
+    public int AvadeHechos
+    {
+        get => _avadeHechos;
+        set { Set(ref _avadeHechos, value); OnPropertyChanged(nameof(AvadeTexto)); }
+    }
+
+    /// <summary>True cuando el conteo no dice nada (uno o cero pasos).</summary>
+    public bool AvadeIndeterminado { get => _avadeIndeterminado; set => Set(ref _avadeIndeterminado, value); }
+
+    /// <summary>Módulo que se está midiendo, para el rótulo del pie.</summary>
+    public string AvadeModulo
+    {
+        get => _avadeModulo;
+        set { Set(ref _avadeModulo, value); OnPropertyChanged(nameof(AvadeTexto)); }
+    }
+
+    /// <summary>
+    /// Rótulo listo para pintar. Se arma acá y no con un MultiBinding +
+    /// conversor en el XAML porque la frase tiene una coma, un «de» y un vacío
+    /// cuando no hay corrida: tres reglas de formato no son un conversor, son un
+    /// conversor con estados.
+    /// </summary>
+    public string AvadeTexto => _avadeTotal switch
+    {
+        0 => "",
+        // Con un solo paso no hay fracción que informar: decir «0 de 1» es
+        // describir un número que no significa nada. Ahí lo útil es el nombre.
+        1 => $"midiendo: {AvadeModulo}",
+        _ => $"{_avadeHechos} de {_avadeTotal} · {AvadeModulo}"
+    };
+
     public bool Libre => !_ocupado;
     public bool PuedeCancelar => _ocupado && _cancelable;
     public bool PuedeExportar => Libre && HayDatos;
@@ -585,6 +637,13 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         _cancelable = permiteCancelar;
         _moduloActivo = pasos.Length > 1 ? "completo" : pasos[0].Clave;
         SetContexto(_moduloActivo);
+        // El conteo se fija antes de hacer visible el pie y antes del primer
+        // await: en el orden contrario hay un cuadro en el que la barra ya está
+        // en pantalla con 0 de 0, y ese cuadro se lee como «no arrancó».
+        AvadeTotal = pasos.Length;
+        AvadeHechos = 0;
+        AvadeIndeterminado = pasos.Length < 2;
+        AvadeModulo = NombreModulo(pasos[0].Clave);
         Ocupado = true;
         Titulo = titulo;
         Subtitulo = permiteCancelar ? "Midiendo. El detalle va apareciendo en Registro."
@@ -601,7 +660,18 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         Wmi.ResetAccessState();
         try
         {
-            var services = pasos.Select(p => (IDiagnosticService)new DelegateDiagnosticService(p.Clave, p.Trabajo)).ToArray();
+            // El conteo se lleva acá y no dentro de ScanService a propósito: el
+            // runner compartido es el mismo del modo sin interfaz, que no tiene a
+            // quién informarle. Envolver el trabajo de cada paso en el envoltorio
+            // que la UI ya estaba construyendo deja el avance en la capa que lo
+            // consume y no cambia ninguna firma.
+            var services = pasos.Select(p => (IDiagnosticService)new DelegateDiagnosticService(p.Clave,
+                async (rep, tok) =>
+                {
+                    AvadeModulo = NombreModulo(p.Clave);
+                    await p.Trabajo(rep, tok);
+                    AvadeHechos++;
+                })).ToArray();
             Report = await _scan.EjecutarAsync(Report, services, _cts.Token);
             completed = true;
             if (diagnostic)
@@ -647,6 +717,13 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
             _cts.Dispose();
             _cts = null;
             Ocupado = false;
+            // Se deja el último 5/5 en su sitio y la barra vuelve al modo
+            // indeterminado. NO se pone el total a 0: un ProgressBar calcula su
+            // relleno dividiendo por (Maximum - Minimum), y con 0/0 eso es un
+            // ancho NaN en la próxima pasada de layout —que sí ocurre, porque
+            // Oculto se mide y se ordena igual. La limpieza del conteo sucede al
+            // arrancar la corrida siguiente, que es cuando importa.
+            AvadeIndeterminado = true;
             Refresh(archived);
         }
         return completed;
@@ -1064,6 +1141,12 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         campo = valor;
         OnPropertyChanged(prop);
     }
+
+    /// <summary>Nombre legible del módulo para el rótulo de avance.</summary>
+    private static string NombreModulo(string clave) =>
+        !string.IsNullOrEmpty(clave) && DiagnosticReport.NombresModulos.TryGetValue(clave, out string nombre)
+            ? nombre
+            : "equipo";
 
     private void OnPropertyChanged([CallerMemberName] string prop = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));

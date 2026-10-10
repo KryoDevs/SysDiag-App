@@ -161,7 +161,7 @@ reiniciarse elevado.
 
 - Windows compila la solución, ejecuta regresiones y conserva TRX. Se incluyen ramas
   `arena/**`; no se publica un release por trabajar en una rama.
-- `Tools/validate_tests.ps1` exige ≥148 pruebas (114 de la suite auditada + 34 que miden el sistema visual), todas aprobadas y sin omisiones.
+- `Tools/validate_tests.ps1` exige ≥152 pruebas (114 de la suite auditada + 34 que miden el sistema visual + 4 de licencia), todas aprobadas y sin omisiones.
 - `Tools/validate_xaml.ps1` comprueba bien formado, resolución de `{StaticResource}` y el ámbito de
   cada `TargetName` dentro de su plantilla: los triggers de una plantilla solo se materializan al pasar
   el cursor, que es justo donde el autotest del EXE no mira. Corre como advertencia en CI.

@@ -141,6 +141,14 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
    verifica además que el embudo de ejecución de procesos siga siendo uno solo. Cuesta
    40 líneas de aritmética y es lo que evita que el próximo color nuevo se cuele sin
    pasar (F05 es precisamente eso: se detectó midiendo, no con una prueba).
+   ~~y esta brecha quedó cerrada en la tanda siguiente~~: `Inicializar` acepta una
+   ruta, `LicenseRegressionTests` prueba el comportamiento corregido, y el umbral del
+   gate subió a 152. Queda la misma limitación para `SettingsService`, que escribe el
+   registro al leer y sigue sin camino de prueba. Nano-deuda recién vista: `Activar`
+   guarda el texto tal como se tecleó (con espacios en vez de guiones) en lugar de la
+   forma canónica; la lectura lo tolera porque `Normalizar` los descarta, pero el
+   archivo podría guardarse limpio.
+
    Y una brecha que esta tanda dejó a la vista, para que no se lea como
    «arreglado y ya»: el cambio de F03 (no borrarle al comprador la prueba de su
    licencia) entró **sin prueba unitaria**. `LicenseService` tiene la ruta del
@@ -221,10 +229,12 @@ Coste: **c** (días), **m** (semanas), **a** (meses o más). Beneficio entre cor
 
 ### 4.1 Medir mejor (donde el programa ya es útil)
 
-1. **Progreso real por módulo** [bajo/c]. La barra es indeterminada, pero el
-   `RunAsync` sabe cuántos módulos faltan: `Value = n/m` con el mismo estilo
-   permite una barra terminante y un rótulo «3/5: red». Cambia cómo se percibe una
-   corrida de 40 segundos.
+1. ~~Progreso real por módulo~~ — **aplicado**: el pie muestra `3 de 5 · Red y
+   latencia` con la barra determinista, y mantiene el modo indeterminado más el nombre
+   del módulo cuando solo hay un paso. Cero cambios en `ScanService`: el conteo vive en
+   el envoltorio por paso que la UI ya construía. Lo que sigue de aquí es marcar
+   también *qué* paso está fallando cuando uno tarda (hoy el rótulo no distingue
+   «midiendo» de «colgado»), que ya no es cosmético: es un `Timeout` por módulo.
 2. **Línea de base y «qué cambió desde la última vez»** [m/bajo]. Ya hay
    `Exporter.PuntajeAnterior` y un historial comparable por cobertura. Un `diff` de dos
    diagnósticos (hallazgos nuevos, desaparecidos, umbrales cruzados, drivers viejos) es

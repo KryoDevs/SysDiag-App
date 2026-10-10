@@ -824,8 +824,17 @@
             <RowDefinition Height="Auto"/>
           </Grid.RowDefinitions>
 
-          <ProgressBar Grid.Row="0" Style="{StaticResource Pulse}" Margin="0,0,0,12"
-                       Visibility="{Binding BarraVisible}"/>
+          <!-- La barra sabe cuántos módulos faltan porque se lo dice el propio
+               ViewModel que los lanzó. Cuando no hay conteo (una acción de un
+               paso) el estilo vuelve solo al modo indeterminado. -->
+          <Grid Grid.Row="0" Margin="0,0,0,12" Visibility="{Binding BarraVisible}">
+            <ProgressBar Style="{StaticResource Pulse}" VerticalAlignment="Center"
+                         Maximum="{Binding AvadeTotal}" Value="{Binding AvadeHechos}"
+                         IsIndeterminate="{Binding AvadeIndeterminado}"/>
+            <TextBlock Text="{Binding AvadeTexto}" Style="{StaticResource Dim}"
+                       FontFamily="{StaticResource FMono}" FontSize="11"
+                       HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,0,4"/>
+          </Grid>
 
           <Border Grid.Row="1" Background="{StaticResource BSurface}" CornerRadius="{StaticResource RMd}"
                   BorderBrush="{StaticResource BStrokeSoft}" BorderThickness="1" Padding="14,10"

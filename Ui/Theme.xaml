@@ -1278,6 +1278,11 @@
 
   <!-- Barra de progreso indeterminada propia: la nativa ignora el color.
 
+       Dos modos, elegidos por `IsIndeterminate` y no por estilo aparte: el trazo
+       que crece es lo que se muestra cuando de verdad no se sabe cuánto falta
+       (una acción de un solo paso), y en cuanto el llamador tiene un conteo, la
+       misma barra pasa a `PART_Indicator` y dice «3 de 5». Ver MainViewModel.
+
        El trazo crece de izquierda a derecha escalando (ScaleX) en lugar de
        desplazarse en píxeles. No es un gusto: la versión anterior viajaba de
        -160 a 900 px, un número escrito a mano. En un pie de 1.300 px la barra
@@ -1287,11 +1292,16 @@
        animación sobrevive a cualquier cambio de layout, de DPI o de idioma. -->
   <Style x:Key="Pulse" TargetType="ProgressBar">
     <Setter Property="Height" Value="3"/>
-    <Setter Property="IsIndeterminate" Value="True"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="ProgressBar">
           <Grid x:Name="Root" Background="{StaticResource BStrokeSoft}" ClipToBounds="True">
+            <!-- Relleno real cuando quien llama sabe cuánto falta. `PART_Indicator`
+                 no es un nombre cualquiera: ProgressBar le fija el ancho según
+                 Value/Maximum, así que aquí no hay conversión ni aritmética que
+                 se pueda escribir mal. -->
+            <Border x:Name="PART_Indicator" Background="{StaticResource GAccent}" Height="3"
+                    HorizontalAlignment="Left" CornerRadius="2" Visibility="Collapsed"/>
             <Border x:Name="Bar" Background="{StaticResource GPulse}" Height="3" VerticalAlignment="Center"
                     Opacity="0" RenderTransformOrigin="0,0.5">
               <Border.RenderTransform>
@@ -1300,6 +1310,10 @@
             </Border>
           </Grid>
           <ControlTemplate.Triggers>
+            <Trigger Property="IsIndeterminate" Value="False">
+              <Setter TargetName="Bar" Property="Visibility" Value="Collapsed"/>
+              <Setter TargetName="PART_Indicator" Property="Visibility" Value="Visible"/>
+            </Trigger>
             <Trigger Property="IsIndeterminate" Value="True">
               <Trigger.EnterActions>
                 <BeginStoryboard x:Name="Anim">

@@ -57,8 +57,14 @@ public static class LicenseService
     private static EstadoLicencia _estado = EstadoLicencia.Prueba;
     private static string _error = "";
 
-    /// <summary>Ruta del archivo de licencia en LocalAppData (no sincroniza con Documentos a propósito).</summary>
-    public static string RutaArchivo => Path.Combine(
+    /// <summary>
+    /// Ruta del archivo de licencia en LocalAppData (no sincroniza con Documentos
+    /// a propósito). Es escribible solo desde <see cref="Inicializar"/> para que
+    /// las pruebas puedan señalarlo a un directorio temporal: sin eso, comprobar
+    /// que una licencia no se borra implicaría tocar la del equipo de quien
+    /// prueba, que es justamente lo que la corrección intentaba evitar.
+    /// </summary>
+    public static string RutaArchivo { get; private set; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SysDiag", "licencia.json");
 
     public static EstadoLicencia Estado { get { lock (Bloqueo) return _estado; } }
@@ -104,10 +110,11 @@ public static class LicenseService
     /// Crea o lee el archivo de licencia y calcula el estado. Idempotente;
     /// nunca lanza: si el archivo está corrupto se ignora y empieza la prueba.
     /// </summary>
-    public static void Inicializar()
+    public static void Inicializar(string rutaArchivo = null)
     {
         lock (Bloqueo)
         {
+            if (!string.IsNullOrEmpty(rutaArchivo)) RutaArchivo = rutaArchivo;
             try
             {
                 if (File.Exists(RutaArchivo))
@@ -149,9 +156,16 @@ public static class LicenseService
                     // sola. El aviso explica qué pasó en lugar de callarlo.
                     if (!string.IsNullOrEmpty(_archivo.Codigo))
                     {
-                        Aviso = string.Equals(_archivo.Equipo, EquipoActual, StringComparison.Ordinal)
-                            ? "El código guardado no verifica en este equipo: puede estar mal escrito, ser de otra versión o haberse editado el archivo."
-                            : $"El código guardado se activó en «{_archivo.Equipo}» y aquí no verifica; sigue guardado para que no lo pierdas.";
+                        // Tres casos y tres frases distintas. El archivo sin
+                        // `Equipo` es el de cualquier licencia activada antes de
+                        // esta versión: decir «se activó en «»» sería peor que no
+                        // decir nada, así que la ausencia de dato tiene su propia
+                        // rama en lugar de compartir la del equipo distinto.
+                        Aviso = string.IsNullOrEmpty(_archivo.Equipo)
+                            ? "El código guardado no verifica en este equipo: puede estar mal escrito, ser de otra versión o haberse editado el archivo. Se conserva para que no lo pierdas."
+                            : string.Equals(_archivo.Equipo, EquipoActual, StringComparison.Ordinal)
+                                ? "El código guardado no verifica en este equipo aunque se activó aquí: revisa que no se haya editado el archivo de licencia."
+                                : $"El código guardado se activó en «{_archivo.Equipo}» y en «{EquipoActual}» no verifica. Sigue guardado: si el equipo recupera su nombre anterior, la licencia vuelve a aparecer.";
                     }
                 }
             }

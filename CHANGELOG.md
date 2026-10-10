@@ -29,6 +29,25 @@ All notable changes to this project will be documented in this file.
   procesos fuera del runner» eran `ProcessStartInfo` para abrir URLs, archivos y páginas
   de *ms-settings*, que es el API correcto ahí.
 
+### Funcionalidad
+- **La barra del pie ahora dice cuánto falta.** Era indeterminada incluso cuando
+  el propio `MainViewModel` tiene la lista de pasos: ahora muestra `3 de 5 · Red y
+  latencia` y rellena la barra con el conteo real. Sigue indeterminada (y el rótulo
+  pasa a `midiendo: Drivers`) en las acciones de un solo paso, donde un `0 de 1` no
+  informa nada. El conteo se lleva en el envoltorio que la UI ya armaba por paso, así
+  que `ScanService` —compartido con el runner sin interfaz— no cambió de firma.
+- **El pie y el progreso se limpian al empezar, no al terminar**: con `Maximum` en 0
+  y `Visibility=Hidden`, un `ProgressBar` sigue midiendo y dividir 0/0 deja un ancho
+  NaN en la pasada de layout siguiente.
+
+### Pruebas
+- `LicenseRegressionTests` (4) fija que un código que no verifica **no se borra**, que
+  un archivo corrupto no deja a nadie sin prueba y que un código emitido por el propio
+  emisor sigue activando y sobreviviendo a la releída. Para poder escribirlas,
+  `LicenseService.Inicializar` acepta ahora una ruta (por defecto, `LocalAppData`):
+  hasta acá, probar la licencia habría significado tocar la licencia real de quien
+  corre la suite. Umbral de `validate_tests.ps1`: 114 → **152**.
+
 ### Interfaz
 - **Sistema de movimiento con reglas propias** (`Ui/Motion.cs` y el bloque
   MOVIMIENTO de `Ui/Theme.xaml`): tres tiempos —0,11 s el puntero, 0,19 s lo que
