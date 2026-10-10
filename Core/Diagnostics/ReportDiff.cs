@@ -106,7 +106,6 @@ public sealed class ReportDiff
     /// </summary>
     private static string Plural(int n, string singular, string plural) =>
         n == 1 ? singular : plural;
-    }
 
     public string PuntajeTexto()
     {
