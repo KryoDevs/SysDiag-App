@@ -905,7 +905,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
                 totalGb += usadoGb;
                 porciones.Add(($"{d.Unidad} {d.Etiqueta}".Trim(), usadoGb, d.Libre,
                     Pincel(d.LibrePct < 10 ? Severity.Bad : d.LibrePct < 20 ? Severity.Warn : Severity.Ok),
-                    $"{d.Unidad} · {d.Libre} libres de {d.Tamano} · tipo {d.Tipo}"));
+                    $"{d.Unidad} · {d.Libre} libres de {d.Tamano}"));
             }
 
             if (porciones.Count > 0)

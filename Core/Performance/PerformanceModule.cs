@@ -158,12 +158,14 @@ public static class PerformanceModule
         bool hayRed = false;
         foreach (var nic in interfaces)
         {
-            double r = Contador(nic, "BytesReceivedPersec", "BytesReceivedPerSec");
-            double s = Contador(nic, "BytesSentPersec", "BytesSentPerSec");
-            if (r < 0 && s < 0) continue;
+            // `r` es el parámetro de Run (el informe): acá los nombres dicen
+            // dirección, no inicial, que es lo que se lee al repasar el bloque.
+            double bajada = Contador(nic, "BytesReceivedPersec", "BytesReceivedPerSec");
+            double subida = Contador(nic, "BytesSentPersec", "BytesSentPerSec");
+            if (bajada < 0 && subida < 0) continue;
             hayRed = true;
-            recibido += Math.Max(r, 0);
-            enviado += Math.Max(s, 0);
+            recibido += Math.Max(bajada, 0);
+            enviado += Math.Max(subida, 0);
             ancho += Math.Max(Contador(nic, "CurrentBandwidth"), 0);
         }
 
