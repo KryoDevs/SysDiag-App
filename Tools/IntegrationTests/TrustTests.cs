@@ -154,7 +154,10 @@ public class TrustTests
         var copia = Redactor.Aplicar(ReporteConDatosIdentificables());
 
         Assert.Contains(copia.Sistema, x => x.Clave == "Informe redactado");
-        Assert.Contains("redact", copia.Sistema.First(x => x.Clave == "Informe redactado").Valor,
+        // Se comprueba contra la palabra del mensaje y no contra el título de
+        // la fila: el título puede cambiar de redacción sin que el informe
+        // deje de decir lo que tiene que decir.
+        Assert.Contains("ocult", copia.Sistema.First(x => x.Clave == "Informe redactado").Valor,
             StringComparison.OrdinalIgnoreCase);
     }
 
