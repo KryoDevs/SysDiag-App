@@ -39,7 +39,7 @@ All notable changes to this project will be documented in this file.
   un temporizador permanente al de la cabecera.
 - **La regla de recorte de ventanas es una función y tiene pruebas**:
   `Ventana.Recortar(declarado, piso, disponible)` separa la aritmética del contacto con
-  WPF, y `WindowSizingTests` (8) fija los cuatro casos que importan —lo que cabe no se
+  WPF, y `WindowSizingTests` (11 casos) fija lo que importa —lo que cabe no se
   toca; el `NaN` de una ventana con `SizeToContent` no se convierte en número; el mínimo
   declarado le gana al área disponible; y un área inválida no deja la ventana en 0, que
   lo evita la salida temprana de `AjustarAPantalla`, no el recorte—). Y al separarla
