@@ -123,6 +123,7 @@ public static class MarkdownReport
         if (r.Termicas.Count > 0) { sb.AppendLine("## Térmicas"); sb.AppendLine(); sb.Append(Tabla(r.Termicas)); sb.AppendLine(); }
         if (r.Almacenamiento.Count > 0) { sb.AppendLine("## Almacenamiento"); sb.AppendLine(); sb.Append(Tabla(r.Almacenamiento)); sb.AppendLine(); }
         if (r.Seguridad.Count > 0) { sb.AppendLine("## Seguridad"); sb.AppendLine(); sb.Append(Tabla(r.Seguridad)); sb.AppendLine(); }
+        if (r.Pantallazos.Count > 0) { sb.AppendLine("## Pantallazos decodificados"); sb.AppendLine(); sb.Append(Tabla(r.Pantallazos)); sb.AppendLine(); }
 
         sb.AppendLine("---");
         sb.AppendLine();

@@ -134,6 +134,8 @@ public class DiagnosticReport : IJsonOnDeserialized
     public List<EventRow> EventosDetalle { get; set; } = new();
     public List<EventRow> Whea { get; set; } = new();
     public List<DumpRow> Minidumps { get; set; } = new();
+    /// <summary>Volcados con su código de detención decodificado. Ver Core/Diagnostics/BugCheckDecoder.cs.</summary>
+    public List<BugcheckRow> Pantallazos { get; set; } = new();
     public List<TraceHop> Traceroute { get; set; } = new();
     public string TracerouteDestino { get; set; } = "";
     public List<KeyValueRow> Bateria { get; set; } = new();
@@ -158,7 +160,7 @@ public class DiagnosticReport : IJsonOnDeserialized
         Hallazgos.Count > 0 || Sistema.Count > 0 || Discos.Count > 0 || Memoria.Count > 0 ||
         WiFi.Count > 0 || Red.Count > 0 || RendimientoResumen.Count > 0 || TopCpu.Count > 0 ||
         TopRam.Count > 0 || Termicas.Count > 0 || EventosResumen.Count > 0 || EventosDetalle.Count > 0 ||
-        Whea.Count > 0 || Minidumps.Count > 0 || Traceroute.Count > 0 || Bateria.Count > 0 ||
+        Whea.Count > 0 || Minidumps.Count > 0 || Pantallazos.Count > 0 || Traceroute.Count > 0 || Bateria.Count > 0 ||
         Limpieza.Count > 0 || Drivers.Count > 0 || Seguridad.Count > 0 || Gpus.Count > 0 ||
         Actualizaciones.Count > 0 || DriversDisponibles.Count > 0 || Almacenamiento.Count > 0 ||
         Arranque.Count > 0 || Servicios.Count > 0 || Programas.Count > 0 || RedesCercanas.Count > 0;
@@ -338,7 +340,7 @@ public class DiagnosticReport : IJsonOnDeserialized
             case "rendimiento": RendimientoResumen = other.RendimientoResumen; TopCpu = other.TopCpu; TopRam = other.TopRam; break;
             case "termicas": Termicas = other.Termicas; Bateria = other.Bateria; Gpus = other.Gpus; break;
             case "estabilidad": EventosResumen = other.EventosResumen; EventosDetalle = other.EventosDetalle;
-                Whea = other.Whea; Minidumps = other.Minidumps; break;
+                Whea = other.Whea; Minidumps = other.Minidumps; Pantallazos = other.Pantallazos; break;
             case "almacenamiento": Almacenamiento = other.Almacenamiento; break;
             case "seguridad": Seguridad = other.Seguridad; break;
             case "drivers": Drivers = other.Drivers; DriversDisponibles = other.DriversDisponibles; break;
@@ -375,7 +377,7 @@ public class DiagnosticReport : IJsonOnDeserialized
         // Un archivo antiguo o un JSON con null no debe tumbar la vista de historial.
         Sistema ??= new(); Discos ??= new(); Memoria ??= new(); WiFi ??= new(); Red ??= new();
         RendimientoResumen ??= new(); TopCpu ??= new(); TopRam ??= new(); Termicas ??= new(); Bateria ??= new();
-        EventosResumen ??= new(); EventosDetalle ??= new(); Whea ??= new(); Minidumps ??= new(); Traceroute ??= new();
+        EventosResumen ??= new(); EventosDetalle ??= new(); Whea ??= new(); Minidumps ??= new(); Pantallazos ??= new(); Traceroute ??= new();
         Limpieza ??= new(); Drivers ??= new(); Seguridad ??= new(); Gpus ??= new(); Actualizaciones ??= new();
         DriversDisponibles ??= new(); Almacenamiento ??= new(); Arranque ??= new(); Servicios ??= new();
         Programas ??= new(); RedesCercanas ??= new(); Recomendaciones ??= new(); ModulosCompletados ??= new();

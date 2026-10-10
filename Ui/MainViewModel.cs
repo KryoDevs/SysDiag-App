@@ -142,7 +142,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         ["rendimiento"] = new[] { "Rendimiento", "Procesos por CPU", "Procesos por RAM" },
         ["termicas"] = new[] { "Térmicas", "Batería", "GPU" },
         ["seguridad"] = new[] { "Seguridad" },
-        ["estabilidad"] = new[] { "Eventos (resumen)", "Eventos (detalle)", "Errores WHEA", "Volcados de memoria" },
+        ["estabilidad"] = new[] { "Eventos (resumen)", "Eventos (detalle)", "Errores WHEA", "Pantallazos", "Volcados de memoria" },
         ["almacenamiento"] = new[] { "Almacenamiento", "Discos" },
         ["drivers"] = new[] { "Drivers disponibles", "Drivers" },
         ["arranque"] = new[] { "Arranque", "Servicios", "Programas instalados" },
@@ -1187,6 +1187,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         Offer("Eventos (detalle)", Report.EventosDetalle);
         Offer("Errores WHEA", Report.Whea);
         Offer("Volcados de memoria", Report.Minidumps);
+        Offer("Pantallazos", Report.Pantallazos);
         Offer("Almacenamiento", Report.Almacenamiento);
         Offer("Drivers disponibles", Report.DriversDisponibles, BusquedaDriversHecha);
         Offer("Drivers", Report.Drivers);

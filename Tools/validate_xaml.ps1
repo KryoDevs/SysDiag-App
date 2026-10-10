@@ -18,6 +18,11 @@
 #      TargetProperty que el tipo no tiene simplemente no anima, sin excepción y
 #      sin traza. Es la clase de error que dos veces quedó vivo en este proyecto.
 #   5. RepeatBehavior="Forever" dentro de un Trigger tiene que poder pararse.
+#   6. Los miembros enlazados existen. Un `{Binding Etiqueta}` cuyo nombre no
+#      está en el ViewModel no rompe la compilación: rompe en tiempo de
+#      ejecución, en silencio y solo en la ventana de salida. Es el hueco más
+#      grande que le quedaba a esta puerta, y también el más fácil de dejar
+#      pasar porque el editor lo subraya y la compilación no dice nada.
 #
 # Uso: powershell -NoProfile -ExecutionPolicy Bypass -File .\Tools\validate_xaml.ps1
 # Devuelve 0 si todo pasa, 1 si algo falla.
@@ -149,6 +154,63 @@ foreach ($archivo in $archivos) {
                     $errores += "${nombre}: Forever en EnterActions sin StopStoryboard para '$($bsNombre.Groups[1].Value)': la animación sigue corriendo cuando el estado que la disparó ya terminó"
                 }
             }
+        }
+    }
+}
+
+# ---- tablas de la comprobación 6 -----------------------------------------
+#
+# Vista -> clase fuente donde viven los miembros que se enlazan. Escrita a
+# mano: la alternativa es cargar el ensamblado por reflexión en pwsh, que es
+# más frágil que una tabla de diez líneas que se lee de un vistazo.
+$origenesDatos = @{
+    'MainWindow.xaml'    = 'Ui\MainViewModel.cs'
+    'HistoryWindow.xaml' = 'Ui\HistoryWindow.xaml.cs'
+}
+
+# Nombres que se enlazan y no son miembros del ViewModel: son propiedades de
+# los objetos que viajan dentro de las plantillas (un Finding, una fila de
+# tabla), de otro elemento por ElementName, o del propio WPF. Lista blanca
+# explícita: si un binding nuevo cae acá, se agrega a mano y con su razón.
+$enlacesExternos = @(
+    'IsChecked',        # ElementName de los chips de filtro
+    'Content', 'Visibility', 'Opacity', 'Text', 'IsEnabled', 'ToolTip',  # WPF / ElementName
+    'Etiqueta', 'Message', 'Severity', 'Tooltip', 'Detalle',             # Finding y filas
+    'X', 'Y', 'YTexto', 'Arco', 'Area', 'Color', 'ValorTexto', 'Porcentaje',  # gráficos
+    'Pista', 'AnchoPista', 'MarcaX', 'MarcaVisible', 'Texto', 'Fraccion',     # gráficos
+    'Ancho', 'Alto', 'Fill', 'Stroke', 'Points', 'Data',                     # formas
+    'Clave', 'Valor', 'Categoria', 'Titulo', 'Descripcion', 'Prioridad',     # filas y recomendaciones
+    'Id', 'Nombre', 'Riesgo', 'NotaAplicacion'
+)
+
+foreach ($archivo in $archivos) {
+    $nombre = Split-Path $archivo -Leaf
+    if (-not $origenesDatos.ContainsKey($nombre)) { continue }
+
+    $rutaOrigen = Join-Path $Root ($origenesDatos[$nombre])
+    if (-not (Test-Path $rutaOrigen)) {
+        $errores += "$nombre : la puerta declara $($origenesDatos[$nombre]) como origen de datos y ese archivo no existe"
+        continue
+    }
+
+    # Miembros públicos de la clase: `public Tipo Nombre` y `public Tipo Nombre {`.
+    # Sin parsear C#: alcanza para propiedades y campos, que es lo que se enlaza.
+    $fuente = Get-Content $rutaOrigen -Raw
+    $miembros = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($m in [regex]::Matches($fuente, 'public\s+(?:static\s+|readonly\s+|const\s+)*[\w<>,\.\[\]\?\(\)]+\s+(\w+)\s*(?:\{|=>|;)')) {
+        [void]$miembros.Add($m.Groups[1].Value)
+    }
+
+    $texto = Get-Content $archivo -Raw
+    foreach ($b in [regex]::Matches($texto, '\{Binding\s+([^},]+)')) {
+        $ruta = $b.Groups[1].Value.Trim()
+        $raiz = ($ruta -split '\.')[0].Trim()
+        if ($raiz.Length -eq 0) { continue }
+        if ($enlacesExternos -contains $raiz) { continue }
+        if ($raiz.StartsWith('(') -or $raiz.StartsWith('/')) { continue }  # rutas compuestas y RelativeSource
+        if (-not $miembros.Contains($raiz)) {
+            $linea = ($texto.Substring(0, $b.Index) -split "`n").Count
+            $errores += "${nombre}:${linea} : {Binding $raiz} no es un miembro de $($origenesDatos[$nombre]) (WPF no avisa: el enlace falla en silencio y la vista queda vacía)"
         }
     }
 }

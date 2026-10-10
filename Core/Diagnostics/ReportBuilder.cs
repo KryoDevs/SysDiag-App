@@ -107,10 +107,11 @@ public static class ReportBuilder
             Section(sb, "Batería", KeyValue(r.Bateria),
                 "El desgaste compara la capacidad máxima de carga actual contra la capacidad de diseño de fábrica.");
 
-        if (r.EventosResumen.Count > 0 || r.Minidumps.Count > 0)
+        if (r.EventosResumen.Count > 0 || r.Minidumps.Count > 0 || r.Pantallazos.Count > 0)
         {
             var body = new StringBuilder();
             if (r.EventosResumen.Count > 0) body.Append(Table(r.EventosResumen));
+            if (r.Pantallazos.Count > 0) body.Append("<h3>Pantallazos decodificados</h3>").Append(Table(r.Pantallazos));
             if (r.Minidumps.Count > 0) body.Append("<h3>Volcados de memoria</h3>").Append(Table(r.Minidumps));
             if (r.EventosDetalle.Count > 0) body.Append("<h3>Últimos eventos</h3>").Append(Table(r.EventosDetalle));
             Section(sb, "Estabilidad", body.ToString(),
