@@ -162,6 +162,9 @@ public static class NetworkModule
             return res;
         }
 
+        // Jitter como media de las diferencias absolutas entre muestras
+        // consecutivas: es lo que se percibe como tirón, es fácil de explicar
+        // y coincide con lo que muestran las herramientas conocidas.
         double jitterSum = 0;
         for (int i = 1; i < rtts.Count; i++) jitterSum += Math.Abs(rtts[i] - rtts[i - 1]);
 
@@ -170,14 +173,28 @@ public static class NetworkModule
         res.Media = Math.Round(rtts.Average(), 1);
         res.Jitter = rtts.Count > 1 ? Math.Round(jitterSum / (rtts.Count - 1), 1) : 0;
 
+        // Media y máximo no alcanzan: un destino con promedio de 25 ms y p95 de
+        // 180 ms se siente mal aunque la media diga que está bien. Sin estas dos
+        // columnas, la tabla no puede explicar esa diferencia.
+        res.P95 = Math.Round(Stats.Percentil(rtts, 0.95), 1);
+        res.Desvio = Math.Round(Stats.Desviacion(rtts), 1);
+
         if (res.Media > 120 || res.Jitter > 30 || res.PerdidaPct > 2) res.Estado = Severity.Bad;
         else if (res.Media > 70 || res.Jitter > 15 || res.PerdidaPct > 0) res.Estado = Severity.Warn;
         else res.Estado = Severity.Ok;
 
         string nivel = res.Estado == Severity.Ok ? "OK" : res.Estado == Severity.Warn ? "WARN" : "ERROR";
         AppLog.Write(
-            $"{label,-24} media {res.Media,6} ms   jitter {res.Jitter,5} ms   pérdida {res.PerdidaPct,5}%",
+            $"{label,-24} media {res.Media,6} ms   p95 {res.P95,6} ms   jitter {res.Jitter,5} ms   " +
+            $"dispersión {res.Desvio,5} ms   pérdida {res.PerdidaPct,5}%",
             nivel);
+
+        // Un p95 muy por encima de la media es la firma de una red con
+        // microcortes: el promedio aprueba y la experiencia reprueba. Se dice
+        // acá porque es el único sitio donde las dos cifras están juntas.
+        if (res.Media > 0 && res.P95 > res.Media * 2.5 && res.P95 - res.Media > 30)
+            AppLog.Write($"{label}: p95 muy por encima de la media ({res.Media} vs {res.P95} ms): " +
+                         "picos de latencia que el promedio no muestra.", "WARN");
 
         return res;
     }

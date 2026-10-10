@@ -40,6 +40,7 @@ public partial class App : Application
                 _ = new Ui.DialogWindow();
                 _ = new Ui.ActivationWindow();
                 _ = new Ui.TweaksWindow();
+                _ = new Ui.ActivacionWindowsWindow();
                 Console.WriteLine($"SYSDIAG_SELF_TEST_OK {AppEnv.Version}");
                 Shutdown(0);
             }

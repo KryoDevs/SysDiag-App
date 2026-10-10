@@ -14,7 +14,10 @@ foreach ($file in $files) {
     $counters = $document.TestRun.ResultSummary.Counters
     $total += [int]$counters.total; $passed += [int]$counters.passed; $failed += [int]$counters.failed
 }
-if ($total -lt 163 -or $passed -ne $total -or $failed -gt 0) {
-    throw "Suite incompleta o fallida: $passed/$total aprobadas, $failed fallidas; mínimo 163 (114 auditadas + 34 del sistema visual + 4 de licencia + 11 del recorte de ventanas: no eliminar pruebas sin reemplazarlas)"
+# El mínimo es una barrera contra la pérdida silenciosa de cobertura: si una
+# prueba desaparece, el número baja y la compilación falla. Sube con cada lote
+# que agrega pruebas; no se baja nunca.
+if ($total -lt 203 -or $passed -ne $total -or $failed -gt 0) {
+    throw "Suite incompleta o fallida: $passed/$total aprobadas, $failed fallidas; mínimo 203 (114 auditadas + 34 del sistema visual + 4 de licencia + 11 del recorte de ventanas + 40 de funciones puras: 25 de Stats y 15 de activación) — no eliminar pruebas sin reemplazarlas"
 }
 Write-Output "::notice title=Pruebas de regresión::$passed/$total pruebas aprobadas, sin omisiones ni fallos"

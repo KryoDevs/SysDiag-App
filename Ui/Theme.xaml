@@ -1605,8 +1605,12 @@
       <TextBlock Grid.Column="0" Text="{Binding Etiqueta}" Style="{StaticResource Dim}"
                  VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,16,0"/>
       <Grid Grid.Column="1" VerticalAlignment="Center">
-        <Rectangle Width="420" Height="10" RadiusX="5" RadiusY="5"
-                   Fill="{StaticResource BTrack}" HorizontalAlignment="Left"/>
+        <!-- El riel ya trae la rejilla dibujada: cuatro guías al 25/50/75/100 %
+             del techo de escala. Se pinta como pincel (ver BarChart.CrearPista)
+             en vez de como cuatro líneas por fila para que la rejilla nazca
+             alineada y no agregue 4 × N elementos al árbol visual. -->
+        <Rectangle Width="{Binding AnchoPista}" Height="10" RadiusX="5" RadiusY="5"
+                   Fill="{Binding Pista}" HorizontalAlignment="Left"/>
         <!-- La barra se estira hasta su longitud en vez de aparecer dibujada:
              es el gesto que explica que la cifra se midió contra el riel. Se
              escala (no se anima Width) para no provocar una pasada de layout
@@ -1638,10 +1642,126 @@
             </EventTrigger>
           </Rectangle.Triggers>
         </Rectangle>
+        <!-- Línea de umbral: va encima de la barra y no debajo, porque lo que
+             dice es «esta barra pasó de acá», y eso solo se lee si la marca
+             corta la barra y no si la barra la tapa. Es opcional: solo la
+             piden los gráficos que tienen un límite con sentido (latencia,
+             temperatura), no los que comparan magnitudes entre sí. -->
+        <Canvas Width="{Binding AnchoPista}" Height="14" HorizontalAlignment="Left"
+                VerticalAlignment="Center" IsHitTestVisible="False">
+          <Rectangle Canvas.Left="{Binding MarcaX}" Canvas.Top="0" Width="2" Height="14"
+                     RadiusX="1" RadiusY="1" Fill="{StaticResource BWarn}" Opacity="0.85"
+                     Visibility="{Binding MarcaVisible, Converter={StaticResource BoolVis}}"/>
+        </Canvas>
       </Grid>
       <TextBlock Grid.Column="2" Text="{Binding ValorTexto}" FontFamily="{StaticResource FMono}"
                  FontSize="12" Foreground="{Binding Color}" VerticalAlignment="Center"
                  Margin="16,0,0,0" MinWidth="64"/>
+    </Grid>
+  </DataTemplate>
+
+  <!-- ================================================================
+       Rótulo de eje: la cifra que dice cuánto vale una línea. Sin esto
+       una rejilla es decoración; con esto, cualquier trazo se puede
+       leer como una cantidad.
+       ================================================================ -->
+  <Style x:Key="AxisLabel" TargetType="TextBlock" BasedOn="{StaticResource Eyebrow}">
+    <Setter Property="FontSize" Value="9.5"/>
+    <Setter Property="FontFamily" Value="{StaticResource FMono}"/>
+    <Setter Property="Foreground" Value="{StaticResource BTextMuted}"/>
+    <Setter Property="TextAlignment" Value="Right"/>
+    <Setter Property="Width" Value="34"/>
+  </Style>
+
+  <!-- Pie de gráfico: escala a la izquierda, agregado a la derecha. -->
+  <Style x:Key="ChartFoot" TargetType="TextBlock" BasedOn="{StaticResource Eyebrow}">
+    <Setter Property="FontSize" Value="9.5"/>
+    <Setter Property="Foreground" Value="{StaticResource BTextMuted}"/>
+  </Style>
+
+  <!-- ================================================================
+       Filtro en pastilla:severidad de hallazgos, nivel del registro.
+       Es un RadioButton y no un botón porque los filtros son excluyentes
+       y el estado activo tiene que quedar marcado solo.
+       ================================================================ -->
+  <Style x:Key="FilterChip" TargetType="RadioButton">
+    <Setter Property="FontFamily" Value="{StaticResource FBody}"/>
+    <Setter Property="FontSize" Value="11.5"/>
+    <Setter Property="Foreground" Value="{StaticResource BTextDim}"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="MinWidth" Value="58"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RadioButton">
+          <Border x:Name="Bd" Background="{StaticResource BSurfaceAlt}" CornerRadius="{StaticResource RPill}"
+                  Padding="12,5" BorderBrush="{StaticResource BStrokeSoft}" BorderThickness="1">
+            <Grid>
+              <Border x:Name="Luz" Background="{StaticResource BHover}" CornerRadius="{StaticResource RPill}"
+                      Opacity="0" IsHitTestVisible="False"/>
+              <Border x:Name="Sel" Background="{StaticResource BAccentWash}" CornerRadius="{StaticResource RPill}"
+                      Opacity="0" IsHitTestVisible="False"/>
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Luz" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.11"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Luz" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.16"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BAccent}"/>
+              <Setter Property="Foreground" Value="{StaticResource BText}"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Sel" Storyboard.TargetProperty="Opacity"
+                                     To="1" Duration="0:0:0.16" EasingFunction="{StaticResource EEaseSalida}"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Sel" Storyboard.TargetProperty="Opacity"
+                                     To="0" Duration="0:0:0.16"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Leyenda de un anillo: muestra, valor y porcentaje de cada porción. -->
+  <DataTemplate x:Key="DonutLegendTemplate">
+    <Grid Margin="0,0,0,7" ToolTip="{Binding Detalle}">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="12"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <Rectangle Grid.Column="0" Width="9" Height="9" RadiusX="2.5" RadiusY="2.5"
+                 Fill="{Binding Color}" VerticalAlignment="Center"/>
+      <TextBlock Grid.Column="1" Text="{Binding Etiqueta}" Style="{StaticResource Dim}"
+                 VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="9,0,12,0"/>
+      <TextBlock Grid.Column="2" Text="{Binding ValorTexto}" Style="{StaticResource KpiChipText}"
+                 VerticalAlignment="Center"/>
     </Grid>
   </DataTemplate>
 

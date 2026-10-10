@@ -3,6 +3,81 @@
 Los cambios notables de este proyecto se documentan en este archivo. Las secciones
 `[Sin publicar]` son lotes de una rama: se consolidan al cortar el siguiente release.
 
+## [Sin publicar] - 2026-10-10 (gráficos, mediciones, interfaz por sección y activación)
+
+Sube la versión a **5.9.0**.
+
+### Gráficos
+- **Escala real en lugar de barras sueltas.** `BarChart` redondea el techo a un
+  peldaño de la escala (`Stats.Techo`), dibuja la rejilla en el propio riel —como
+  pincel, para que no agregue 4 × N elementos al árbol visual— y declara unidad,
+  rango y agregado en el pie. Antes el máximo del conjunto era el ancho entero y
+  no había forma de leer cuánto valía una barra intermedia.
+- **Línea de umbral** opcional en las barras (70 ms en latencia, 40 % en CPU): la
+  misma cifra con la que el motor califica el dato, así no hay dos criterios que
+  aprender para leer una medición.
+- **Evolución del puntaje con eje ajustado.** El historial ya no está clavado en
+  0-100: ajusta el rango a los datos con margen y paso redondo, sin salirse nunca
+  del dominio. Suma rótulos de eje, rejilla, promedio y el último punto marcado.
+  Con puntajes entre 78 y 84, la escala completa aplanaba la serie.
+- **Anillo de composición** nuevo (`DonutChart`) para el espacio en disco: la
+  pregunta ahí no es «cuál es más grande» sino «de qué está hecho el total».
+- **Gráfico de líneas** (`LineChart`) y **series en vivo** (`LiveSeries`) con
+  percentil 95, jitter RFC 3550 y marcas de pérdida, reutilizables por cualquier
+  panel futuro.
+- **Eventos críticos en escala logarítmica**: con un tipo que se repite 40 000
+  veces y otros que se repiten 3, la escala lineal dibujaba una barra y cinco
+  ceros. Los rótulos se escriben a mano porque la barra mide log₁₀(n) y no n.
+
+### Mediciones
+- **`Core/Stats.cs`**: percentiles, desviación estándar muestral, jitter RFC 3550 y
+  escalas de eje como funciones puras, con `Tools/IntegrationTests/StatsTests.cs`.
+  Antes esa aritmética vivía solo en la capa de interfaz, así que un recolector no
+  podía usarla; y `ChartMath` ahora delega en ella en lugar de duplicarla.
+- **Rendimiento**: núcleo más cargado (y cuántos pasan de 90 %), RAM disponible,
+  compromiso de memoria, páginas por segundo, caudal de disco y de red, subprocesos
+  y tiempo encendido. Tres avisos nuevos: núcleo saturado con total bajo, paginación
+  sostenida y cola de disco.
+- **Red**: `LatencyResult` suma **p95** y **dispersión**. Sin esas dos columnas, una
+  red con media de 25 ms y p95 de 180 ms aparecía como sana.
+- **Procesos**: la RAM se reporta también como porcentaje de la memoria instalada.
+  «1 200 MB» no dice si es mucho; en 8 GB y en 64 GB significa cosas opuestas.
+
+### Interfaz por sección
+- **Hallazgos**: filtro por severidad (todos / críticos / avisos / correctos) con el
+  contador a la vista. Al cambiar el filtro, la selección salta al primer hallazgo
+  visible: sin eso, el panel de la derecha seguía mostrando la recomendación de algo
+  que ya no estaba en la lista.
+- **Datos**: búsqueda sobre todas las columnas visibles de la tabla activa, contador
+  «7 de 312 filas» y un estado propio para «la búsqueda no devuelve nada», que antes
+  se veía igual que «la tabla no cargó».
+- **Registro**: filtro por nivel (todo / avisos y errores / solo errores), búsqueda
+  por texto y **Copiar**, que copia lo que se está viendo y no todo el registro.
+- **Monitor de ping**: franja roja por cada paquete perdido —el arreglo que rellena
+  los huecos para que la línea no se corte hacía invisible justo el dato que
+  importa—, umbral de 100 ms y una línea de resumen con mínima, media, p95, máxima,
+  jitter y pérdida.
+
+### Herramientas
+- **Activación de Windows 10/11** (`Core/Windows/ActivationModule.cs` +
+  `Ui/ActivacionWindowsWindow`), en el panel Sistema. No es un activador: lee el
+  estado real de la licencia por WMI e instala claves **que el usuario ya tiene**
+  o apunta a un host KMS **propio** de su organización, todo por `slmgr.vbs`, la
+  utilidad del propio Windows, con los argumentos en lista y la clave enmascarada en
+  el registro. El aviso de qué hace y qué no va arriba de la ventana, no escondido.
+  Ver el README y `docs/HERRAMIENTAS_NUEVAS.md §1`.
+
+### Documentación
+- `docs/HERRAMIENTAS_NUEVAS.md`, nuevo: catálogo de herramientas nuevas ordenadas
+  para poder elegir, con el límite explícito de lo que no entra.
+- `docs/MEJORAS.md §8`: mejoras generales del lote, lo aplicado y lo pendiente
+  ordenado por valor.
+
+### Pruebas
+- `StatsTests` (escalas, percentiles, desviación, jitter y formato) y
+  `ActivationTests` (normalización, validación y enmascarado de claves), ambos sobre
+  funciones puras, sin Windows ni WPF.
+
 ## [Sin publicar] - 2026-10-10 (la documentación y las puertas, al día)
 
 ### Herramientas

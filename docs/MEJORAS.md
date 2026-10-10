@@ -1,4 +1,4 @@
-# Análisis y plan de mejoras — SysDiag 5.8.0
+# Análisis y plan de mejoras — SysDiag 5.9.0
 
 Fecha: 2026-10-10 · Rama: `arena/e864cf80-sysdiag-app` · Base: `34a2aa1`
 Continúa [AUDITORIA.md](AUDITORIA.md) y [AUDITORIA_2026-10-09.md](AUDITORIA_2026-10-09.md).
@@ -467,3 +467,115 @@ piensó:
    quedar idéntica, sin movimiento, y con el mismo valor final en el puntaje.
 6. Apretar `Tab` hasta un botón del pie: tiene que aparecer un anillo cian alrededor.
 7. Ajustes: escribir `3,5` en «muestreo» y guardar → el aviso debe decir que quedó en 5.
+
+---
+
+## 8. Lote 5.9 — mejoras generales propuestas (2026-10-10)
+
+Esta sección se escribió junto con el lote de gráficos, mediciones, interfaz por
+sección y el módulo de activación. No reemplaza las secciones 1 a 4: las da por
+hechas y se concentra en lo que apareció al tocar esas cuatro cosas. Coste:
+**c** (días), **m** (semanas), **a** (meses o más).
+
+### 8.1 Aplicado en esta rama
+
+- **Gráficos con escala real** (`Ui/Charts.cs`): el riel de las barras lleva la
+  rejilla dibujada en el pincel, el techo se redondea a un peldaño de la escala
+  (`Stats.Techo`) y cada gráfico declara su unidad, su rango y su agregado. El
+  historial dejó de estar clavado en 0-100 y ajusta el eje a los datos.
+- **Estadística en `Core/Stats.cs`**: percentiles, desviación, jitter RFC 3550 y
+  escalas, como funciones puras y probadas (`Tools/IntegrationTests/StatsTests.cs`).
+  Antes esa aritmética vivía solo en la interfaz, así que un recolector no podía usarla.
+- **Mediciones nuevas**: núcleo más cargado, RAM disponible, compromiso de memoria,
+  páginas por segundo, caudal de disco y de red, subprocesos y tiempo encendido;
+  `LatencyResult` suma **p95** y **dispersión**; los procesos reportan RAM como
+  porcentaje del equipo.
+- **Filtros en las tres vistas**: severidad en Hallazgos, búsqueda en todas las
+  columnas de Datos, nivel y texto en Registro con copiado al portapapeles.
+- **Monitor de ping**: franjas rojas por paquete perdido, umbral de 100 ms y una
+  línea de resumen con mínima, media, p95, máxima y jitter.
+- **Activación de Windows** (`Core/Windows/ActivationModule.cs` +
+  `Ui/ActivacionWindowsWindow`): estado real de la licencia y activación por los
+  canales oficiales. Ver `docs/HERRAMIENTAS_NUEVAS.md §1` para el límite explícito
+  de lo que **no** hace.
+
+### 8.2 Pendientes, en orden de valor
+
+1. **Un contrato de medición con unidad** [m/alto]. `RendimientoResumen` sigue
+   siendo `List<KeyValueRow>`: el número viaja dentro de un texto (`"78 % (12,3 GB
+   de 16 GB)"`) y las reglas lo recuperan con `NumericText.TryRead`, que es un
+   parser de expresiones regular sobre una cadena ya formateada. Un tipo
+   `Medicion(decimal Valor, string Unidad, string Texto)` deja de mezclar dato y
+   presentación: las reglas comparan, el informe elige el formato y la interfaz
+   puede ordenar sin adivinar. Es el cambio que más barato vuelve todo lo demás.
+2. **Timeout por módulo y marca de «colgado»** [c/alto]. El rótulo del pie dice
+   qué módulo corre, pero no distingue «midiendo» de «esperando a WMI para
+   siempre». Un `CancellationTokenSource` con plazo por paso, un aviso y la
+   opción de saltar ese módulo convierten un cuelgue en una decisión del usuario.
+3. **Caché de consultas WMI con vigencia** [c/medio]. `SystemModule` ya cachea el
+   inventario; `Térmicas`, `Almacenamiento` y `Rendimiento` repiten consultas
+   dentro de la misma corrida. Una caché por corrida con TTL acorta el
+   diagnóstico completo sin cambiar ningún contrato.
+4. **Verificación post-cambio generalizada** [c/alto]. El patrón ya existe en
+   algunos ajustes: releer y comparar, y decir «no se aplicó» cuando el valor no
+   cambió (política de grupo, antivirus, servicio protegido). Extenderlo a todos
+   los tweaks y a la limpieza elimina la clase de bug más dañina: la app que
+   reporta éxito donde no lo hubo.
+5. **Línea de base y «qué cambió desde la última vez»** [m/alto]. Con
+   `Exporter.PuntajeAnterior` y el historial comparable por cobertura, un `diff`
+   entre dos diagnósticos —hallazgos nuevos, desaparecidos, umbrales cruzados,
+   drivers que envejecieron— es la pantalla que un técnico abre primero. Los datos
+   ya están archivados; falta compararlos.
+6. **Registro de acciones con deshacer por paso** [m/alto]. Un JSON con «qué hice,
+   en qué orden y con qué valor anterior» y un botón por paso. Es lo que separa
+   una herramienta que asusta de una que se usa.
+7. **Accesibilidad más allá del foco** [m/medio]. El anillo de foco cian ya está en
+   los botones del tema. Faltan: navegación por teclado dentro de la rejilla de
+   datos y del selector de tablas, soporte de tema de alto contraste del sistema
+   (`SystemParameters.HighContrast`) y respeto de `TextScaleFactor`. Una app de
+   diagnóstico se usa en equipos ajenos, muchas veces con configuraciones ajenas.
+8. **Presupuesto de medición propio** [c/bajo]. Mostrar en el pie cuánta CPU y RAM
+   costó la corrida. Una herramienta que mide tiene que declarar lo que perturba
+   aquello que mide, sobre todo ahora que el muestreo de rendimiento toma
+   segundos.
+9. **Contrato de unidades en el informe HTML** [c/bajo]. Hoy el HTML imprime el
+   mismo texto que la tabla. Con `Medicion` (punto 1) puede elegir precisión y
+   separador decimal por destino, y dejar de repetir «n/d» donde falta el dato.
+10. **Puerta de XAML ampliada** [c/medio]. `Tools/validate_xaml.ps1` ya comprueba
+    `TargetName` de triggers. Añadir: que todo `StaticResource` usado exista en
+    `Theme.xaml`, que todo `x:Name` referenciado desde el code-behind exista, y
+    que ningún `Binding` use un miembro inexistente. Las tres cosas fallan en
+    tiempo de ejecución y no de compilación, que es el peor momento.
+11. **Pruebas de las reglas sobre datos puros** [c/medio]. `StatsTests` y
+    `ActivationTests` muestran el camino: todo lo que sea función pura se prueba
+    sin Windows. Elevar el umbral de pruebas en el CI obliga a que el código nuevo
+    nazca separable.
+12. **`docs/REGLAS.md` generado** [c/bajo]. Un documento versionado con cada
+    regla, su umbral y su remediación, generado desde `DiagnosticEngine` y
+    `Remediation`. «¿Por qué me dijo Aviso?» tiene que tener respuesta buscable.
+13. **Internacionalización decidida** [m/medio]. El arranque fija `es-CL` y
+    `SatelliteResourceLanguages es`. O se soporta `en-US` con recursos, o se dice
+    en el README que el español es intencional. Lo que no puede pasar es que
+    nadie lo haya decidido: afecta separadores numéricos y formatos de fecha en
+    los informes que se comparten.
+14. **Actualizaciones y firma** [m/alto, y requiere decisión comercial].
+    Un canal de actualización (WinGet, o un manifiesto firmado) y **firma
+    Authenticode** del ejecutable. Hoy repartir un .exe sin firmar provoca
+    SmartScreen y enseña al usuario a ignorar las advertencias de Windows, que es
+    exactamente la conducta que una herramienta de diagnóstico no debería
+    fomentar. El costo es un certificado, no código.
+15. **Persistencia de la ventana y del estado de la interfaz** [c/bajo]. Tamaño,
+    posición, última pestaña y último filtro entre sesiones. Es de las cosas que
+    nadie pide y todos notan cuando faltan.
+
+### 8.3 Lo que sigue sin convenir
+
+- **Medir desde el kernel o con un controlador propio** para temperatura por
+  núcleo o latencia DPC. Convertiría a SysDiag en un binario con privilegios
+  altos y en una superficie de ataque, para un dato que HWiNFO y
+  LibreHardwareMonitor ya dan mejor.
+- **Telemetría remota**. Ni anónima: la app toca datos de licencia, red y
+  estabilidad de un equipo ajeno. El registro local y el informe redactable
+  (§4.3 punto 22) cubren la necesidad sin sacar nada del equipo.
+- **Activación que no sea por un canal oficial**. Ver
+  `docs/HERRAMIENTAS_NUEVAS.md §1.9`.

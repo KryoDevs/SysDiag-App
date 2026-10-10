@@ -1,4 +1,4 @@
-# SysDiag 5.8.0
+# SysDiag 5.9.0
 
 [![Compilar y probar](https://github.com/KryoDevs/SysDiag-App/actions/workflows/build.yml/badge.svg)](https://github.com/KryoDevs/SysDiag-App/actions/workflows/build.yml) [![Validar fixture](https://github.com/KryoDevs/SysDiag-App/actions/workflows/validate-fixture.yml/badge.svg)](https://github.com/KryoDevs/SysDiag-App/actions/workflows/validate-fixture.yml)
 
@@ -45,6 +45,7 @@ SysDiag/
 │
 ├─ Core/                         Recolección de datos. Un namespace por subcarpeta
 │  ├─ AppEnv.cs, ComWorker.cs, WmiHelper.cs     infraestructura transversal (SysDiag.Core)
+│  ├─ Stats.cs                   percentiles, desviación, jitter y escalas (funciones puras)
 │  ├─ Hardware/                  SystemModule, ThermalModule, GpuModule
 │  ├─ Performance/                PerformanceModule
 │  ├─ Network/                   NetworkModule (latencia, Wi-Fi, canales, traceroute)
@@ -52,7 +53,8 @@ SysDiag/
 │  ├─ Security/                  SecurityModule (Defender, Firewall, BitLocker, TPM, Secure Boot, UAC)
 │  ├─ Drivers/                   DriverModule, DriverUpdateModule, DriverVerifier, AuthenticodeVerifier
 │  ├─ Windows/                   OptimizeModule, PowerSettings, OptimizationBackupStore, SecureBackupDirectory,
-│  │                            RestorePointModule, SettingsService, StartupModule, UpdateModule (winget)
+│  │                            RestorePointModule, SettingsService, StartupModule, UpdateModule (winget),
+│  │                            ActivationModule (licencia de Windows por canales oficiales)
 │  └─ Diagnostics/               HealthScore, Remediation, ReportBuilder, Exporter, StabilityModule
 │
 ├─ Services/                     Contrato hacia la UI. Namespace SysDiag.Services
@@ -70,10 +72,11 @@ SysDiag/
    ├─ Theme.xaml                  Sistema de diseño: paleta, tipografía, escalas y plantillas
    ├─ MainWindow.xaml             Barra superior + rail de navegación y cuatro vistas
    ├─ MainViewModel.cs            Estado observable y orquestación de sesión
-   ├─ Charts.cs / Converters.cs
+   ├─ Charts.cs / Converters.cs   gráficos: barras con rejilla, líneas, anillos y series en vivo
    ├─ Dialog.xaml                 Diálogos propios (no MessageBox)
    ├─ CleanupWindow / OptimizeWindow / ProfilesWindow   acciones con confirmación
-   └─ HistoryWindow / SettingsWindow / PingMonitorWindow   historial, ajustes y monitor de latencia
+   ├─ HistoryWindow / SettingsWindow / PingMonitorWindow   historial, ajustes y monitor de latencia
+   └─ ActivacionWindowsWindow     licencia de Windows 10/11 (solo canales oficiales)
 ```
 
 ## Módulos
@@ -93,6 +96,10 @@ SysDiag/
 | Historial | Diagnósticos archivados con su puntaje y cobertura; la tendencia compara solo cobertura equivalente | no |
 | Perfiles | Combinaciones de optimización (universidad, trabajo, juego) con respaldo previo | sí |
 | Ajustes | Muestreo, ventanas de eventos, retención de historial y registros | no |
+| Activación de Windows | Estado de la licencia y activación por canales oficiales de Microsoft | sí* |
+
+\*La consulta no pide permisos; instalar una clave o cambiar el host KMS sí los pide,
+porque los aplica `slmgr.vbs`, la utilidad del propio Windows.
 
 ### Sobre el módulo de Drivers
 
@@ -140,6 +147,33 @@ piden un **código de activación**.
   licencias): `-Dias 365 -Cantidad 10` emite; `-Verificar <código>` comprueba
   y muestra vigencia, serial y si está vinculado al equipo.
 
+## Activación de Windows 10 y 11
+
+**SysDiag no es un activador y no activa equipos sin licencia.** El módulo
+`Activación de Windows` (panel izquierdo ▸ Sistema) muestra el estado real de la
+licencia y ofrece los caminos previstos por Microsoft:
+
+- **Leer el estado**: edición, clave parcial, canal (Retail, OEM, Volumen KMS o
+  MAK), vencimiento, host KMS y días de gracia, desde
+  `SoftwareLicensingProduct` por WMI. No requiere permisos elevados.
+- **Instalar una clave que ya tengas**: `slmgr.vbs /ipk` + `/ato`. Pide
+  administrador y pide confirmación antes de escribir.
+- **Activación por volumen**: apuntar al host KMS **propio** de tu organización
+  (`slmgr.vbs /skms` + `/ato`). Es el mecanismo corporativo previsto; apuntarlo
+  a un host ajeno activaría Windows sin licencia, y eso es justo lo que este
+  módulo no hace.
+- **Canales oficiales**: Ajustes ▸ Activación, Microsoft Store, el solucionador
+  de problemas de Microsoft y la activación telefónica con el id. de instalación.
+
+Lo que **no** hace: no emula servidores KMS, no inyecta licencias digitales
+(HWID/KMS38), no genera ni valida claves ajenas y no modifica el servicio de
+licencias. Además de ser una infracción de los términos de Microsoft, los
+«activadores» que circulan son hoy una de las formas más habituales de
+distribuir malware.
+
+La clave nunca se registra completa en el log: se guardan solo los últimos cinco
+caracteres, porque los registros se comparten cuando se pide soporte.
+
 ## Ajustes de Windows 10 y 11
 
 `Ajustes de Windows` (panel izquierdo ▸ Mantenimiento) reúne ajustes
@@ -161,7 +195,7 @@ reiniciarse elevado.
 
 - Windows compila la solución, ejecuta regresiones y conserva TRX. Se incluyen ramas
   `arena/**`; no se publica un release por trabajar en una rama.
-- `Tools/validate_tests.ps1` exige ≥163 pruebas (114 de la suite auditada + 34 que miden el sistema visual + 4 de licencia + 11 del recorte de ventanas), todas aprobadas y sin omisiones.
+- `Tools/validate_tests.ps1` exige ≥203 pruebas (114 de la suite auditada + 34 que miden el sistema visual + 4 de licencia + 11 del recorte de ventanas + 40 sobre funciones puras: 25 de `Stats` y 15 de activación), todas aprobadas y sin omisiones.
 - `Tools/validate_xaml.ps1` comprueba cinco cosas sobre los doce XAML: bien formado, resolución de
   `{StaticResource}`, ámbito de cada `TargetName` dentro de su plantilla, que la propiedad animada exista
   en el tipo del elemento destino, y que todo `RepeatBehavior="Forever"` nacido en un `Trigger` tenga su
@@ -311,6 +345,16 @@ Un ejecutable recién compilado y sin firma digital puede activar SmartScreen la
 vez ("Windows protegió su PC" → *Más información* → *Ejecutar de todas formas"). Es normal
 en binarios propios. Para distribuirlo a terceros haría falta un certificado de firma de
 código.
+
+## Documentos
+
+- `docs/AUDITORIA.md` y `docs/AUDITORIA_2026-10-09.md`: auditorías, con su evidencia de CI.
+- `docs/MEJORAS.md`: análisis y plan de mejoras; la §8 es el lote 5.9 (gráficos,
+  mediciones, interfaz por sección y activación).
+- `docs/HERRAMIENTAS_NUEVAS.md`: catálogo de herramientas nuevas, su límite explícito
+  y el orden sugerido para encararlas.
+- `docs/DISENO.md`: sistema visual y de movimiento.
+- `docs/preview/index.html`: maqueta de la interfaz.
 
 ## Siguientes pasos
 

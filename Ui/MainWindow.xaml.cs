@@ -227,6 +227,10 @@ public partial class MainWindow : Window
                     new PingMonitorWindow { Owner = this }.ShowDialog();
                     break;
 
+                case "activacion-windows":
+                    new ActivacionWindowsWindow { Owner = this }.ShowDialog();
+                    break;
+
                 case "ajustes":
                     new SettingsWindow { Owner = this }.ShowDialog();
                     break;
@@ -598,6 +602,8 @@ public partial class MainWindow : Window
             case "taskmgr": AbrirHerramienta("taskmgr.exe"); break;
             case "servicios": AbrirHerramienta("services.msc"); break;
             case "rstrui": AbrirHerramienta("rstrui.exe"); break;
+            case "activacion-windows": new ActivacionWindowsWindow { Owner = this }.ShowDialog(); break;
+            case "abrir-activacion-os": AbrirHerramienta("ms-settings:activation"); break;
         }
     }
 
@@ -605,6 +611,53 @@ public partial class MainWindow : Window
     {
         VDatos.IsChecked = true;
         if (_vm.Tablas.Contains(nombre)) _vm.TablaSeleccionada = nombre;
+    }
+
+    // ---- Filtros de las vistas --------------------------------------------
+
+    /// <summary>
+    /// El valor del filtro viaja en <c>Tag</c> y no en el nombre del control:
+    /// cuatro radios con el mismo handler y un <c>switch</c> sobre el texto
+    /// sería un cuarto duplicado de la misma lista, y es el tipo de duplicado
+    /// que queda desincronizado en cuanto se agrega una severidad.
+    /// </summary>
+    private void FiltroHallazgos_Checked(object sender, RoutedEventArgs e)
+    {
+        if (sender is RadioButton { Tag: string valor } && int.TryParse(valor, out int filtro))
+            _vm.FiltroHallazgos = filtro;
+    }
+
+    private void FiltroRegistro_Checked(object sender, RoutedEventArgs e)
+    {
+        if (sender is RadioButton { Tag: string valor })
+            _vm.FiltroRegistro = valor;
+    }
+
+    /// <summary>
+    /// Copia lo que se está viendo, no todo el registro: quien filtra y luego
+    /// copia espera llevarse lo filtrado. Con el registro completo en el
+    /// portapapeles, pegarlo en un informe obliga a limpiarlo a mano.
+    /// </summary>
+    private void CopiarRegistro_Click(object sender, RoutedEventArgs e)
+    {
+        string texto = _vm.TextoRegistroFiltrado;
+        if (string.IsNullOrWhiteSpace(texto))
+        {
+            Dialog.Info("Nada que copiar", "No hay líneas que coincidan con el filtro y la búsqueda actuales.");
+            return;
+        }
+
+        try
+        {
+            Clipboard.SetText(texto);
+            AppLog.Write($"Registro: {texto.Split('\n').Length} líneas copiadas al portapapeles.", "OK");
+        }
+        catch (System.Runtime.InteropServices.ExternalException ex)
+        {
+            // El portapapeles puede estar tomado por otro proceso; no es un
+            // error de SysDiag y no merece sonar como tal.
+            Dialog.Error("No se pudo copiar", "Otro programa está usando el portapapeles. " + ex.Message);
+        }
     }
 
     private static void AbrirHerramienta(string destino)

@@ -246,6 +246,12 @@
                     <TextBlock Text="Restaurar estado" Style="{StaticResource NavLabel}"/>
                   </StackPanel>
                 </ListBoxItem>
+                <ListBoxItem Tag="activacion-windows" ToolTip="Estado de la licencia de Windows y activación por los canales oficiales de Microsoft">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE975;" Style="{StaticResource NavIcon}"/>
+                    <TextBlock Text="Activación de Windows" Style="{StaticResource NavLabel}"/>
+                  </StackPanel>
+                </ListBoxItem>
 
                 <ListBoxItem Style="{StaticResource NavGroupItem}">
                   <Grid>
@@ -518,6 +524,55 @@
                     <Style TargetType="Border" BasedOn="{StaticResource Card}"/>
                   </ItemsControl.Resources>
 
+                  <!-- Composición del disco: un anillo y no barras, porque la
+                       pregunta no es «cuál es más grande» sino «de qué está
+                       hecho el total». Las medidas del aro están atadas a
+                       DonutChart: radio externo 62, interno 43, así que la
+                       elipse de fondo mide 105 (= 124 de diámetro exterior
+                       menos los 19 de grosor de trazo, que se centra en el
+                       borde) y comparte centro con los arcos. -->
+                  <Border Margin="0,0,0,16"
+                          Visibility="{Binding GraficoDiscos.Visible, Converter={StaticResource BoolVis}}">
+                    <StackPanel>
+                      <TextBlock Text="{Binding GraficoDiscos.Titulo}" Style="{StaticResource SectionLabel}"/>
+                      <TextBlock Text="{Binding GraficoDiscos.Nota}" Style="{StaticResource Dim}"
+                                 TextWrapping="Wrap" Margin="0,0,0,18"/>
+                      <Grid HorizontalAlignment="Left">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="Auto"/>
+                          <ColumnDefinition Width="28"/>
+                          <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Grid Grid.Column="0" Width="132" Height="132">
+                          <Ellipse Width="105" Height="105" Stroke="{StaticResource BStrokeSoft}"
+                                   StrokeThickness="19" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                          <ItemsControl ItemsSource="{Binding GraficoDiscos.Segmentos}">
+                            <ItemsControl.ItemsPanel>
+                              <ItemsPanelTemplate><Canvas/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate>
+                                <Path Data="{Binding Arco}" Fill="{Binding Color}"
+                                      ToolTip="{Binding Detalle}"/>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                          <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding GraficoDiscos.Centro1}" Style="{StaticResource Metric}"
+                                       FontSize="18" HorizontalAlignment="Center" Foreground="{StaticResource BText}"/>
+                            <TextBlock Text="{Binding GraficoDiscos.Centro2}" Style="{StaticResource Eyebrow}"
+                                       HorizontalAlignment="Center" Margin="0,1,0,0"/>
+                          </StackPanel>
+                        </Grid>
+
+                        <ItemsControl Grid.Column="2" ItemsSource="{Binding GraficoDiscos.Segmentos}"
+                                      ItemTemplate="{StaticResource DonutLegendTemplate}"
+                                      VerticalAlignment="Center" MinWidth="300"/>
+                      </Grid>
+                    </StackPanel>
+                  </Border>
+
                   <Border Margin="0,0,0,16"
                           Visibility="{Binding GraficoRed.Visible, Converter={StaticResource BoolVis}}">
                     <StackPanel>
@@ -526,6 +581,15 @@
                                  TextWrapping="Wrap" Margin="0,0,0,16"/>
                       <ItemsControl ItemsSource="{Binding GraficoRed.Barras}"
                                     ItemTemplate="{StaticResource BarTemplate}"/>
+                      <!-- Pie de escala: sin esto la rejilla del riel es
+                           decoración. Acá se dice cuánto vale el riel completo
+                           y cuánto hay entre guía y guía. -->
+                      <Grid Margin="0,12,0,0">
+                        <TextBlock Text="{Binding GraficoRed.Escala}" Style="{StaticResource ChartFoot}"
+                                   HorizontalAlignment="Left"/>
+                        <TextBlock Text="{Binding GraficoRed.Resumen}" Style="{StaticResource ChartFoot}"
+                                   HorizontalAlignment="Right"/>
+                      </Grid>
                     </StackPanel>
                   </Border>
 
@@ -537,6 +601,12 @@
                                  TextWrapping="Wrap" Margin="0,0,0,16"/>
                       <ItemsControl ItemsSource="{Binding GraficoProcesos.Barras}"
                                     ItemTemplate="{StaticResource BarTemplate}"/>
+                      <Grid Margin="0,12,0,0">
+                        <TextBlock Text="{Binding GraficoProcesos.Escala}" Style="{StaticResource ChartFoot}"
+                                   HorizontalAlignment="Left"/>
+                        <TextBlock Text="{Binding GraficoProcesos.Resumen}" Style="{StaticResource ChartFoot}"
+                                   HorizontalAlignment="Right"/>
+                      </Grid>
                     </StackPanel>
                   </Border>
 
@@ -548,6 +618,12 @@
                                  TextWrapping="Wrap" Margin="0,0,0,16"/>
                       <ItemsControl ItemsSource="{Binding GraficoEventos.Barras}"
                                     ItemTemplate="{StaticResource BarTemplate}"/>
+                      <Grid Margin="0,12,0,0">
+                        <TextBlock Text="{Binding GraficoEventos.Escala}" Style="{StaticResource ChartFoot}"
+                                   HorizontalAlignment="Left"/>
+                        <TextBlock Text="{Binding GraficoEventos.Resumen}" Style="{StaticResource ChartFoot}"
+                                   HorizontalAlignment="Right"/>
+                      </Grid>
                     </StackPanel>
                   </Border>
 
@@ -557,35 +633,94 @@
                       <TextBlock Text="EVOLUCIÓN DEL PUNTAJE" Style="{StaticResource SectionLabel}"/>
                       <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,0,0,16"
                                  Text="Cada punto es un diagnóstico guardado. La línea subiendo significa que el equipo mejoró respecto a como estaba; bajando, que apareció algo nuevo."/>
-                      <Canvas Width="620" Height="120" ClipToBounds="False" Margin="0,4,0,0">
-                        <Line X1="0" Y1="0" X2="620" Y2="0" Stroke="{StaticResource BStrokeSoft}" StrokeThickness="1"/>
-                        <Line X1="0" Y1="60" X2="620" Y2="60" Stroke="{StaticResource BStrokeSoft}" StrokeThickness="1"/>
-                        <Line X1="0" Y1="120" X2="620" Y2="120" Stroke="{StaticResource BStroke}" StrokeThickness="1"/>
-                        <Polygon Points="{Binding GraficoHistorial.Area}" Fill="{StaticResource BAccentWash}"/>
-                        <Polyline Points="{Binding GraficoHistorial.Puntos}"
-                                  Stroke="{StaticResource BAccent}" StrokeThickness="2"
-                                  StrokeLineJoin="Round"/>
-                        <ItemsControl ItemsSource="{Binding GraficoHistorial.Marcas}">
+                      <Grid Margin="0,4,0,0" HorizontalAlignment="Left">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="40"/>
+                          <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Eje Y con rótulos. El rango se ajusta a los datos
+                             en vez de estar clavado en 0-100: con puntajes que
+                             se mueven entre 78 y 84, una escala completa
+                             aplana la serie y la variación real desaparece.
+                             El límite de 0-100 lo fija el cálculo, así que el
+                             eje nunca promete más de lo que el puntaje puede
+                             dar. Ver ChartMath.Escala. -->
+                        <ItemsControl Grid.Column="0" ItemsSource="{Binding GraficoHistorial.Guias}"
+                                      Width="40" Height="120">
                           <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate><Canvas/></ItemsPanelTemplate>
                           </ItemsControl.ItemsPanel>
                           <ItemsControl.ItemContainerStyle>
                             <Style TargetType="ContentPresenter">
-                              <Setter Property="Canvas.Left" Value="{Binding X}"/>
-                              <Setter Property="Canvas.Top" Value="{Binding Y}"/>
+                              <Setter Property="Canvas.Top" Value="{Binding YTexto}"/>
                             </Style>
                           </ItemsControl.ItemContainerStyle>
                           <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                              <Ellipse Width="7" Height="7" Fill="{StaticResource BAccent2}"
-                                       ToolTip="{Binding Tooltip}"/>
+                              <TextBlock Text="{Binding Texto}" Style="{StaticResource AxisLabel}"/>
                             </DataTemplate>
                           </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                      </Canvas>
+
+                        <Canvas Grid.Column="1" Width="620" Height="120" ClipToBounds="False">
+                          <!-- Rejilla horizontal: una línea por rótulo del eje. -->
+                          <ItemsControl ItemsSource="{Binding GraficoHistorial.Guias}" Width="620" Height="120">
+                            <ItemsControl.ItemsPanel>
+                              <ItemsPanelTemplate><Canvas/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate>
+                                <Line X1="0" X2="620" Y1="{Binding Y}" Y2="{Binding Y}"
+                                      Stroke="{StaticResource BStrokeSoft}" StrokeThickness="1"/>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+
+                          <!-- Promedio: la única línea que no se mide, se
+                             calcula. Sirve de referencia para saber si un
+                             punto es bueno o malo sin acordarse del anterior. -->
+                          <Line X1="0" X2="620" Stroke="{StaticResource BTextMuted}" StrokeThickness="1"
+                                StrokeDashArray="4 4" Opacity="0.55"
+                                Y1="{Binding GraficoHistorial.MediaY}"
+                                Y2="{Binding GraficoHistorial.MediaY}"/>
+
+                          <Polygon Points="{Binding GraficoHistorial.Area}" Fill="{StaticResource BAccentWash}"/>
+                          <Polyline Points="{Binding GraficoHistorial.Puntos}"
+                                    Stroke="{StaticResource BAccent}" StrokeThickness="2"
+                                    StrokeLineJoin="Round"/>
+
+                          <ItemsControl ItemsSource="{Binding GraficoHistorial.Marcas}">
+                            <ItemsControl.ItemsPanel>
+                              <ItemsPanelTemplate><Canvas/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemContainerStyle>
+                              <Style TargetType="ContentPresenter">
+                                <Setter Property="Canvas.Left" Value="{Binding X}"/>
+                                <Setter Property="Canvas.Top" Value="{Binding Y}"/>
+                              </Style>
+                            </ItemsControl.ItemContainerStyle>
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate>
+                                <Ellipse Width="7" Height="7" Fill="{StaticResource BAccent2}"
+                                         ToolTip="{Binding Tooltip}"/>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+
+                          <!-- El presente: el ojo encuentra el último punto sin
+                               tener que seguir la línea hasta el borde. -->
+                          <Ellipse Canvas.Left="{Binding GraficoHistorial.UltimoX}"
+                                   Canvas.Top="{Binding GraficoHistorial.UltimoY}"
+                                   Width="10" Height="10" Fill="{StaticResource BAccent2}"
+                                   Stroke="{StaticResource BSurface}" StrokeThickness="2"
+                                   ToolTip="{Binding GraficoHistorial.Resumen}"/>
+                        </Canvas>
+                      </Grid>
                       <Grid Margin="0,10,0,0">
                         <TextBlock Text="{Binding GraficoHistorial.Rango}" Style="{StaticResource Eyebrow}"/>
-                        <TextBlock Text="0 — 100" Style="{StaticResource Eyebrow}" HorizontalAlignment="Right"/>
+                        <TextBlock Text="{Binding GraficoHistorial.Resumen}" Style="{StaticResource Eyebrow}"
+                                   HorizontalAlignment="Right"/>
                       </Grid>
                     </StackPanel>
                   </Border>
@@ -619,7 +754,34 @@
 
             <Border Grid.Column="0" Style="{StaticResource Card}" Padding="0">
               <Grid>
-                <ListBox ItemsSource="{Binding Hallazgos}" Style="{StaticResource PlainList}"
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Filtro por severidad. Con veinte hallazgos mezclados, lo
+                     primero que se quiere ver es lo crítico, y recorrer la
+                     lista buscando el color no es una forma de encontrarlo. -->
+                <Border Grid.Row="0" Padding="16,11" BorderBrush="{StaticResource BStrokeSoft}"
+                        BorderThickness="0,0,0,1">
+                  <Grid>
+                    <StackPanel Orientation="Horizontal">
+                      <RadioButton Content="Todos" Style="{StaticResource FilterChip}" Tag="0"
+                                   IsChecked="True" GroupName="FiltroHallazgos"
+                                   Checked="FiltroHallazgos_Checked"/>
+                      <RadioButton Content="Críticos" Style="{StaticResource FilterChip}" Tag="1" Margin="6,0,0,0"
+                                   GroupName="FiltroHallazgos" Checked="FiltroHallazgos_Checked"/>
+                      <RadioButton Content="Avisos" Style="{StaticResource FilterChip}" Tag="2" Margin="6,0,0,0"
+                                   GroupName="FiltroHallazgos" Checked="FiltroHallazgos_Checked"/>
+                      <RadioButton Content="Correctos" Style="{StaticResource FilterChip}" Tag="3" Margin="6,0,0,0"
+                                   GroupName="FiltroHallazgos" Checked="FiltroHallazgos_Checked"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding ContadorHallazgos}" Style="{StaticResource Eyebrow}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                  </Grid>
+                </Border>
+
+                <ListBox Grid.Row="1" ItemsSource="{Binding HallazgosFiltrados}" Style="{StaticResource PlainList}"
                          ItemContainerStyle="{StaticResource FindingItem}"
                          SelectedItem="{Binding HallazgoSeleccionado, Mode=TwoWay}">
                   <ListBox.ItemTemplate>
@@ -647,10 +809,19 @@
                   </ListBox.ItemTemplate>
                 </ListBox>
 
-                <Border Background="{StaticResource BSurface}" Padding="26,22"
+                <Border Grid.Row="1" Background="{StaticResource BSurface}" Padding="26,22"
                         Visibility="{Binding SinHallazgos, Converter={StaticResource BoolVis}}">
                   <TextBlock Style="{StaticResource Dim}" TextAlignment="Center" TextWrapping="Wrap"
                              Text="Sin hallazgos todavía. Pulsa «Diagnóstico completo» o elige un módulo del panel izquierdo: los hallazgos aparecen aquí con su recomendación."/>
+                </Border>
+
+                <!-- El filtro no deja nada: no es que no se haya medido, es
+                     que no hay nada de ese tipo. Decir otra cosa haría dudar
+                     de si la medición funcionó. -->
+                <Border Grid.Row="1" Background="{StaticResource BSurface}" Padding="26,22"
+                        Visibility="{Binding SinHallazgosPorFiltro, Converter={StaticResource BoolVis}}">
+                  <TextBlock Style="{StaticResource Dim}" TextAlignment="Center" TextWrapping="Wrap"
+                             Text="Ningún hallazgo de este tipo. El filtro está acotando la lista: ponlo en «Todos» para ver el resto."/>
                 </Border>
               </Grid>
             </Border>
@@ -688,9 +859,35 @@
               <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <ComboBox Grid.Row="0" Width="300" HorizontalAlignment="Left"
-                      ItemsSource="{Binding Tablas}"
-                      SelectedItem="{Binding TablaSeleccionada, Mode=TwoWay}"/>
+            <!-- Selector y búsqueda en la misma línea: una tabla de 300
+                 servicios sin forma de acotarla tiene el dato, pero hay que
+                 encontrarlo a ojo. El contador dice cuánto se está viendo de
+                 cuánto hay, para que filtrar nunca deje a ciegas. -->
+            <Grid Grid.Row="0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="280"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+
+              <ComboBox Grid.Column="0" Width="300" HorizontalAlignment="Left"
+                        ItemsSource="{Binding Tablas}"
+                        SelectedItem="{Binding TablaSeleccionada, Mode=TwoWay}"/>
+
+              <TextBlock Grid.Column="2" Text="Buscar" Style="{StaticResource Eyebrow}"
+                         VerticalAlignment="Center"/>
+
+              <TextBox Grid.Column="4" x:Name="BuscarTabla" Style="{StaticResource CampoTexto}"
+                       HorizontalAlignment="Stretch"
+                       Text="{Binding BusquedaTabla, UpdateSourceTrigger=PropertyChanged}"
+                       ToolTip="Busca en todas las columnas visibles de la tabla seleccionada"/>
+
+              <TextBlock Grid.Column="5" Text="{Binding ConteoTabla}" Style="{StaticResource Eyebrow}"
+                         VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,4,0"/>
+            </Grid>
 
             <Border Grid.Row="1" Margin="0,12,0,0" Padding="10" CornerRadius="{StaticResource RMd}"
                     Background="{StaticResource BSurface}" BorderBrush="{StaticResource BStrokeSoft}"
@@ -757,8 +954,21 @@
                     Margin="0,14,0,0" Padding="4,0,4,4" BorderBrush="{StaticResource BStrokeSoft}"
                     BorderThickness="1">
               <Grid>
-                <DataGrid x:Name="Grid" ItemsSource="{Binding FilasTabla}"
+                <DataGrid x:Name="Grid" ItemsSource="{Binding FilasTablaFiltradas}"
                           AutoGeneratingColumn="Grid_AutoGeneratingColumn"/>
+
+                <!-- Búsqueda sin resultados. Sin este aviso, una rejilla vacía
+                     y una tabla que no se cargó se ven exactamente igual. -->
+                <Border Background="{StaticResource BBase}" Padding="30,28"
+                        Visibility="{Binding SinCoincidencias, Converter={StaticResource BoolVis}}">
+                  <StackPanel MaxWidth="440" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="Ninguna fila coincide" Style="{StaticResource H2}"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Style="{StaticResource Dim}" Margin="0,10,0,0" TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               Text="La tabla tiene datos, pero ninguna fila contiene ese texto. Probá con una parte más corta o revisá la ortografía."/>
+                  </StackPanel>
+                </Border>
 
                 <Border Background="{StaticResource BBase}" Padding="30,28"
                         Visibility="{Binding SinTablas, Converter={StaticResource BoolVis}}">
@@ -786,10 +996,49 @@
           <!-- ========================== Registro ========================== -->
           <Border Background="{StaticResource BSurface}" CornerRadius="{StaticResource RMd}"
                   BorderBrush="{StaticResource BStrokeSoft}" BorderThickness="1"
-                  Padding="8,6"
+                  Padding="0"
                   ui:Motion.Enter="True"
                   Visibility="{Binding IsChecked, ElementName=VRegistro, Converter={StaticResource BoolVis}}">
-            <ListBox x:Name="LogList" ItemsSource="{Binding Registro}" Style="{StaticResource PlainList}"
+            <Grid>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+              </Grid.RowDefinitions>
+
+              <!-- Barra del registro. Un diagnóstico completo deja cientos de
+                   líneas y el error que se busca es una: filtrar por nivel y
+                   buscar por texto es lo que separa «hay un registro» de
+                   «puedo usar el registro». -->
+              <Border Grid.Row="0" Padding="12,8" BorderBrush="{StaticResource BStrokeSoft}"
+                      BorderThickness="0,0,0,1">
+                <Grid>
+                  <StackPanel Orientation="Horizontal">
+                    <RadioButton Content="Todo" Style="{StaticResource FilterChip}" Tag="todo"
+                                 IsChecked="True" GroupName="FiltroRegistro"
+                                 Checked="FiltroRegistro_Checked"/>
+                    <RadioButton Content="Avisos y errores" Style="{StaticResource FilterChip}" Tag="avisos"
+                                 Margin="6,0,0,0" GroupName="FiltroRegistro"
+                                 Checked="FiltroRegistro_Checked"/>
+                    <RadioButton Content="Solo errores" Style="{StaticResource FilterChip}" Tag="errores"
+                                 Margin="6,0,0,0" GroupName="FiltroRegistro"
+                                 Checked="FiltroRegistro_Checked"/>
+                  </StackPanel>
+
+                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <TextBlock Text="{Binding ResumenRegistro}" Style="{StaticResource Eyebrow}"
+                               VerticalAlignment="Center" Margin="0,0,14,0"/>
+                    <TextBox x:Name="BuscarRegistro" Style="{StaticResource CampoTexto}" Width="230"
+                             Text="{Binding BusquedaRegistro, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Busca una palabra en el texto del registro, incluida la hora"/>
+                    <Button Content="Copiar" Style="{StaticResource BtnQuiet}" Padding="12,7" FontSize="12"
+                            Margin="8,0,0,0" Click="CopiarRegistro_Click"
+                            ToolTip="Copia al portapapeles las líneas que se están viendo"/>
+                  </StackPanel>
+                </Grid>
+              </Border>
+
+            <ListBox Grid.Row="1" x:Name="LogList" ItemsSource="{Binding RegistroFiltrado}"
+                     Style="{StaticResource PlainList}" Margin="8,6"
                      ScrollViewer.HorizontalScrollBarVisibility="Auto">
               <ListBox.ItemContainerStyle>
                 <Style TargetType="ListBoxItem">
@@ -809,6 +1058,7 @@
                 </DataTemplate>
               </ListBox.ItemTemplate>
             </ListBox>
+            </Grid>
           </Border>
         </Grid>
 

@@ -131,9 +131,22 @@ public static class AppEnv
         throw new InvalidOperationException(message);
     }
 
+    /// <summary>
+    /// Aplica la codificación de consola del sistema a utilidades clásicas que
+    /// emiten OEM. Es pública porque hay módulos que construyen su propio
+    /// <see cref="ProcessStartInfo"/> (por ejemplo para pasar argumentos que
+    /// no deben quedar registrados tal cual) y necesitan la misma corrección.
+    /// </summary>
+    public static void AplicarCodificacionConsola(string file, ProcessStartInfo info)
+    {
+        if (info == null) return;
+        SetConsoleEncoding(file, info);
+    }
+
     private static void SetConsoleEncoding(string file, ProcessStartInfo info)
     {
-        if (!OperatingSystem.IsWindows() || Path.GetFileNameWithoutExtension(file).ToLowerInvariant() is not ("netsh" or "ipconfig" or "powercfg")) return;
+        if (!OperatingSystem.IsWindows() || Path.GetFileNameWithoutExtension(file).ToLowerInvariant()
+                is not ("netsh" or "ipconfig" or "powercfg" or "slmgr" or "cscript" or "wscript")) return;
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         // Estas utilidades clásicas emiten OEM, no UTF-8; no romper Señal/Público en Windows español.
         var encoding = Encoding.GetEncoding((int)GetOEMCP());
