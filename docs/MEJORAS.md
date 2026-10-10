@@ -18,7 +18,9 @@ pasada honesta del trabajo:
   `--self-test` del EXE publicado, que construye las diez ventanas) también. Es
   decir: el tema reescrito, los adjuntos `ui:Motion.*` en las diez ventanas y el
   recorte de tamaño por área de trabajo se cargan en WPF de verdad.
-- Suite de regresión: **114/114** aprobadas, sin omisiones.
+- Suite de regresión: **114/114** en el primer empujón y **148/148** tras la segunda
+  tanda (las 34 pruebas nuevas del sistema visual). El gate de `validate_tests.ps1`
+  subió a 148 para que el umbral siga apretando.
 - `Tools/validate_xaml.ps1`, que entró con este cambio, pasó sobre el XAML real.
 - El primer empujón **no compilaba**: `Motion.Transicion` pedía `Animatable` y
   recibía `FrameworkElement` en dos de sus siete llamadas (`CS1503`,
@@ -139,6 +141,14 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
    verifica además que el embudo de ejecución de procesos siga siendo uno solo. Cuesta
    40 líneas de aritmética y es lo que evita que el próximo color nuevo se cuele sin
    pasar (F05 es precisamente eso: se detectó midiendo, no con una prueba).
+   Y una brecha que esta tanda dejó a la vista, por honestidad: —el control es el arreglo de F03
+   (no borrarle al comprador la prueba de su licencia) entró **sin prueba unitaria**, porque `LicenseService` tiene la ruta del archivo fijada a
+   `LocalAppData` y no hay forma de apuntarlo a un directorio temporal sin tocar el
+   equipo de quien prueba. Pasar una `RutaBase` opcional —el valor actual por
+   defecto— lo vuelve testeable en cinco líneas y abre el mismo camino para
+   `SettingsService` (que escribe el registro al leer). Ese es F10, y esta es su
+   consecuencia más concreta: sin dependencias inyectables, hay arreglos que solo
+   se pueden verificar leyendo.
 
 **Distribución y operación**
 
