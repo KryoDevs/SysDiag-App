@@ -18,6 +18,89 @@ namespace SysDiag.Core.Windows;
 ///  3. Si un ajuste requiere admin y no lo hay, no se aplica ninguno:
 ///     primero se avisa, nunca se queda a medias.
 /// </summary>
+/// <summary>
+/// Una línea del ensayo: qué se tocaría, de qué valor a cuál, sin tocar nada.
+/// </summary>
+public sealed class LineaEnsayo
+{
+    public string Ajuste { get; init; } = "";
+    public string Ruta { get; init; } = "";
+    public string Nombre { get; init; } = "";
+    public string Actual { get; init; } = "(sin valor)";
+    public string Objetivo { get; init; } = "";
+    public bool YaAplicado { get; init; }
+    public bool RequiereAdmin { get; init; }
+    public bool FaltanPermisos { get; init; }
+
+    /// <summary>Frase de una línea para el ensayo y para el informe de soporte.</summary>
+    public string Texto => YaAplicado
+        ? $"{Ajuste} · ya está aplicado"
+        : $"{Ajuste} · {Ruta}\\{Nombre}: {Actual} → {Objetivo}" +
+          (FaltanPermisos ? " (necesita administrador, que ahora mismo no tiene)" : "");
+}
+
+/// <summary>
+/// Resultado de aplicar ajustes, con cada valor releído.
+///
+/// Separar «ya estaba así» de «se escribió y no quedó» es el punto de esta
+/// clase: los dos dejan el sistema igual, pero el primero es una respuesta y el
+/// segundo es un problema. Mezclarlos en un único contador de «aplicados»
+/// hacía que el segundo pasara por éxito.
+/// </summary>
+public sealed class ResultadoAplicacion
+{
+    /// <summary>
+    /// Ajustes que sí quedaron aplicados, con su id. Sin el id, quien quiera
+    /// deshacer tendría que volver a adivinar a qué entrada del catálogo
+    /// corresponde cada línea.
+    /// </summary>
+    public List<(string Id, string Titulo)> AjustesAplicados { get; } = new();
+
+    public List<string> Aplicados { get; } = new();
+    public List<string> SinCambio { get; } = new();
+    public List<string> NoAplicados { get; } = new();
+
+    public int Total => Aplicados.Count + SinCambio.Count + NoAplicados.Count;
+    public bool HayFallos => NoAplicados.Count > 0;
+
+    public string Resumen()
+    {
+        var partes = new List<string>();
+        if (Aplicados.Count > 0) partes.Add($"{Aplicados.Count} aplicado(s) y comprobado(s)");
+        if (SinCambio.Count > 0) partes.Add($"{SinCambio.Count} ya estaban así");
+        if (NoAplicados.Count > 0) partes.Add($"{NoAplicados.Count} NO se aplicaron: se escribieron y Windows no los conservó");
+        return string.Join(" · ", partes);
+    }
+
+    /// <summary>
+    /// Texto completo para el diálogo y para el informe de soporte. Los que no
+    /// se aplicaron van primero y con su motivo: son los únicos que exigen una
+    /// acción, y al final de una lista de veinte líneas nadie los ve.
+    /// </summary>
+    public string Detalle()
+    {
+        var lineas = new List<string>();
+        if (NoAplicados.Count > 0)
+        {
+            lineas.Add("No se aplicaron:");
+            foreach (var linea in NoAplicados) lineas.Add("  · " + linea);
+        }
+        if (Aplicados.Count > 0)
+        {
+            if (lineas.Count > 0) lineas.Add("");
+            lineas.Add("Aplicados y comprobados:");
+            foreach (var linea in Aplicados) lineas.Add("  · " + linea);
+        }
+        if (SinCambio.Count > 0)
+        {
+            if (lineas.Count > 0) lineas.Add("");
+            lineas.Add("Ya tenían ese valor:");
+            foreach (var linea in SinCambio) lineas.Add("  · " + linea);
+        }
+        return string.Join(Environment.NewLine, lineas);
+    }
+}
+
 public static class TweakModule
 {
     private class EntradaRespaldo
@@ -63,13 +146,50 @@ public static class TweakModule
 
     // ---- Aplicar -----------------------------------------------------------
 
-    public static void Aplicar(IEnumerable<TweakAjuste> seleccion, CancellationToken token = default)
+    /// <summary>
+    /// Ensaya sin escribir: recorre la selección y dice exactamente qué valor
+    /// cambiaría en cada clave.
+    ///
+    /// Es la diferencia entre una herramienta que se prueba y una que da miedo.
+    /// Antes, la única forma de saber qué iba a tocar SysDiag era aplicarlo y
+    /// mirar el registro después; ahora se puede leer el plan —incluido qué
+    /// ajustes ya están aplicados y cuáles fallarían por falta de permisos—
+    /// antes de que exista algo que deshacer.
+    /// </summary>
+    public static List<LineaEnsayo> Ensayar(IEnumerable<TweakAjuste> seleccion)
+    {
+        var lineas = new List<LineaEnsayo>();
+        foreach (var ajuste in seleccion ?? Enumerable.Empty<TweakAjuste>())
+        {
+            bool faltan = ajuste.RequiereAdmin && !AppEnv.IsAdmin;
+            foreach (var reg in ajuste.Registros)
+            {
+                object actual = LeerValor(reg);
+                bool ya = ChangeVerifier.Coincide(actual, reg.Valor);
+                lineas.Add(new LineaEnsayo
+                {
+                    Ajuste = ajuste.Titulo,
+                    Ruta = reg.Ruta,
+                    Nombre = reg.Nombre,
+                    Actual = actual?.ToString() ?? "(sin valor)",
+                    Objetivo = reg.Valor,
+                    YaAplicado = ya,
+                    RequiereAdmin = ajuste.RequiereAdmin,
+                    FaltanPermisos = faltan
+                });
+            }
+        }
+        return lineas;
+    }
+
+    public static ResultadoAplicacion Aplicar(IEnumerable<TweakAjuste> seleccion, CancellationToken token = default)
     {
         var lista = seleccion?.ToList() ?? throw new ArgumentNullException(nameof(seleccion));
         if (lista.Count == 0) throw new InvalidOperationException("No hay ajustes seleccionados para aplicar.");
         if (lista.Any(a => a.RequiereAdmin) && !AppEnv.IsAdmin)
             throw new InvalidOperationException("Algunos ajustes seleccionados necesitan permisos de administrador. Reinicia SysDiag como administrador para aplicarlos.");
 
+        var resultado = new ResultadoAplicacion();
         AppLog.Write($"Aplicando {lista.Count} ajuste(s) de Windows", "STEP");
         foreach (var ajuste in lista)
         {
@@ -77,16 +197,41 @@ public static class TweakModule
             foreach (var reg in ajuste.Registros)
             {
                 object actual = LeerValor(reg);
-                if (Coincide(actual, reg.Valor)) continue; // ya estaba: no tocar ni respaldar
+                if (ChangeVerifier.Coincide(actual, reg.Valor))
+                {
+                    resultado.SinCambio.Add($"{ajuste.Titulo}: ya valía {reg.Valor}");
+                    continue; // ya estaba: no tocar ni respaldar
+                }
 
                 // El respaldo se guarda ANTES de escribir: si esta línea no se
                 // guardara y el disco fallara a mitad de escritura, el ajuste
                 // quedaría sin forma de deshacer.
                 GuardarRespaldo(ajuste.Id, reg, actual);
                 EscribirValor(reg, reg.Valor);
+
+                // Se relee. `EscribirValor` no devuelve nada: si algo repone el
+                // valor, la escritura devuelve sin error igual. Decir «aplicado»
+                // sin esta comprobación es afirmar algo que no se verificó.
+                var verificacion = ChangeVerifier.Verificar($"{ajuste.Titulo}", () => LeerValor(reg), reg.Valor, ajuste.RequiereAdmin);
+                if (verificacion.Aplicado)
+                {
+                    resultado.Aplicados.Add($"{ajuste.Titulo}: {verificacion.Leido}");
+                }
+                else
+                {
+                    resultado.NoAplicados.Add(verificacion.ToString());
+                    AppLog.Write(verificacion.ToString(), "WARN");
+                }
             }
-            AppLog.Write($"Ajuste «{ajuste.Titulo}» aplicado.{(string.IsNullOrEmpty(ajuste.NotaAplicacion) ? "" : " " + ajuste.NotaAplicacion)}", "OK");
+            if (!resultado.NoAplicados.Any(l => l.StartsWith(ajuste.Titulo, StringComparison.Ordinal)))
+            {
+                resultado.AjustesAplicados.Add((ajuste.Id, ajuste.Titulo));
+                AppLog.Write($"Ajuste «{ajuste.Titulo}» aplicado.{(string.IsNullOrEmpty(ajuste.NotaAplicacion) ? "" : " " + ajuste.NotaAplicacion)}", "OK");
+            }
         }
+
+        AppLog.Write($"Ajustes: {resultado.Resumen()}", resultado.HayFallos ? "WARN" : "OK");
+        return resultado;
     }
 
     // ---- Revertir ----------------------------------------------------------
@@ -186,16 +331,7 @@ public static class TweakModule
         // puede «borrar»: queda cubierto por BorrarAlRevertir del ajuste.
     }
 
-    private static bool Coincide(object actual, string objetivo)
-    {
-        if (actual == null) return false;
-        if (long.TryParse(objetivo, NumberStyles.Integer, CultureInfo.InvariantCulture, out long numerico))
-        {
-            try { return Convert.ToInt64(actual, CultureInfo.InvariantCulture) == numerico; }
-            catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException) { }
-        }
-        return string.Equals(actual.ToString(), objetivo, StringComparison.Ordinal);
-    }
+    private static bool Coincide(object actual, string objetivo) => ChangeVerifier.Coincide(actual, objetivo);
 
     private static object DesdeTexto(RegistryValueKind tipo, string valor) => tipo switch
     {

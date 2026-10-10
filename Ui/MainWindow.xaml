@@ -246,6 +246,12 @@
                     <TextBlock Text="Restaurar estado" Style="{StaticResource NavLabel}"/>
                   </StackPanel>
                 </ListBoxItem>
+                <ListBoxItem Tag="cambios" ToolTip="Lo que SysDiag cambió en este equipo, con deshacer paso por paso">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE81C;" Style="{StaticResource NavIcon}"/>
+                    <TextBlock Text="Cambios aplicados" Style="{StaticResource NavLabel}"/>
+                  </StackPanel>
+                </ListBoxItem>
                 <ListBoxItem Tag="activacion-windows" ToolTip="Estado de la licencia de Windows y activación por los canales oficiales de Microsoft">
                   <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE975;" Style="{StaticResource NavIcon}"/>

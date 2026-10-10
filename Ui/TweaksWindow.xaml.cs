@@ -212,6 +212,35 @@ public partial class TweaksWindow : Window
             if (!TweakModule.EstaAplicado(par.Value)) par.Key.IsChecked = true;
     }
 
+    /// <summary>
+    /// Ensayo: el plan completo, sin escribir nada. Es la primera de las dos
+    /// preguntas que cualquiera se hace antes de tocar el registro —«qué me
+    /// vas a cambiar»—, y la única que se puede responder sin riesgo.
+    /// </summary>
+    private void Ensayar_Click(object sender, RoutedEventArgs e)
+    {
+        var seleccion = _filas.Where(p => p.Key.IsChecked == true).Select(p => p.Value).ToList();
+        if (seleccion.Count == 0)
+        {
+            Dialog.Info("Nada que ensayar", "Marca los ajustes que quieras revisar y vuelve a pulsar «Ensayar». No se escribe nada en ningún caso.");
+            return;
+        }
+
+        var lineas = TweakModule.Ensayar(seleccion);
+        int cambiarian = lineas.Count(l => !l.YaAplicado);
+        int sinPermisos = lineas.Count(l => l.FaltanPermisos && !l.YaAplicado);
+
+        string encabezado = cambiarian == 0
+            ? $"Nada que cambiar: los {lineas.Count} valores revisados ya están como quedarían."
+            : $"{cambiarian} de {lineas.Count} valores cambiarían.";
+        if (sinPermisos > 0)
+            encabezado += $" {sinPermisos} necesitan administrador y ahora mismo no lo hay: esos fallarían.";
+
+        Dialog.Detalle("Ensayo — no se aplicó nada",
+            encabezado + Environment.NewLine + Environment.NewLine +
+            string.Join(Environment.NewLine, lineas.Select(l => l.Texto)));
+    }
+
     private async void Aplicar_Click(object sender, RoutedEventArgs e)
     {
         var seleccion = _filas.Where(p => p.Key.IsChecked == true).Select(p => p.Value).ToList();
@@ -238,11 +267,32 @@ public partial class TweaksWindow : Window
         }
 
         BtnAplicar.IsEnabled = false;
+        BtnEnsayar.IsEnabled = false;
         try
         {
-            await Task.Run(() => TweakModule.Aplicar(seleccion));
-            Dialog.Info("Ajustes aplicados",
-                $"Se aplicaron {seleccion.Count} ajuste(s). El estado anterior quedó guardado: puedes revertirlos desde aquí o desde «Restaurar estado».");
+            var resultado = await Task.Run(() => TweakModule.Aplicar(seleccion));
+
+            // Releído y comprobado, no supuesto. Si algo no quedó, se dice
+            // primero y con el motivo: un «se aplicaron 6 ajustes» que incluye
+            // dos que no se aplicaron es peor que no decir nada, porque cierra
+            // la puerta a que el usuario lo descubra.
+            // Cada ajuste que quedó aplicado entra en el historial por
+            // separado: deshacer es por paso, y una sola entrada que agrupe
+            // seis ajustes devolvería al usuario al problema del que venía
+            // —o revierte todo o no revierte nada—.
+            foreach (var (id, nombre) in resultado.AjustesAplicados)
+                ActionLog.Registrar(OrigenCambio.Ajustes, nombre,
+                    detalle: resultado.Aplicados.FirstOrDefault(l => l.StartsWith(nombre + ":", StringComparison.Ordinal)) ?? "",
+                    referencia: id);
+
+            string titulo = resultado.HayFallos ? "Aplicado, con cambios que no quedaron" : "Ajustes aplicados";
+            if (resultado.HayFallos)
+                Dialog.Detalle(titulo, resultado.Detalle() +
+                    Environment.NewLine + Environment.NewLine +
+                    "El estado anterior quedó guardado: puedes revertir lo que sí se aplicó desde aquí o desde «Restaurar estado».");
+            else
+                Dialog.Info(titulo,
+                    $"{resultado.Resumen()}. El estado anterior quedó guardado: puedes revertirlo desde aquí o desde «Restaurar estado».");
         }
         catch (Exception ex)
         {
@@ -251,6 +301,7 @@ public partial class TweaksWindow : Window
         finally
         {
             BtnAplicar.IsEnabled = true;
+            BtnEnsayar.IsEnabled = true;
             Render();
         }
     }
@@ -269,6 +320,7 @@ public partial class TweaksWindow : Window
         try
         {
             string resumen = await Task.Run(() => TweakModule.RevertirTodo());
+            ActionLog.MarcarDeshechos(OrigenCambio.Ajustes, resumen);
             Dialog.Info("Cambios revertidos", resumen);
         }
         catch (Exception ex)
@@ -284,6 +336,12 @@ public partial class TweaksWindow : Window
         try
         {
             string resumen = TweakModule.Revertir(id);
+            // Se marca por id, no por título: dos ajustes pueden compartir
+            // nombre en el historial si se aplicaron en días distintos.
+            var entrada = ActionLog.Pendientes()
+                .FirstOrDefault(c => c.Origen == OrigenCambio.Ajustes
+                    && string.Equals(c.Referencia, id, StringComparison.OrdinalIgnoreCase));
+            if (entrada != null) ActionLog.MarcarDeshecho(entrada.Id, resumen);
             Dialog.Info("Cambio deshecho", resumen);
         }
         catch (Exception ex)

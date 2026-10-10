@@ -41,6 +41,7 @@ public partial class App : Application
                 _ = new Ui.ActivationWindow();
                 _ = new Ui.TweaksWindow();
                 _ = new Ui.ActivacionWindowsWindow();
+                _ = new Ui.CambiosWindow();
                 Console.WriteLine($"SYSDIAG_SELF_TEST_OK {AppEnv.Version}");
                 Shutdown(0);
             }

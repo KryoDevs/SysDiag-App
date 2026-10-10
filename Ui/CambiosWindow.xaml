@@ -1,0 +1,38 @@
+<Window x:Class="SysDiag.Ui.CambiosWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:SysDiag.Ui"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        SizeToContent="Height" Width="820" ResizeMode="NoResize" MaxHeight="820"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+
+  <!-- Al abrirse, el panel sube y aparece: el gesto que explica de
+       dónde salió respecto de la ventana madre. -->
+  <Border Style="{StaticResource PanelShell}" ui:Motion.Enter="True">
+    <DockPanel LastChildFill="True">
+      <StackPanel DockPanel.Dock="Top">
+        <Rectangle Height="4" Width="46" HorizontalAlignment="Left" RadiusX="2" RadiusY="2"
+                   Fill="{StaticResource BAccent}" Margin="0,0,0,16"/>
+        <TextBlock Text="Cambios aplicados" Style="{StaticResource H2}"/>
+        <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,8,0,12"
+                   Text="Lo que SysDiag cambió en este equipo, en orden, con la forma de volver atrás paso por paso. Los cambios que no tienen vuelta atrás se registran igual y marcados: borrar un archivo no se puede deshacer, y conviene que quede escrito."/>
+        <TextBlock x:Name="TxtResumen" Style="{StaticResource Eyebrow}"/>
+      </StackPanel>
+
+      <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+        <!-- «Limpiar historial» se explica en su propio ToolTip porque el
+             nombre sugiere otra cosa: no revierte nada, solo deja de
+             recordarlo. Sin ese aviso, alguien podría pulsarlo creyendo que
+             deshace los cambios. -->
+        <Button Content="Limpiar historial" Style="{StaticResource BtnGhost}" Margin="0,0,8,0"
+                Click="Limpiar_Click"
+                ToolTip="Borra la lista. NO revierte ningún cambio: lo aplicado sigue aplicado."/>
+        <Button Content="Cerrar" Style="{StaticResource BtnGhost}" Margin="0,0,8,0" Click="Cerrar_Click"/>
+      </StackPanel>
+
+      <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,14,-14,0" Padding="0,0,14,0">
+        <StackPanel x:Name="PanelCambios"/>
+      </ScrollViewer>
+    </DockPanel>
+  </Border>
+</Window>

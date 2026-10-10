@@ -31,6 +31,13 @@
       </StackPanel>
 
       <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+        <!-- «Ensayar» va primero y a la izquierda del grupo: es la acción sin
+             consecuencias, y la que hay que encontrar antes que la que
+             escribe. Sin este botón, la única forma de saber qué iba a tocar
+             SysDiag era aplicarlo y mirar el registro después. -->
+        <Button x:Name="BtnEnsayar" Content="Ensayar (no aplica nada)" Style="{StaticResource BtnGhost}"
+                Margin="0,0,8,0" Click="Ensayar_Click"
+                ToolTip="Muestra exactamente qué claves y qué valores cambiarían, sin escribir nada."/>
         <Button Content="Revertir todos los cambios" Style="{StaticResource BtnGhost}" Margin="0,0,8,0" Click="RevertirTodo_Click"/>
         <Button Content="Cerrar" Style="{StaticResource BtnGhost}" Margin="0,0,8,0" Click="Cerrar_Click"/>
         <Button x:Name="BtnAplicar" Content="Aplicar seleccionados" Style="{StaticResource BtnPrimary}" Click="Aplicar_Click" IsDefault="True"/>

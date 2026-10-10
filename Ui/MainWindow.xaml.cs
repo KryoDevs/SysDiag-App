@@ -227,6 +227,10 @@ public partial class MainWindow : Window
                     new PingMonitorWindow { Owner = this }.ShowDialog();
                     break;
 
+                case "cambios":
+                    new CambiosWindow { Owner = this }.ShowDialog();
+                    break;
+
                 case "activacion-windows":
                     new ActivacionWindowsWindow { Owner = this }.ShowDialog();
                     break;
@@ -510,8 +514,20 @@ public partial class MainWindow : Window
         if (borrar)
         {
             if (!ExigeLicenciaPro("borrar temporales")) return;
-            await _vm.RunAsync("Limpieza",
-                ("limpieza", (r, t) => Task.Run(() => CleanupModule.Clean(r, filas, t), t)));
+            if (!await _vm.RunAsync("Limpieza",
+                ("limpieza", (r, t) => Task.Run(() => CleanupModule.Clean(r, filas, t), t)))) return;
+
+            // Se registra igual que los cambios reversibles, y marcado. Un
+            // historial que solo anotara lo que se puede deshacer mentiría por
+            // omisión justo en el caso que más importa: borrar no tiene vuelta
+            // atrás, y conviene que quede escrito en algún sitio, con la fecha
+            // y la cantidad, por si después hay que explicarlo.
+            ActionLog.Registrar(OrigenCambio.Limpieza,
+                $"Archivos temporales borrados ({AppEnv.FormatBytes(total)})",
+                $"Categorías: {string.Join(", ", filas.Select(f => f.Categoria).Distinct())}." +
+                (CleanupModule.Opts.Papelera ? " Se vació la papelera de reciclaje." : ""),
+                reversible: false,
+                nota: "El borrado de archivos no se puede deshacer. El punto de restauración del sistema tampoco recupera archivos temporales.");
         }
     }
 
@@ -524,7 +540,36 @@ public partial class MainWindow : Window
         if (dlg.ShowDialog() != true) return;
 
         var opciones = dlg.Options;
-        await _vm.RunActionAsync("Optimización", (r, t) => Task.Run(() => OptimizeModule.Run(r, opciones, t), t));
+        if (!await _vm.RunActionAsync("Optimización", (r, t) => Task.Run(() => OptimizeModule.Run(r, opciones, t), t))) return;
+
+        // La reversión de este paso restaura el conjunto completo, no solo la
+        // opción que se tocó: decirlo ahora evita que el botón «Deshacer» del
+        // historial sorprenda revirtiendo más de lo que se esperaba.
+        ActionLog.Registrar(OrigenCambio.Optimizacion, "Optimización de red y energía",
+            OpcionesTexto(opciones), referencia: AppEnv.BackupFile, reversible: true,
+            nota: "Deshacer este paso restaura todas las optimizaciones pendientes, no solo esta corrida.");
+    }
+
+    /// <summary>
+    /// Las opciones aplicadas, en texto. Existe porque el registro de cambios
+    /// se lee semanas después: «Optimización» sin más no dice qué se tocó, y
+    /// esa es justo la información que hace falta para decidir deshacerlo.
+    /// </summary>
+    private static string OpcionesTexto(OptimizeModule.Options o)
+    {
+        var partes = new List<string>();
+        if (o.FlushDns) partes.Add("vaciar caché DNS");
+        if (o.FlushArp) partes.Add("vaciar caché ARP");
+        if (o.FixWlanAutoconfig) partes.Add("WLAN automático");
+        if (o.WifiMaxPerformance) partes.Add("Wi-Fi a máximo rendimiento");
+        if (o.WifiPowerSave) partes.Add("Wi-Fi en ahorro");
+        if (o.PublicDns) partes.Add("DNS públicos");
+        if (o.VisualEffects) partes.Add("efectos visuales");
+        if (o.HighPerformancePlan) partes.Add("plan de alto rendimiento");
+        if (o.ResetTcpStack) partes.Add("reinicio de la pila TCP/IP (no reversible)");
+        if (o.GameMode) partes.Add("modo juego");
+        if (o.CpuMaxPercent.HasValue) partes.Add($"CPU máxima al {o.CpuMaxPercent} %");
+        return partes.Count == 0 ? "Sin opciones reconocidas." : string.Join(" · ", partes);
     }
 
     private bool RequiereAdmin()
@@ -603,6 +648,7 @@ public partial class MainWindow : Window
             case "servicios": AbrirHerramienta("services.msc"); break;
             case "rstrui": AbrirHerramienta("rstrui.exe"); break;
             case "activacion-windows": new ActivacionWindowsWindow { Owner = this }.ShowDialog(); break;
+            case "cambios": new CambiosWindow { Owner = this }.ShowDialog(); break;
             case "abrir-activacion-os": AbrirHerramienta("ms-settings:activation"); break;
         }
     }
@@ -691,9 +737,20 @@ public partial class MainWindow : Window
         RestorePointModule.Resultado punto = null;
         if (!await _vm.RunActionAsync("Creando punto de restauración", (r, t) => Task.Run(() => punto = RestorePointModule.Crear("Punto manual desde SysDiag"), t))) return;
         if (punto.Exito)
+        {
+            // No reversible en el sentido de este registro: un punto de
+            // restauración no se «deshace», se usa. Se anota igual para que el
+            // historial sea la cronología completa de lo que se hizo, sin
+            // huecos justo en el paso que existe para proteger a los demás.
+            ActionLog.Registrar(OrigenCambio.PuntoRestauracion, "Punto de restauración de Windows",
+                punto.Mensaje, reversible: false,
+                nota: "Un punto de restauración no se deshace: se aplica desde la configuración de Windows cuando hace falta.");
             Dialog.Info("Punto de restauración creado", punto.Mensaje);
+        }
         else
+        {
             Dialog.Error("No se pudo crear el punto de restauración", punto.Mensaje);
+        }
     }
 
     private async Task RestaurarEstado()
@@ -701,7 +758,13 @@ public partial class MainWindow : Window
         if (!RequiereAdmin()) return;
         string result = null;
         if (await _vm.RunActionAsync("Restaurando estado", (r, t) => Task.Run(() => result = OptimizeModule.Restore(), t)))
+        {
+            // Restaurar desde fuera del historial tiene que dejarlo reflejado
+            // ahí: si no, el historial seguiría ofreciendo «Deshacer» sobre
+            // optimizaciones que ya se revirtieron por otro camino.
+            ActionLog.MarcarDeshechos(OrigenCambio.Optimizacion, result ?? "Restaurado desde «Restaurar estado».");
             Dialog.Info("Restaurar estado previo", result);
+        }
     }
 
     // ---- Pie --------------------------------------------------------------
