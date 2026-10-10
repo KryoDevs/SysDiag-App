@@ -1,0 +1,213 @@
+<Window x:Class="SysDiag.Ui.ActivacionWindowsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:ui="clr-namespace:SysDiag.Ui"
+        Title="Activación de Windows" Height="780" Width="900" MinHeight="560" MinWidth="720"
+        WindowStyle="None" WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BBase}"
+        TextOptions.TextFormattingMode="Ideal" UseLayoutRounding="True">
+
+  <shell:WindowChrome.WindowChrome>
+    <shell:WindowChrome CaptionHeight="46" ResizeBorderThickness="6"
+                        CornerRadius="0" GlassFrameThickness="0"
+                        UseAeroCaptionButtons="False"/>
+  </shell:WindowChrome.WindowChrome>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="46"/>
+      <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+
+    <!-- Barra de título: misma marca y mismos controles que la ventana
+         principal, así ninguna ventana de la aplicación parece de otro
+         programa. -->
+    <Border Grid.Row="0" Background="{StaticResource BRail}"
+            BorderBrush="{StaticResource BStrokeSoft}" BorderThickness="0,0,0,1">
+      <Grid>
+        <StackPanel Orientation="Horizontal" Margin="18,0,0,0" VerticalAlignment="Center">
+          <Image Source="/Resources/Logo/Lockup.png" Height="22" Stretch="Uniform"
+                 RenderOptions.BitmapScalingMode="HighQuality"/>
+          <Rectangle Width="1" Height="16" Fill="{StaticResource BStroke}" Margin="16,0,14,0"/>
+          <TextBlock Text="Activación de Windows" Style="{StaticResource Dim}" VerticalAlignment="Center"/>
+        </StackPanel>
+        <Button HorizontalAlignment="Right" Content="&#xE8BB;" Style="{StaticResource BtnCaptionClose}"
+                Click="Cerrar_Click" ToolTip="Cerrar"
+                AutomationProperties.Name="Cerrar esta ventana"
+                shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+      </Grid>
+    </Border>
+
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="24,18,24,18"
+                  ui:Motion.Enter="True">
+      <StackPanel MaxWidth="820" HorizontalAlignment="Left">
+
+        <TextBlock Text="Activación de Windows" Style="{StaticResource H1}"/>
+        <TextBlock Style="{StaticResource Dim}" Margin="0,6,0,0" TextWrapping="Wrap"
+                   Text="Estado real de la licencia de Windows 10/11 y activación por los canales oficiales de Microsoft: una clave propia, una licencia digital de la cuenta Microsoft o un host KMS de tu organización."/>
+
+        <!-- ============================ ESTADO ========================== -->
+        <Border Style="{StaticResource HeroCard}" Margin="0,20,0,16">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border x:Name="SelloEstado" Grid.Column="0" Width="72" Height="72" CornerRadius="36"
+                    Margin="0,0,24,0" Background="{StaticResource BAccentWash}">
+              <TextBlock x:Name="IconoEstado" Text="&#xEA18;" FontSize="30"
+                         FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"
+                         Foreground="{StaticResource BAccent}"/>
+            </Border>
+
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+              <TextBlock x:Name="TxtEstado" Text="Consultando…" Style="{StaticResource Metric}"
+                         FontSize="26" Foreground="{StaticResource BText}"/>
+              <TextBlock x:Name="TxtEdicion" Text="" Style="{StaticResource Body}"
+                         Margin="0,6,0,0" TextWrapping="Wrap"/>
+              <TextBlock x:Name="TxtExplicacion" Text="" Style="{StaticResource Dim}"
+                         Margin="0,6,0,0" TextWrapping="Wrap"/>
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <!-- Aviso de legalidad. Va siempre a la vista y no escondido en un
+             tooltip: una herramienta que toca licencias tiene que decir
+             explícitamente qué hace y qué no hace, antes de que alguien
+             crea que hace otra cosa. -->
+        <Border Style="{StaticResource CardOutline}" Margin="0,0,0,16"
+                BorderBrush="{StaticResource BStroke}" Background="{StaticResource BSurface}">
+          <StackPanel>
+            <TextBlock Text="QUÉ HACE Y QUÉ NO" Style="{StaticResource SectionLabel}"/>
+            <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap">
+              <Run Text="SysDiag instala y activa únicamente licencias legítimas que ya te pertenecen, usando la utilidad del propio Windows. "/>
+              <Run Text="No emula servidores KMS, no inyecta licencias digitales ni salta ninguna protección de Microsoft."/>
+            </TextBlock>
+            <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,8,0,0"
+                       Foreground="{StaticResource BTextMuted}"
+                       Text="Los «activadores» que circulan por internet son hoy una de las formas más comunes de distribuir malware, y activar sin licencia deja el equipo fuera de soporte legal. Si no tenés licencia, la Microsoft Store es el camino correcto."/>
+          </StackPanel>
+        </Border>
+
+        <!-- ============================ DATOS =========================== -->
+        <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+          <StackPanel>
+            <TextBlock Text="DATOS DE LA LICENCIA" Style="{StaticResource SectionLabel}"/>
+            <StackPanel x:Name="PanelDatos"/>
+          </StackPanel>
+        </Border>
+
+        <!-- ========================== ACCIONES =========================== -->
+        <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+          <StackPanel>
+            <TextBlock Text="ACTIVAR CON UNA CLAVE PROPIA" Style="{StaticResource SectionLabel}"/>
+            <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,0,0,12"
+                       Text="Escribí la clave de producto de 25 caracteres que ya tenés (de la caja, del correo de confirmación o de la etiqueta del equipo). Requiere permisos de administrador."/>
+
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <TextBox x:Name="TxtClave" Grid.Column="0" Style="{StaticResource CampoCodigo}"
+                       MaxLength="34" Margin="0,0,10,0"
+                       ToolTip="Cinco grupos de cinco caracteres. Los guiones son opcionales."/>
+              <Button x:Name="BtnInstalar" Grid.Column="1" Content="Instalar y activar"
+                      Style="{StaticResource BtnPrimary}" Click="Instalar_Click"/>
+            </Grid>
+
+            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+              <Button x:Name="BtnActivar" Content="Activar en línea" Style="{StaticResource BtnGhost}"
+                      Padding="13,8" FontSize="12" Margin="0,0,8,0" Click="ActivarEnLinea_Click"
+                      ToolTip="Repite la activación contra los servidores de Microsoft"/>
+              <Button Content="Ajustes ▸ Activación" Style="{StaticResource BtnQuiet}"
+                      Padding="13,8" FontSize="12" Margin="0,0,8,0" Click="AbrirConfiguracion_Click"/>
+              <Button Content="Microsoft Store" Style="{StaticResource BtnQuiet}"
+                      Padding="13,8" FontSize="12" Margin="0,0,8,0" Click="AbrirTienda_Click"
+                      ToolTip="Comprar una licencia de Windows"/>
+              <Button Content="Solucionador de problemas" Style="{StaticResource BtnQuiet}"
+                      Padding="13,8" FontSize="12" Click="Solucionador_Click"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- KMS: solo tiene sentido en licencias por volumen. Se muestra
+             igual, pero el texto dice cuándo corresponde usarlo, porque
+             «configurar un host KMS» fuera de ese contexto es exactamente
+             la forma en que se activa sin licencia. -->
+        <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+          <StackPanel>
+            <TextBlock Text="ACTIVACIÓN POR VOLUMEN (KMS)" Style="{StaticResource SectionLabel}"/>
+            <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,0,0,12"
+                       Text="Para empresas, universidades y laboratorios con su propio servidor KMS. Apuntá acá el host de tu organización; el host tiene que estar en tu red y publicar esta edición de Windows."/>
+
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="110"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <TextBox x:Name="TxtKms" Grid.Column="0" Style="{StaticResource CampoTexto}"
+                       Margin="0,0,10,0" ToolTip="Nombre DNS o dirección IP del host KMS"/>
+              <TextBox x:Name="TxtPuerto" Grid.Column="1" Style="{StaticResource CampoNumero}"
+                       Text="1688" Width="110" Margin="0,0,10,0" ToolTip="Puerto del servicio KMS"/>
+              <Button x:Name="BtnKms" Grid.Column="2" Content="Configurar y activar"
+                      Style="{StaticResource BtnGhost}" Padding="13,8" FontSize="12"
+                      Click="ConfigurarKms_Click"/>
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <!-- ========================== DETALLE =========================== -->
+        <Border x:Name="PanelDetalle" Style="{StaticResource Card}" Margin="0,0,0,16"
+                Visibility="Collapsed">
+          <StackPanel>
+            <TextBlock Text="SALIDA DE LA UTILIDAD" Style="{StaticResource SectionLabel}"/>
+            <Border Background="{StaticResource BBase}" CornerRadius="{StaticResource RSm}"
+                    BorderBrush="{StaticResource BStrokeSoft}" BorderThickness="1" Padding="12,10"
+                    MaxHeight="300">
+              <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <TextBlock x:Name="TxtDetalle" Text="" Style="{StaticResource Dim}"
+                           FontFamily="{StaticResource FMono}" FontSize="11.5"
+                           TextWrapping="Wrap"/>
+              </ScrollViewer>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <!-- ============================= PIE ============================= -->
+        <Grid Margin="0,2,0,6">
+          <TextBlock x:Name="TxtPie" Style="{StaticResource Dim}" VerticalAlignment="Center"
+                     HorizontalAlignment="Left" TextWrapping="Wrap" MaxWidth="470"
+                     Text="La consulta es de solo lectura. Los cambios los aplica Windows con su propia utilidad; SysDiag solo los solicita y muestra la respuesta."/>
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+            <Button x:Name="BtnDetalle" Content="Ver detalle de la licencia"
+                    Style="{StaticResource BtnQuiet}" Padding="13,8" FontSize="12"
+                    Margin="0,0,8,0" Click="VerDetalle_Click"/>
+            <Button Content="Cerrar" Style="{StaticResource BtnGhost}" Padding="16,9"
+                    Click="Cerrar_Click"/>
+          </StackPanel>
+        </Grid>
+
+        <!-- Permisos: instalar una clave exige elevar. Se ofrece acá y no
+             como error después, porque el error llega cuando el trabajo
+             ya está hecho a medias. -->
+        <Border x:Name="PanelAdmin" Style="{StaticResource CardOutline}" Background="{StaticResource BSurface}"
+                Visibility="Collapsed">
+          <StackPanel>
+            <TextBlock Text="PERMISOS" Style="{StaticResource SectionLabel}"/>
+            <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap"
+                       Text="Instalar una clave o cambiar el host KMS requiere permisos de administrador. Podés consultar el estado sin elevar, pero no modificarlo."/>
+            <Button Content="Reiniciar como administrador" Style="{StaticResource BtnGhost}"
+                    Padding="13,8" FontSize="12" Margin="0,12,0,0" HorizontalAlignment="Left"
+                    Click="Elevar_Click"/>
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</Window>

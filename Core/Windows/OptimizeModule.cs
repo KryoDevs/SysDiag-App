@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -158,29 +159,82 @@ public static class OptimizeModule
         var store = Store;
         var state = store.Read();
         var available = PowerSettings.Plans();
-        if ((state.RestaurarPlanEnergia && !available.Contains(state.PlanEnergia)) || state.Planes.Any(p => !available.Contains(p.Plan)))
-            throw new InvalidDataException("Un plan respaldado ya no existe. No se aplicará una restauración incompleta.");
-        var dnsAdapter = state.Dns == null ? null : FindInterface(state.Dns.Interfaz);
+
+        // --- Restauración selectiva -------------------------------------
+        // Antes, un solo plan de energía que ya no existía tumbaba la
+        // restauración entera con un «no se aplicará una restauración
+        // incompleta». Sonaba prudente y era lo contrario: el usuario se
+        // quedaba sin restaurar nada —ni DNS, ni efectos visuales, ni modo
+        // juego— por un plan que borró otro programa. Y el botón decía
+        // «Restaurar estado», no «Restaurar estado si todo sigue igual».
+        //
+        // Ahora lo que falta se omite y se nombra. Restaurar cuatro de cinco
+        // cosas y decir cuál quedó afuera es mejor que no restaurar ninguna.
+        var omitidos = new List<string>();
+
+        bool restaurarPlan = state.RestaurarPlanEnergia && available.Contains(state.PlanEnergia);
+        if (state.RestaurarPlanEnergia && !restaurarPlan)
+            omitidos.Add("el plan de energía respaldado ya no existe en este equipo");
+
+        var planes = state.Planes.Where(p => available.Contains(p.Plan)).ToList();
+        foreach (var plan in state.Planes.Where(p => !available.Contains(p.Plan)))
+            omitidos.Add($"un plan de energía ({plan.Plan}) ya no existe");
+
+        NetworkInterface dnsAdapter = null;
+        bool restaurarDns = state.Dns != null;
+        if (state.Dns != null)
+        {
+            dnsAdapter = TryFindInterface(state.Dns.Interfaz);
+            if (dnsAdapter == null)
+            {
+                restaurarDns = false;
+                omitidos.Add("la interfaz de red del respaldo DNS ya no está conectada");
+            }
+        }
+
+        if (omitidos.Count > 0 && planes.Count == 0 && !restaurarDns && !restaurarPlan
+            && state.EfectosVisuales == null && state.GameMode == null)
+        {
+            // Nada de lo que queda se puede restaurar. Acá sí corresponde no
+            // tocar nada: marcar el respaldo como completado habría dejado al
+            // usuario sin respaldo y sin cambios revertidos.
+            throw new InvalidDataException(
+                "Ningún elemento del respaldo sigue disponible en este equipo: " + string.Join("; ", omitidos) +
+                ". No se marcó el respaldo como restaurado.");
+        }
+
         Guid current = PowerSettings.ActivePlan();
         AppLog.Write($"Restaurando ajustes originales del {state.Fecha}", "STEP");
-        foreach (var plan in state.Planes)
+        foreach (var plan in planes)
         {
             if (plan.WifiPowerIndex is uint wifi)
                 PowerSettings.WriteAc(plan.Plan, PowerSettings.WirelessSubgroup, PowerSettings.WirelessSaving, wifi);
             if (plan.CpuMaxPercent is uint cpu)
                 PowerSettings.WriteAc(plan.Plan, PowerSettings.ProcessorSubgroup, PowerSettings.ProcessorMaximum, cpu);
         }
-        if (state.Dns != null) SetDns(dnsAdapter!, state.Dns);
+        if (restaurarDns) SetDns(dnsAdapter!, state.Dns);
         if (state.EfectosVisuales != null) WriteRegistry(VisualEffectsKey, "VisualFXSetting", state.EfectosVisuales);
         if (state.GameMode != null) WriteRegistry(GameModeKey, "AutoGameModeEnabled", state.GameMode);
         // Activar al FINAL; nunca escribir índices de otro plan sobre SCHEME_CURRENT.
-        PowerSettings.Activate(state.RestaurarPlanEnergia ? state.PlanEnergia : current);
+        PowerSettings.Activate(restaurarPlan ? state.PlanEnergia : current);
         store.CompleteRestore();
+
+        string avisoOmitidos = omitidos.Count == 0 ? ""
+            : $"\n\nSe omitió lo que ya no existe: {string.Join("; ", omitidos)}. El resto se restauró.";
         string warning = state.ReinicioRedNoReversible
             ? "\n\nEl reinicio de TCP/IP, las IP fijas, rutas y VPN NO se revierten mediante este respaldo."
             : "";
-        return $"Ajustes respaldados del {state.Fecha} restaurados. WLAN automático se mantiene habilitado por seguridad." + warning;
+        return $"Ajustes respaldados del {state.Fecha} restaurados. WLAN automático se mantiene habilitado por seguridad." +
+               avisoOmitidos + warning;
     }
+
+    /// <summary>
+    /// Busca la interfaz del respaldo sin lanzar. `Restore` necesita distinguir
+    /// «no está» de «está», y una excepción no sirve para eso: obligaba a
+    /// abortar todo o a capturarla, que es lo que se hacía antes.
+    /// </summary>
+    private static NetworkInterface TryFindInterface(Guid id) => NetworkInterface.GetAllNetworkInterfaces()
+        .FirstOrDefault(n => Guid.TryParse(n.Id, out var value) && value == id);
 
     private static NetworkInterface MainInterface() => NetworkInterface.GetAllNetworkInterfaces().FirstOrDefault(n =>
         n.OperationalStatus == OperationalStatus.Up && n.NetworkInterfaceType != NetworkInterfaceType.Loopback

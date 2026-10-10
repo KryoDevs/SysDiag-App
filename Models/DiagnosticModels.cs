@@ -46,6 +46,77 @@ public class DiagnosticReport : IJsonOnDeserialized
     public DateTime? Fin { get; set; }
     public string EstadoEjecucion { get; set; } = "Sin registro de ejecución";
     public Dictionary<string, DateTime> ModulosCompletados { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Módulos que no respondieron antes de su límite de tiempo. Se guardan
+    /// aparte de los datos porque lo que el usuario necesita no es el número
+    /// de segundos sino saber que ese módulo no se midió: un «Red y latencia»
+    /// ausente sin aviso se lee como «la red está bien».
+    /// </summary>
+    public List<string> ModulosColgados { get; set; } = new();
+
+    /// <summary>Segundos que tardó cada módulo, para poder decir cuál fue el lento.</summary>
+    public Dictionary<string, double> DuracionesModulo { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Lo que costó la corrida en CPU y memoria. Una herramienta que mide
+    /// tiene que declarar lo que perturba aquello que mide: si el diagnóstico
+    /// de rendimiento se come el 30 % de un núcleo mientras mide el
+    /// rendimiento, sus propios números valen menos, y el usuario merece
+    /// saberlo.
+    /// </summary>
+    public string CosteMedicion { get; set; } = "";
+
+    public void MarcarColgado(string clave)
+    {
+        ModulosColgados ??= new List<string>();
+        if (!ModulosColgados.Contains(clave, StringComparer.OrdinalIgnoreCase)) ModulosColgados.Add(clave);
+    }
+
+    public void RegistrarDuracion(string clave, TimeSpan transcurrido)
+    {
+        DuracionesModulo ??= new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        DuracionesModulo[clave] = Math.Round(transcurrido.TotalSeconds, 1);
+    }
+
+    /// <summary>Marca con la que se reconocen los avisos de módulo omitido, para poder retirarlos.</summary>
+    public const string MarcaColgado = "modulo-colgado";
+
+    /// <summary>
+    /// Los avisos de módulos colgados de una corrida anterior se retiran al
+    /// empezar la siguiente. Si no, un módulo que se colgó una vez y a la
+    /// siguiente respondió bien dejaría su aviso pegado para siempre, y un
+    /// aviso que ya no es cierto es peor que no avisar.
+    /// </summary>
+    public void LimpiarAvisosColgados() =>
+        Hallazgos.RemoveAll(f => string.Equals(f.AccionId, MarcaColgado, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Un módulo omitido es un hallazgo, no una nota al pie: aparece en la
+    /// lista, en el informe y en el puntaje de cobertura. Decir «no hay
+    /// problemas de red» cuando lo que pasó es que la red no se pudo medir es
+    /// la forma más dañina de estar en lo correcto.
+    /// </summary>
+    public void AddColgado(string clave, TimeSpan limite)
+    {
+        string nombre = NombresModulos.TryGetValue(clave, out var etiqueta) ? etiqueta : clave;
+        Add(Severity.Warn, "Diagnóstico",
+            $"El módulo «{nombre}» no se pudo medir: no respondió en {limite.TotalSeconds:0} s.",
+            "Repite solo ese módulo. Si se repite, reinicia el equipo o revisa el servicio de Instrumental de administración de Windows (winmgmt).",
+            MarcaColgado, modulo: "");
+    }
+
+    /// <summary>Frase corta para el pie, o cadena vacía si la corrida salió completa.</summary>
+    public string ResumenColgados()
+    {
+        var nombres = (ModulosColgados ?? new List<string>())
+            .Select(c => NombresModulos.TryGetValue(c, out var nombre) ? nombre : c)
+            .ToList();
+        return nombres.Count == 0 ? ""
+            : nombres.Count == 1 ? $"{nombres[0]} no respondió a tiempo y se omitió"
+            : $"{string.Join(", ", nombres)} no respondieron a tiempo y se omitieron";
+    }
+
     public string Equipo { get; set; } = Environment.MachineName;
 
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
@@ -63,6 +134,8 @@ public class DiagnosticReport : IJsonOnDeserialized
     public List<EventRow> EventosDetalle { get; set; } = new();
     public List<EventRow> Whea { get; set; } = new();
     public List<DumpRow> Minidumps { get; set; } = new();
+    /// <summary>Volcados con su código de detención decodificado. Ver Core/Diagnostics/BugCheckDecoder.cs.</summary>
+    public List<BugcheckRow> Pantallazos { get; set; } = new();
     public List<TraceHop> Traceroute { get; set; } = new();
     public string TracerouteDestino { get; set; } = "";
     public List<KeyValueRow> Bateria { get; set; } = new();
@@ -87,21 +160,25 @@ public class DiagnosticReport : IJsonOnDeserialized
         Hallazgos.Count > 0 || Sistema.Count > 0 || Discos.Count > 0 || Memoria.Count > 0 ||
         WiFi.Count > 0 || Red.Count > 0 || RendimientoResumen.Count > 0 || TopCpu.Count > 0 ||
         TopRam.Count > 0 || Termicas.Count > 0 || EventosResumen.Count > 0 || EventosDetalle.Count > 0 ||
-        Whea.Count > 0 || Minidumps.Count > 0 || Traceroute.Count > 0 || Bateria.Count > 0 ||
+        Whea.Count > 0 || Minidumps.Count > 0 || Pantallazos.Count > 0 || Traceroute.Count > 0 || Bateria.Count > 0 ||
         Limpieza.Count > 0 || Drivers.Count > 0 || Seguridad.Count > 0 || Gpus.Count > 0 ||
         Actualizaciones.Count > 0 || DriversDisponibles.Count > 0 || Almacenamiento.Count > 0 ||
         Arranque.Count > 0 || Servicios.Count > 0 || Programas.Count > 0 || RedesCercanas.Count > 0;
 
     public string ResumenEstado()
     {
+        string colgados = ResumenColgados();
         if (EstadoEjecucion == "Cancelado")
             return "La ejecución fue cancelada. Los datos visibles pueden incluir mediciones anteriores; no es un diagnóstico completado.";
         if (EstadoEjecucion == "Falló o incompleto")
             return "La ejecución falló o quedó incompleta. Los datos visibles pueden incluir mediciones anteriores; no es un diagnóstico completado.";
         if (TieneDatosRelevantes())
+        {
+            string avisoColgados = colgados.Length > 0 ? $" {colgados}; esos datos son de una corrida anterior." : "";
             return Hallazgos.Count == 0
-                ? "La comprobación se completó, pero no se detectaron problemas relevantes en los datos disponibles."
-                : "La comprobación se completó con los datos disponibles del equipo.";
+                ? $"La comprobación se completó, pero no se detectaron problemas relevantes en los datos disponibles.{avisoColgados}"
+                : $"La comprobación se completó con los datos disponibles del equipo.{avisoColgados}";
+        }
 
         var faltantes = ModulosFaltantes();
         var lista = faltantes.Count > 0 ? $" Módulos pendientes: {string.Join(", ", faltantes.Take(3))}." : "";
@@ -263,7 +340,7 @@ public class DiagnosticReport : IJsonOnDeserialized
             case "rendimiento": RendimientoResumen = other.RendimientoResumen; TopCpu = other.TopCpu; TopRam = other.TopRam; break;
             case "termicas": Termicas = other.Termicas; Bateria = other.Bateria; Gpus = other.Gpus; break;
             case "estabilidad": EventosResumen = other.EventosResumen; EventosDetalle = other.EventosDetalle;
-                Whea = other.Whea; Minidumps = other.Minidumps; break;
+                Whea = other.Whea; Minidumps = other.Minidumps; Pantallazos = other.Pantallazos; break;
             case "almacenamiento": Almacenamiento = other.Almacenamiento; break;
             case "seguridad": Seguridad = other.Seguridad; break;
             case "drivers": Drivers = other.Drivers; DriversDisponibles = other.DriversDisponibles; break;
@@ -300,10 +377,11 @@ public class DiagnosticReport : IJsonOnDeserialized
         // Un archivo antiguo o un JSON con null no debe tumbar la vista de historial.
         Sistema ??= new(); Discos ??= new(); Memoria ??= new(); WiFi ??= new(); Red ??= new();
         RendimientoResumen ??= new(); TopCpu ??= new(); TopRam ??= new(); Termicas ??= new(); Bateria ??= new();
-        EventosResumen ??= new(); EventosDetalle ??= new(); Whea ??= new(); Minidumps ??= new(); Traceroute ??= new();
+        EventosResumen ??= new(); EventosDetalle ??= new(); Whea ??= new(); Minidumps ??= new(); Pantallazos ??= new(); Traceroute ??= new();
         Limpieza ??= new(); Drivers ??= new(); Seguridad ??= new(); Gpus ??= new(); Actualizaciones ??= new();
         DriversDisponibles ??= new(); Almacenamiento ??= new(); Arranque ??= new(); Servicios ??= new();
         Programas ??= new(); RedesCercanas ??= new(); Recomendaciones ??= new(); ModulosCompletados ??= new();
+        ModulosColgados ??= new(); DuracionesModulo ??= new(); CosteMedicion ??= "";
         Hallazgos.RemoveAll(f => f == null);
         foreach (var finding in Hallazgos)
         {

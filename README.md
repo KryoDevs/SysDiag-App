@@ -1,4 +1,4 @@
-# SysDiag 5.8.0
+# SysDiag 5.14.0
 
 [![Compilar y probar](https://github.com/KryoDevs/SysDiag-App/actions/workflows/build.yml/badge.svg)](https://github.com/KryoDevs/SysDiag-App/actions/workflows/build.yml) [![Validar fixture](https://github.com/KryoDevs/SysDiag-App/actions/workflows/validate-fixture.yml/badge.svg)](https://github.com/KryoDevs/SysDiag-App/actions/workflows/validate-fixture.yml)
 
@@ -45,6 +45,7 @@ SysDiag/
 │
 ├─ Core/                         Recolección de datos. Un namespace por subcarpeta
 │  ├─ AppEnv.cs, ComWorker.cs, WmiHelper.cs     infraestructura transversal (SysDiag.Core)
+│  ├─ Stats.cs                   percentiles, desviación, jitter y escalas (funciones puras)
 │  ├─ Hardware/                  SystemModule, ThermalModule, GpuModule
 │  ├─ Performance/                PerformanceModule
 │  ├─ Network/                   NetworkModule (latencia, Wi-Fi, canales, traceroute)
@@ -52,7 +53,8 @@ SysDiag/
 │  ├─ Security/                  SecurityModule (Defender, Firewall, BitLocker, TPM, Secure Boot, UAC)
 │  ├─ Drivers/                   DriverModule, DriverUpdateModule, DriverVerifier, AuthenticodeVerifier
 │  ├─ Windows/                   OptimizeModule, PowerSettings, OptimizationBackupStore, SecureBackupDirectory,
-│  │                            RestorePointModule, SettingsService, StartupModule, UpdateModule (winget)
+│  │                            RestorePointModule, SettingsService, StartupModule, UpdateModule (winget),
+│  │                            ActivationModule (licencia de Windows por canales oficiales)
 │  └─ Diagnostics/               HealthScore, Remediation, ReportBuilder, Exporter, StabilityModule
 │
 ├─ Services/                     Contrato hacia la UI. Namespace SysDiag.Services
@@ -70,10 +72,15 @@ SysDiag/
    ├─ Theme.xaml                  Sistema de diseño: paleta, tipografía, escalas y plantillas
    ├─ MainWindow.xaml             Barra superior + rail de navegación y cuatro vistas
    ├─ MainViewModel.cs            Estado observable y orquestación de sesión
-   ├─ Charts.cs / Converters.cs
+   ├─ Charts.cs / Converters.cs   gráficos: barras con rejilla, líneas, anillos y series en vivo
    ├─ Dialog.xaml                 Diálogos propios (no MessageBox)
    ├─ CleanupWindow / OptimizeWindow / ProfilesWindow   acciones con confirmación
-   └─ HistoryWindow / SettingsWindow / PingMonitorWindow   historial, ajustes y monitor de latencia
+   ├─ HistoryWindow / CompararWindow / SettingsWindow      historial y diff entre dos diagnósticos
+   ├─ SmartWindow                           atributos SMART del disco, uno por uno
+   ├─ ConsumoWindow                         quién mueve el disco y quién tiene la red abierta
+   ├─ TrazaWindow                           pérdida y jitter por salto
+   ├─ PingMonitorWindow                     monitor de latencia en vivo
+   └─ ActivacionWindowsWindow     licencia de Windows 10/11 (solo canales oficiales)
 ```
 
 ## Módulos
@@ -83,6 +90,8 @@ SysDiag/
 | Diagnóstico completo | Todos los de abajo en una pasada | recomendado |
 | Red y latencia | RTT, jitter y pérdida contra router, internet y chat regional de Riot (LAS/LAN); señal, banda y canal Wi-Fi; traceroute hacia el destino más relevante | no |
 | Rendimiento | CPU por proceso con muestreo real, RAM, cola de disco | no |
+| Consumo por proceso | Lectura y escritura de disco por proceso, y conexiones de red por PID con su destino | no |
+| Pérdida por salto | Pérdida, jitter y latencia por tramo, con la lectura de en qué salto empieza el problema | no |
 | Térmicas y energía | Temperatura ACPI, frecuencia actual vs. nominal, throttling, plan de energía, desgaste de batería (capacidad de diseño vs. actual) | no |
 | Estabilidad | Kernel-Power 41, BugCheck, WHEA (catálogo general + escaneo dedicado por proveedor), errores de disco, minidumps | recomendado |
 | Limpieza | Calcula, confirma y borra temporales reportando lo liberado | parcial |
@@ -90,9 +99,14 @@ SysDiag/
 | Optimizar | DNS, reparación de WLAN, plan de energía, reinicio de pila TCP/IP | sí |
 | Restaurar | Revierte los valores capturados antes del primer ajuste pendiente; no TCP/IP/IP fija/VPN | sí |
 | Monitor de ping | Latencia en vivo hacia el router o internet: último valor, promedio, máximo y pérdida | no |
-| Historial | Diagnósticos archivados con su puntaje y cobertura; la tendencia compara solo cobertura equivalente | no |
+| SMART del disco | Atributos SMART: sectores reasignados y pendientes, errores de la interfaz, vida útil restante del SSD | recomendado |
+| Comparar | Diferencia entre dos diagnósticos: hallazgos nuevos, resueltos, los que empeoraron y los que mejoraron | no |
 | Perfiles | Combinaciones de optimización (universidad, trabajo, juego) con respaldo previo | sí |
 | Ajustes | Muestreo, ventanas de eventos, retención de historial y registros | no |
+| Activación de Windows | Estado de la licencia y activación por canales oficiales de Microsoft | sí* |
+
+\*La consulta no pide permisos; instalar una clave o cambiar el host KMS sí los pide,
+porque los aplica `slmgr.vbs`, la utilidad del propio Windows.
 
 ### Sobre el módulo de Drivers
 
@@ -140,6 +154,33 @@ piden un **código de activación**.
   licencias): `-Dias 365 -Cantidad 10` emite; `-Verificar <código>` comprueba
   y muestra vigencia, serial y si está vinculado al equipo.
 
+## Activación de Windows 10 y 11
+
+**SysDiag no es un activador y no activa equipos sin licencia.** El módulo
+`Activación de Windows` (panel izquierdo ▸ Sistema) muestra el estado real de la
+licencia y ofrece los caminos previstos por Microsoft:
+
+- **Leer el estado**: edición, clave parcial, canal (Retail, OEM, Volumen KMS o
+  MAK), vencimiento, host KMS y días de gracia, desde
+  `SoftwareLicensingProduct` por WMI. No requiere permisos elevados.
+- **Instalar una clave que ya tengas**: `slmgr.vbs /ipk` + `/ato`. Pide
+  administrador y pide confirmación antes de escribir.
+- **Activación por volumen**: apuntar al host KMS **propio** de tu organización
+  (`slmgr.vbs /skms` + `/ato`). Es el mecanismo corporativo previsto; apuntarlo
+  a un host ajeno activaría Windows sin licencia, y eso es justo lo que este
+  módulo no hace.
+- **Canales oficiales**: Ajustes ▸ Activación, Microsoft Store, el solucionador
+  de problemas de Microsoft y la activación telefónica con el id. de instalación.
+
+Lo que **no** hace: no emula servidores KMS, no inyecta licencias digitales
+(HWID/KMS38), no genera ni valida claves ajenas y no modifica el servicio de
+licencias. Además de ser una infracción de los términos de Microsoft, los
+«activadores» que circulan son hoy una de las formas más habituales de
+distribuir malware.
+
+La clave nunca se registra completa en el log: se guardan solo los últimos cinco
+caracteres, porque los registros se comparten cuando se pide soporte.
+
 ## Ajustes de Windows 10 y 11
 
 `Ajustes de Windows` (panel izquierdo ▸ Mantenimiento) reúne ajustes
@@ -157,18 +198,87 @@ en uno o todos a la vez, y también desde `Restaurar estado`. Si alguna opción
 necesita administrador, SysDiag lo dice antes de tocar nada y ofrece
 reiniciarse elevado.
 
+## Antes y después de tocar el equipo
+
+SysDiag puede cambiar configuración, así que todo lo que escribe pasa por las
+mismas cuatro garantías:
+
+- **Ensayo.** El botón «Ensayar (no aplica nada)» de `Ajustes de Windows`
+  muestra exactamente qué claves y qué valores cambiarían —y cuáles fallarían
+  por falta de permisos— sin escribir nada.
+- **Verificación.** Después de escribir, SysDiag **relee** y compara. Un ajuste
+  se escribe y la llamada devuelve sin error tanto si se aplicó como si una
+  directiva de grupo lo repuso enseguida: los dos casos se ven igual desde el
+  código que escribe, y solo volviendo a leer se distinguen. El resultado separa
+  «ya estaba así» de «se escribió y no quedó».
+- **Deshacer por paso.** `Cambios aplicados` (panel izquierdo ▸ Sistema) lista
+  todo lo que SysDiag cambió, en orden, con un botón por paso. Lo que no tiene
+  vuelta atrás —borrar temporales, reiniciar la pila TCP/IP— se registra igual y
+  marcado, con el motivo: un historial que solo anotara lo reversible mentiría
+  por omisión justo en los casos que importan.
+- **Restauración selectiva.** Si un plan de energía del respaldo ya no existe,
+  `Restaurar estado` omite lo que falta y lo nombra, en vez de no restaurar
+  nada por una pieza que borró otro programa.
+
+Además, cada corrida declara lo que costó: el pie muestra el tiempo de CPU y el
+pico de memoria de la propia medición. Una herramienta que mide perturba aquello
+que mide, y conviene que eso se vea.
+
+## Informes y exportación
+
+El botón `Generar informe` abre un diálogo con cinco formatos, porque no es lo
+mismo quedárselo que mandarlo:
+
+| Formato | Para qué |
+|---|---|
+| **HTML** | Abrirlo en el navegador o archivarlo. Todos los datos. |
+| **HTML redactado** | Mandarlo a soporte o publicarlo en un foro. |
+| **Markdown** | Pegarlo en un foro o un ticket. |
+| **Markdown redactado** | Lo mismo, sin datos identificables. |
+| **JSON** | Todos los datos, para procesarlos con otro programa. |
+
+La versión **redactada** quita el nombre del equipo, el del usuario, la ruta del
+perfil, los números de serie, los nombres de red Wi-Fi y las direcciones MAC, y
+lo aplica sobre una **copia**: el informe que queda en tu carpeta sigue
+completo, porque es tuyo. Las redes se numeran, no se sustituyen todas por el
+mismo texto, así que dos redes distintas siguen siendo distinguibles y un
+problema de solapamiento de canales se sigue pudiendo ver. Y el propio informe
+dice qué se le quitó: uno censurado en silencio confunde a quien lo recibe.
+
+## Paleta de comandos
+
+`Ctrl+K` (o el botón `Buscar` de la barra superior) abre un campo que filtra y
+ejecuta módulos, acciones de la sección activa, exportaciones y vistas. Busca
+por relevancia, no por orden alfabético: «red» pone `Red y latencia` primero, y
+«disco» encuentra `Almacenamiento`. Cada entrada ejecuta exactamente lo mismo
+que ejecutaría el botón o el ítem del rail, porque llama al mismo método.
+
+## Pantallazos azules
+
+Si hay volcados en `C:\Windows\Minidump`, la tabla **Pantallazos** de la vista
+Datos dice el código de detención, qué significa en palabras llanas y qué
+controladores de terceros estaban cargados en ese momento.
+
+Dos límites, dichos de frente: el código de detención **no** está en el
+minidump —se lee del informe de errores de Windows, que es de donde lo sacan
+también las herramientas de terceros— y los módulos se listan como **candidatos**,
+no como culpables. Señalar cuál falló exige análisis de pila (WinDbg); acá se
+lista lo accionable sin instalar nada.
+
 ## CI, pruebas y distribución
 
 - Windows compila la solución, ejecuta regresiones y conserva TRX. Se incluyen ramas
   `arena/**`; no se publica un release por trabajar en una rama.
-- `Tools/validate_tests.ps1` exige ≥163 pruebas (114 de la suite auditada + 34 que miden el sistema visual + 4 de licencia + 11 del recorte de ventanas), todas aprobadas y sin omisiones.
-- `Tools/validate_xaml.ps1` comprueba cinco cosas sobre los doce XAML: bien formado, resolución de
+- `Tools/validate_tests.ps1` exige ≥282 pruebas (114 de la suite auditada + 34 que miden el sistema visual + 4 de licencia + 11 del recorte de ventanas + 40 sobre funciones puras del lote 5.9 + 15 del lote «Confiar» + 14 del diff entre diagnósticos + 21 de SMART + 13 de consumo por proceso + 16 de pérdida por salto), todas aprobadas y sin omisiones.
+- `Tools/validate_xaml.ps1` comprueba seis cosas sobre los XAML: bien formado, resolución de
   `{StaticResource}`, ámbito de cada `TargetName` dentro de su plantilla, que la propiedad animada exista
-  en el tipo del elemento destino, y que todo `RepeatBehavior="Forever"` nacido en un `Trigger` tenga su
-  `StopStoryboard`. Es puerta en `build.yml` y también en `release.yml`. Las dos últimas cazan lo que
-  WPF no reporta: animar una propiedad que el destino no tiene (`ScaleX` sobre un
-  `TranslateTransform`, `Opacity` sobre un pincel) no lanza excepción, simplemente no anima y la vista
-  queda muerta en el primer hover; y un `Forever` sin `StopStoryboard` tampoco falla —sigue corriendo.
+  en el tipo del elemento destino, que todo `RepeatBehavior="Forever"` nacido en un `Trigger` tenga su
+  `StopStoryboard`, y que cada `{Binding X}` corresponda a un miembro real de su clase de datos. Es
+  puerta en `build.yml` y también en `release.yml`. Las tres últimas cazan lo que WPF no reporta:
+  animar una propiedad que el destino no tiene (`ScaleX` sobre un `TranslateTransform`, `Opacity`
+  sobre un pincel) no lanza excepción, simplemente no anima y la vista queda muerta en el primer
+  hover; un `Forever` sin `StopStoryboard` tampoco falla —sigue corriendo—; y un binding a un nombre
+  inexistente no rompe la compilación, rompe en tiempo de ejecución y en silencio.
 - Headless está en la solución y comparte `ScanService`; `--self-test` usa un doble
   sintético explícito, nunca sustituye mediciones de un diagnóstico real.
 - `Tools/validate_release.ps1` arranca el **EXE publicado** con `--self-test` y comprueba
@@ -311,6 +421,17 @@ Un ejecutable recién compilado y sin firma digital puede activar SmartScreen la
 vez ("Windows protegió su PC" → *Más información* → *Ejecutar de todas formas"). Es normal
 en binarios propios. Para distribuirlo a terceros haría falta un certificado de firma de
 código.
+
+## Documentos
+
+- `docs/AUDITORIA.md` y `docs/AUDITORIA_2026-10-09.md`: auditorías, con su evidencia de CI.
+- `docs/MEJORAS.md`: análisis y plan de mejoras. La §8 es el lote 5.9 (gráficos,
+  mediciones, interfaz por sección y activación) y la §9 el lote 5.10 (ensayo,
+  verificación, deshacer por paso y primeras herramientas nuevas).
+- `docs/HERRAMIENTAS_NUEVAS.md`: catálogo de herramientas nuevas, su límite explícito
+  y el orden sugerido para encararlas.
+- `docs/DISENO.md`: sistema visual y de movimiento.
+- `docs/preview/index.html`: maqueta de la interfaz.
 
 ## Siguientes pasos
 

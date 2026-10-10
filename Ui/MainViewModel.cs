@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Diagnostics;
 using System.Windows;
@@ -24,6 +25,13 @@ public class LogLine
 {
     public string Texto { get; init; } = "";
     public Brush Color { get; init; } = Brushes.Gray;
+    /// <summary>
+    /// Nivel tal como lo emite AppLog («INFO», «WARN», «ERROR», «STEP», «OK»).
+    /// El texto visible ya lo trae entre corchetes, pero parsear el renglón
+    /// para filtrar es frágil: en cuanto el formato cambie, el filtro deja de
+    /// encontrar nada y no hay forma de darse cuenta. El nivel viaja aparte.
+    /// </summary>
+    public string Nivel { get; init; } = "INFO";
 }
 
 /// <summary>
@@ -134,7 +142,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         ["rendimiento"] = new[] { "Rendimiento", "Procesos por CPU", "Procesos por RAM" },
         ["termicas"] = new[] { "Térmicas", "Batería", "GPU" },
         ["seguridad"] = new[] { "Seguridad" },
-        ["estabilidad"] = new[] { "Eventos (resumen)", "Eventos (detalle)", "Errores WHEA", "Volcados de memoria" },
+        ["estabilidad"] = new[] { "Eventos (resumen)", "Eventos (detalle)", "Errores WHEA", "Pantallazos", "Volcados de memoria" },
         ["almacenamiento"] = new[] { "Almacenamiento", "Discos" },
         ["drivers"] = new[] { "Drivers disponibles", "Drivers" },
         ["arranque"] = new[] { "Arranque", "Servicios", "Programas instalados" },
@@ -341,6 +349,17 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
                 new AccionRapida { Id = "ajustes", Texto = "Abrir ajustes", Icono = "\uE713", EsPrimario = true },
                 new AccionRapida { Id = "licencia", Texto = "Activación", Icono = "\uEA18" }
             }
+        },
+        ["activacion-windows"] = new ContextoModulo
+        {
+            Nombre = "Activación de Windows", Icono = "\uE975", ColorClave = "BOk",
+            Descripcion = "Estado de la licencia de Windows 10/11 y activación por los canales oficiales de Microsoft.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "activacion-windows", Texto = "Abrir activación", Icono = "\uE975", EsPrimario = true },
+                new AccionRapida { Id = "abrir-activacion-os", Texto = "Ajustes de Windows", Icono = "\uE713" },
+                new AccionRapida { Id = "crear-punto", Texto = "Crear punto", Icono = "\uE777" }
+            }
         }
     };
 
@@ -421,6 +440,8 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
     private DispatcherTimer _cronometro;
     private Stopwatch _relojPaso;
     private int _segundosPaso;
+    /// <summary>Mide lo que la propia corrida le cuesta al equipo. Ver MedidorCoste.</summary>
+    private readonly MedidorCoste _coste = new();
 
     /// <summary>Segundos que lleva el módulo actual midiendo.</summary>
     public int SegundosPaso
@@ -442,6 +463,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         _cronometro.Tick += (_, _) =>
         {
             if (_disposed || _relojPaso is null) return;
+            _coste.Muestrear();
             int antes = SegundosPaso;
             SegundosPaso = (int)_relojPaso.Elapsed.TotalSeconds;
             // Una sola vez, en el umbral: si el usuario tarda más, el log no tiene
@@ -484,6 +506,24 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         < SegundosLentos => $"{modulo} · {_segundosPaso} s",
         _ => $"{modulo} · {_segundosPaso} s (lento)"
     };
+
+    private string _costeTexto = "";
+    /// <summary>
+    /// Lo que costó la última corrida, listo para el pie. Se guarda aparte del
+    /// informe porque el pie se muestra también después de una acción que no
+    /// es diagnóstico (una limpieza, un ajuste) y que igual consumió CPU.
+    /// </summary>
+    public string CosteTexto
+    {
+        get => _costeTexto;
+        private set
+        {
+            Set(ref _costeTexto, value);
+            OnPropertyChanged(nameof(CosteVisible));
+        }
+    }
+
+    public bool CosteVisible => !string.IsNullOrWhiteSpace(_costeTexto);
 
     public bool Libre => !_ocupado;
     public bool PuedeCancelar => _ocupado && _cancelable;
@@ -541,6 +581,9 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             Set(ref _tablaSel, value);
             OnPropertyChanged(nameof(FilasTabla));
+            OnPropertyChanged(nameof(FilasTablaFiltradas));
+            OnPropertyChanged(nameof(ConteoTabla));
+            OnPropertyChanged(nameof(SinCoincidencias));
             OnPropertyChanged(nameof(MostrarAyudaDrivers));
             OnPropertyChanged(nameof(MostrarAccionesDrivers));
             OnPropertyChanged(nameof(AvisoDrivers));
@@ -610,6 +653,14 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private HistoryChart _graficoHistorial = new();
     public HistoryChart GraficoHistorial { get => _graficoHistorial; private set => Set(ref _graficoHistorial, value); }
+
+    private DonutChart _graficoDiscos = new();
+    /// <summary>
+    /// Composición del espacio ocupado por unidad. Las tarjetas dicen cuánto
+    /// queda libre; este gráfico dice de qué está lleno, que es la otra mitad
+    /// de la pregunta cuando falta espacio.
+    /// </summary>
+    public DonutChart GraficoDiscos { get => _graficoDiscos; private set => Set(ref _graficoDiscos, value); }
 
     private string _sugerencia = "";
     /// <summary>
@@ -718,6 +769,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
             Report.Fin = null;
         }
         Wmi.ResetAccessState();
+        _coste.Iniciar();
         try
         {
             // El conteo se lleva acá y no dentro de ScanService a propósito: el
@@ -774,6 +826,12 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         finally
         {
             if (diagnostic) Report.Fin = DateTime.Now;
+            string coste = _coste.Detener();
+            // Va al informe archivado y al HTML, no solo al pie: dentro de tres
+            // meses, la pregunta «¿esta medición es fiable?» se responde con
+            // esto, y el pie de la interfaz ya no está.
+            Report.CosteMedicion = coste;
+            CosteTexto = coste;
             DetenerCronometro();
             _cts.Dispose();
             _cts = null;
@@ -809,13 +867,23 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void BuildCharts()
     {
+        // El anillo de disco se limpia primero: a diferencia de los otros tres,
+        // solo se arma si hay volúmenes con datos, y sin este reinicio un
+        // diagnóstico que no trajo discos dejaría en pantalla el anillo de la
+        // corrida anterior, que ya no describe este equipo.
+        GraficoDiscos = new DonutChart();
+
         // --- Latencia por destino: la comparación es el punto, no el número ---
+        // El umbral de 70 ms es el mismo que usa la regla de severidad de red:
+        // la línea en el gráfico y el color de la barra cuentan lo mismo, así
+        // no hay que aprender dos criterios para leer una sola medición.
         GraficoRed = BarChart.Crear("Latencia por destino",
             "Cuanto más larga la barra, más tarda la respuesta. Comparar el router con los demás separa un problema de tu red de uno del proveedor.",
             Report.Red
                 .Where(x => x.Media > 0)
                 .Select(x => (x.Destino, x.Media, $"{x.Media} ms", Pincel(x.Estado),
-                              $"jitter {x.Jitter} ms · pérdida {x.PerdidaPct} %")));
+                              $"jitter {x.Jitter} ms · pérdida {x.PerdidaPct} %")),
+            unidad: "ms", marca: 70, marcaTexto: "70 ms");
 
         // --- Procesos por CPU ---
         GraficoProcesos = BarChart.Crear("Procesos que más CPU consumen",
@@ -825,16 +893,59 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
                 .Take(6)
                 .Select(x => (x.Proceso, x.CpuPct, $"{x.CpuPct} %",
                               Pincel(x.CpuPct > 40 ? Severity.Warn : Severity.Ok),
-                              $"{x.RamMb} MB de memoria")));
+                              $"{x.RamMb} MB de memoria")),
+            unidad: "%", escalaMax: 100, marca: 40, marcaTexto: "40 %");
 
         // --- Eventos críticos por tipo ---
+        // Escala logarítmica: cuando un tipo se repite 40 000 veces y los
+        // demás 3, una escala lineal dibuja una sola barra y cinco ceros. Con
+        // logaritmo se comparan órdenes de magnitud, que es lo que importa
+        // acá («esto se repite miles de veces» versus «esto pasó dos veces»).
+        // Los rótulos se escriben a mano porque la barra mide log10(n) y no n:
+        // dejar que se calculen solos pondría «media 2,4» donde va «40 000».
+        var eventos = Report.EventosResumen.Take(6).ToList();
         GraficoEventos = BarChart.Crear("Eventos críticos por tipo",
-            $"Repeticiones en los últimos {StabilityModule.EventDays} días. Un tipo que se repite miles de veces señala un problema persistente, no un incidente aislado.",
-            Report.EventosResumen
-                .Take(6)
-                .Select(x => ($"ID {x.Id}", (double)x.Ocurrencias, x.Ocurrencias.ToString("N0"),
+            $"Repeticiones en los últimos {StabilityModule.EventDays} días, en escala logarítmica: cada guía multiplica por diez. " +
+            "Un tipo que se repite miles de veces señala un problema persistente, no un incidente aislado.",
+            eventos.Select(x => ($"ID {x.Id}", Math.Log10(Math.Max(x.Ocurrencias, 1)),
+                              x.Ocurrencias.ToString("N0"),
                               Pincel(x.Ocurrencias > 100 ? Severity.Bad : Severity.Warn),
-                              x.Descripcion)));
+                              x.Descripcion)),
+            escalaTexto: "escala logarítmica · cada guía ×10",
+            resumenTexto: eventos.Count == 0 ? "" :
+                $"{eventos.Count} tipos · {eventos.Sum(x => x.Ocurrencias):N0} repeticiones en total");
+
+        // --- Composición del disco: cuánto ocupa cada volumen ---
+        // Es un anillo y no barras porque la pregunta no es «cuál es más
+        // grande» sino «de qué está hecho el total»: se lee como una torta.
+        var discos = Report.Discos
+            .Where(d => NumericText.TryRead(d.Tamano, out _) && Leer(d.Libre) >= 0)
+            .ToList();
+
+        if (discos.Count > 0)
+        {
+            double totalGb = 0;
+            var porciones = new List<(string, double, string, Brush, string)>();
+            foreach (var d in discos)
+            {
+                double usadoGb = Math.Max(Leer(d.Tamano) - Leer(d.Libre), 0);
+                if (usadoGb <= 0) continue;
+                totalGb += usadoGb;
+                porciones.Add(($"{d.Unidad} {d.Etiqueta}".Trim(), usadoGb, d.Libre,
+                    Pincel(d.LibrePct < 10 ? Severity.Bad : d.LibrePct < 20 ? Severity.Warn : Severity.Ok),
+                    $"{d.Unidad} · {d.Libre} libres de {d.Tamano}"));
+            }
+
+            if (porciones.Count > 0)
+            {
+                GraficoDiscos = DonutChart.Crear("Espacio en disco por unidad",
+                    "Cada porción es espacio ocupado; el centro dice cuánto queda libre en total. " +
+                    "Con menos del 10 % libre en la unidad del sistema, Windows empieza a fallar al actualizar.",
+                    porciones,
+                    centro1: AppEnv.FormatBytes(totalGb * 1024 * 1024 * 1024),
+                    centro2: "en uso");
+            }
+        }
 
         GraficoHistorial = HistoryChart.Crear(_history);
     }
@@ -1076,6 +1187,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         Offer("Eventos (detalle)", Report.EventosDetalle);
         Offer("Errores WHEA", Report.Whea);
         Offer("Volcados de memoria", Report.Minidumps);
+        Offer("Pantallazos", Report.Pantallazos);
         Offer("Almacenamiento", Report.Almacenamiento);
         Offer("Drivers disponibles", Report.DriversDisponibles, BusquedaDriversHecha);
         Offer("Drivers", Report.Drivers);
@@ -1128,6 +1240,155 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
     /// </summary>
     public bool BusquedaDriversHecha { get; set; }
 
+    // ---- Filtros de las vistas -------------------------------------------
+    //
+    // Una tabla de 300 servicios o un registro de 1500 líneas se vuelven
+    // inútiles sin forma de acotarlos: el dato está, pero hay que encontrarlo
+    // a ojo. Los tres filtros viven en el ViewModel y no en la vista porque
+    // el criterio —qué es un «aviso», qué columnas se buscan— es la misma
+    // regla que usa el informe HTML, y duplicarla en code-behind la dejaría
+    // expuesta a divergir.
+
+    /// <summary>Filtro de hallazgos: 0 todos, 1 críticos, 2 avisos, 3 correctos.</summary>
+    private int _filtroHallazgos;
+    public int FiltroHallazgos
+    {
+        get => _filtroHallazgos;
+        set
+        {
+            Set(ref _filtroHallazgos, value);
+            OnPropertyChanged(nameof(HallazgosFiltrados));
+            OnPropertyChanged(nameof(SinHallazgosPorFiltro));
+
+            // Si lo que estaba seleccionado queda fuera del filtro, se pasa al
+            // primero visible: el panel de la derecha seguiría mostrando la
+            // recomendación de un hallazgo que ya no está en la lista, y eso
+            // se lee como un error de la aplicación.
+            var visibles = HallazgosFiltrados.ToList();
+            if (HallazgoSeleccionado != null && !visibles.Contains(HallazgoSeleccionado))
+                HallazgoSeleccionado = visibles.FirstOrDefault();
+        }
+    }
+
+    public IEnumerable<Finding> HallazgosFiltrados => _filtroHallazgos switch
+    {
+        1 => Hallazgos.Where(f => f.Severity == Severity.Bad),
+        2 => Hallazgos.Where(f => f.Severity == Severity.Warn),
+        3 => Hallazgos.Where(f => f.Severity == Severity.Ok),
+        _ => Hallazgos
+    };
+
+    /// <summary>
+    /// Hay hallazgos, pero ninguno del tipo filtrado. Es un estado distinto de
+    /// «sin hallazgos»: el primero es una buena noticia disfrazada de lista
+    /// vacía, y merece su propio texto.
+    /// </summary>
+    public bool SinHallazgosPorFiltro => Hallazgos.Count > 0 && !HallazgosFiltrados.Any();
+
+    public string ContadorHallazgos =>
+        $"{Hallazgos.Count(f => f.Severity == Severity.Bad)} críticos · " +
+        $"{Hallazgos.Count(f => f.Severity == Severity.Warn)} avisos · " +
+        $"{Hallazgos.Count(f => f.Severity == Severity.Ok)} correctos";
+
+    private string _busquedaTabla = "";
+    /// <summary>Texto que acota las filas de la tabla activa en la vista Datos.</summary>
+    public string BusquedaTabla
+    {
+        get => _busquedaTabla;
+        set
+        {
+            Set(ref _busquedaTabla, value ?? "");
+            OnPropertyChanged(nameof(FilasTablaFiltradas));
+            OnPropertyChanged(nameof(ConteoTabla));
+            OnPropertyChanged(nameof(SinCoincidencias));
+        }
+    }
+
+    private static readonly Dictionary<Type, PropertyInfo[]> CacheColumnas = new();
+
+    /// <summary>
+    /// Las filas de la tabla cuando hay una búsqueda activa. Se devuelve como
+    /// <c>IList</c> de objetos: el DataGrid genera sus columnas a partir del
+    /// tipo del primer elemento, así que la lista se construye conservando los
+    /// objetos originales y no una copia en texto.
+    /// </summary>
+    public IList FilasTablaFiltradas
+    {
+        get
+        {
+            var filas = FilasTabla;
+            if (filas == null) return null;
+
+            string consulta = (_busquedaTabla ?? "").Trim();
+            if (consulta.Length == 0) return filas;
+
+            var visibles = new List<object>();
+            foreach (object fila in filas)
+                if (Coincide(fila, consulta)) visibles.Add(fila);
+            return visibles;
+        }
+    }
+
+    /// <summary>
+    /// La tabla tiene filas, pero ninguna coincide con la búsqueda. Se
+    /// distingue de <see cref="SinTablas"/> porque la causa es distinta y el
+    /// texto que se le debe dar al usuario también.
+    /// </summary>
+    public bool SinCoincidencias
+    {
+        get
+        {
+            var filas = FilasTabla;
+            if (filas == null || filas.Count == 0) return false;
+            return (_busquedaTabla ?? "").Trim().Length > 0 && (FilasTablaFiltradas?.Count ?? 0) == 0;
+        }
+    }
+
+    /// <summary>«312 filas» o «7 de 312 filas»: el filtro nunca deja a ciegas.</summary>
+    public string ConteoTabla
+    {
+        get
+        {
+            var filas = FilasTabla;
+            if (filas == null) return "";
+            int total = filas.Count;
+            int visibles = FilasTablaFiltradas?.Count ?? 0;
+            return visibles == total ? $"{total} filas" : $"{visibles} de {total} filas";
+        }
+    }
+
+    /// <summary>
+    /// Busca el texto en todas las columnas visibles de la fila. Las marcadas
+    /// <c>[Browsable(false)]</c> se omiten: son datos internos (enumeraciones
+    /// de severidad, identificadores) que el usuario no ve en la rejilla, y
+    /// encontrarlos por accidente daría resultados que no se explican solos.
+    /// </summary>
+    private static bool Coincide(object fila, string consulta)
+    {
+        if (fila == null) return false;
+
+        Type tipo = fila.GetType();
+        if (!CacheColumnas.TryGetValue(tipo, out var propiedades))
+        {
+            propiedades = tipo.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.CanRead && p.GetIndexParameters().Length == 0)
+                .Where(p => p.GetCustomAttribute<BrowsableAttribute>()?.Browsable != false)
+                .ToArray();
+            CacheColumnas[tipo] = propiedades;
+        }
+
+        foreach (var propiedad in propiedades)
+        {
+            object valor;
+            try { valor = propiedad.GetValue(fila); }
+            catch (Exception ex) when (ex is TargetInvocationException or TargetParameterCountException) { continue; }
+
+            if (valor == null) continue;
+            if (valor.ToString()?.IndexOf(consulta, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        }
+        return false;
+    }
+
     // ---- Registro ---------------------------------------------------------
 
     private readonly List<LogLine> _pendientes = new();
@@ -1150,7 +1411,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         app.Dispatcher.BeginInvoke(new Action(() =>
         {
             if (_disposed) return;
-            _pendientes.Add(new LogLine { Texto = linea, Color = Res(clave) });
+            _pendientes.Add(new LogLine { Texto = linea, Color = Res(clave), Nivel = nivel });
 
             // Las líneas llegan en ráfaga (un traceroute suelta decenas de
             // golpe). Añadirlas de a una obliga a la lista a recalcular su
@@ -1175,11 +1436,70 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         // completo queda en disco, así que en pantalla basta lo reciente.
         while (Registro.Count > 1500) Registro.RemoveAt(0);
 
+        // Con un filtro puesto, la vista muestra una colección distinta de la
+        // que se acaba de llenar; sin este aviso la lista filtrada se queda
+        // congelada en lo que había antes de empezar a escribir.
+        OnPropertyChanged(nameof(RegistroFiltrado));
+        OnPropertyChanged(nameof(ResumenRegistro));
+
         LineaAgregada?.Invoke();
     }
 
     /// <summary>Avisa a la vista que hay líneas nuevas, para seguir el final.</summary>
     public event Action LineaAgregada;
+
+    /// <summary>Nivel del registro en pantalla: «todo», «avisos» o «errores».</summary>
+    private string _filtroRegistro = "todo";
+    public string FiltroRegistro
+    {
+        get => _filtroRegistro;
+        set
+        {
+            Set(ref _filtroRegistro, string.IsNullOrWhiteSpace(value) ? "todo" : value);
+            OnPropertyChanged(nameof(RegistroFiltrado));
+        }
+    }
+
+    private string _busquedaRegistro = "";
+    /// <summary>Texto libre sobre el registro. Busca en el renglón completo, incluida la hora.</summary>
+    public string BusquedaRegistro
+    {
+        get => _busquedaRegistro;
+        set
+        {
+            Set(ref _busquedaRegistro, value ?? "");
+            OnPropertyChanged(nameof(RegistroFiltrado));
+        }
+    }
+
+    public IEnumerable<LogLine> RegistroFiltrado
+    {
+        get
+        {
+            IEnumerable<LogLine> lineas = Registro;
+
+            if (string.Equals(_filtroRegistro, "avisos", StringComparison.OrdinalIgnoreCase))
+                lineas = lineas.Where(l => l.Nivel is "WARN" or "ERROR");
+            else if (string.Equals(_filtroRegistro, "errores", StringComparison.OrdinalIgnoreCase))
+                lineas = lineas.Where(l => l.Nivel == "ERROR");
+
+            string consulta = (_busquedaRegistro ?? "").Trim();
+            if (consulta.Length > 0)
+                lineas = lineas.Where(l => l.Texto != null
+                    && l.Texto.IndexOf(consulta, StringComparison.OrdinalIgnoreCase) >= 0);
+
+            return lineas;
+        }
+    }
+
+    /// <summary>Cuánto hay y cuánto importa: es lo que decide si vale la pena filtrar.</summary>
+    public string ResumenRegistro =>
+        $"{Registro.Count} líneas · {Registro.Count(l => l.Nivel == "WARN")} avisos · " +
+        $"{Registro.Count(l => l.Nivel == "ERROR")} errores";
+
+    /// <summary>Registro filtrado como texto plano, para el portapapeles y para pegarlo en un informe.</summary>
+    public string TextoRegistroFiltrado =>
+        string.Join(Environment.NewLine, RegistroFiltrado.Select(l => l.Texto));
 
     public void Dispose()
     {

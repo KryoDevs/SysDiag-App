@@ -3,6 +3,241 @@
 Los cambios notables de este proyecto se documentan en este archivo. Las secciones
 `[Sin publicar]` son lotes de una rama: se consolidan al cortar el siguiente release.
 
+## [Sin publicar] - 2026-10-10 (pérdida por salto)
+
+Sube la versión a **5.14.0**. Cierra el 2.4 de `docs/HERRAMIENTAS_NUEVAS.md` y
+con él el lote 3 («Explicar») completo: 2.3, 2.4, 2.6, 2.7, 4.1 y 4.2.
+
+El traceroute decía por dónde pasan los paquetes, no dónde se pierden: con un
+solo ping por salto no hay forma de medir pérdida, y medir pérdida es justo lo
+que localiza el tramo.
+
+- **`Core/Network/TraceRouteModule.cs`**. Dos fases: primero se descubre la
+  ruta con un par de pings por salto y después se manda la tanda completa a los
+  saltos que responden. Mandar diez pings a un salto mudo cuesta diez segundos
+  para descubrir que no contesta.
+- **Lo difícil no es medir, es no concluir de más.** Un router intermedio con
+  pérdida y los saltos siguientes limpios está limitando los ICMP que contesta,
+  no perdiendo paquetes: la pérdida real se arrastra, porque los paquetes
+  perdidos nunca llegan más lejos. `TraceMath.Interpretar` distingue los dos
+  casos y solo en el segundo dice de quién es el tramo.
+- **Un salto que no responde no es un salto que pierde paquetes.** Se muestra
+  como hueco y sin medir.
+- Con una sola muestra no se reporta jitter: «0 ms de jitter» afirma que el
+  enlace es estable cuando lo que pasa es que no alcanzó la medición.
+- **`Ui/TrazaWindow`**: avance real por salto y un botón que cancela, porque la
+  medición puede tardar medio minuto y sin las dos cosas parece un cuelgue.
+- Umbral de pruebas del CI: 282.
+
+## [Sin publicar] - 2026-10-10 (consumo por proceso)
+
+Sube la versión a **5.13.0**. Cierra el 2.6 de `docs/HERRAMIENTAS_NUEVAS.md`.
+
+CPU por proceso ya estaba. Sin esto, la pregunta «¿quién tiene el disco al
+100 %?» exigía salir de la aplicación y abrir el Monitor de recursos, que es
+justo la pregunta que se hace cuando el equipo está lento.
+
+- **`Core/Performance/ProcessIoModule.cs`**. Dos muestras de
+  `GetProcessIoCounters` separadas en el tiempo, comparadas entre sí: leer el
+  acumulado solo premia al proceso más antiguo. De la red, las conexiones TCP
+  por PID con `GetExtendedTcpTable`, en IPv4 e IPv6.
+- **De la red se cuentan conexiones, no bytes.** Windows no expone un contador
+  de red por proceso sin ETW; dibujar uno a partir de otra cosa sería inventar
+  la medición más difícil de todas. La tabla dice lo que mide.
+- **Lo que no se puede medir no se reporta**: ni el proceso que apareció
+  después de la primera muestra, ni el contador que bajó porque el PID se
+  reutilizó. En esta pantalla un número inventado manda a matar el proceso
+  equivocado.
+- Se ordena por movimiento total y no por cantidad de operaciones: mil lecturas
+  de 4 KB no son mil de 4 MB.
+- **`Ui/ConsumoWindow`**, bajo demanda: mide al abrirla y se puede volver a
+  medir. La nota al pie aclara que el intervalo es un promedio y no un máximo.
+- Umbral de pruebas del CI: 266.
+
+## [Sin publicar] - 2026-10-10 (SMART por atributos)
+
+Sube la versión a **5.12.0**. Cierra el 2.3 de `docs/HERRAMIENTAS_NUEVAS.md`,
+el último del lote 3 («Explicar») que faltaba junto con 2.4 y 2.6.
+
+El estado que reporta Windows llega tarde: dice «correcto» hasta el día que
+dice «fallido», y entre medio no dice nada. Los atributos que avisan antes
+están en el propio disco y ninguno se veía en la tabla de almacenamiento.
+
+- **`Core/Storage/SmartModule.cs`**. Lee `MSStorageDriver_ATAPISmartData` y sus
+  umbrales, y parsea el bloque `VendorSpecific`: hasta 30 entradas de 12 bytes
+  con identificador, banderas, valor normalizado, peor valor y seis bytes de
+  valor crudo. Sin binario externo. Cuando el bloque no llega —sin
+  administrador, o detrás de un puente USB sin paso de comandos— cae sobre los
+  contadores de fiabilidad de Windows y lo dice.
+- **El umbral del fabricante va antes que el nuestro**, y un valor normalizado
+  en 0 no se compara contra él: cero no es una medición, es una entrada que el
+  disco no llenó.
+- **Lo que no sabemos interpretar se muestra, pero no se califica.** Esas filas
+  salen sin semáforo, porque «no hay datos» y «está bien» son cosas distintas y
+  llevan a decisiones opuestas.
+- **`Ui/SmartWindow`**: una tarjeta por disco, con el motivo cuando no se pudo
+  medir, y una nota al pie recordando que estos atributos son una foto del
+  momento: lo que dice si un daño avanza es la serie, no la foto.
+- Umbral de pruebas del CI: 253.
+
+## [Sin publicar] - 2026-10-10 (comparar dos diagnósticos)
+
+Sube la versión a **5.11.0**. Cierra el lote 3 de `docs/HERRAMIENTAS_NUEVAS.md
+§6` («Explicar») en lo que respecta a 4.1, y el punto 5 de `docs/MEJORAS.md
+§8.2`.
+
+Los datos del historial ya se archivaban desde hacía versiones, pero solo se
+podían mirar de a uno: «¿mejoró o empeoró?» exigía acordarse de lo que decía el
+diagnóstico anterior. Después de aplicar un arreglo, esta es la pantalla que
+dice si sirvió.
+
+- **`Core/Diagnostics/ReportDiff.cs`**, motor puro con 14 pruebas. Los
+  hallazgos se emparejan por **área y mensaje, sin la severidad ni el módulo**:
+  si se emparejaran por severidad, un hallazgo que pasó de Aviso a Crítico
+  saldría como «uno resuelto y uno nuevo», que es la lectura contraria a lo que
+  pasó.
+- **Solo se comparan mediciones que son número en el modelo** (espacio libre,
+  latencia y pérdida por destino, repeticiones de eventos, volcados). El
+  desgaste del SSD viaja dentro de un texto ya formateado y compararlo exigiría
+  parsear la presentación: si el formato cambia, la comparación deja de
+  encontrar nada y no hay forma de darse cuenta. Queda para el contrato de
+  medición de §8.2.1.
+- **El ruido no se reporta**: menos de 3 ms de latencia o medio punto de disco
+  no aparecen. Un diff que siempre se mueve es un diff que no se lee.
+- **`Ui/CompararWindow`**: dos combos con el historial, inversión con un clic y
+  carga de los JSON en segundo plano (sesenta diagnósticos son decenas de
+  megabytes: leerlos en el hilo de la interfaz congela la ventana).
+- **La cobertura se declara antes que el puntaje.** Comparar un «Red» suelto con
+  un diagnóstico completo da un puntaje que bajó sin que nada empeorara, y sin
+  ese aviso la lectura es exactamente la contraria.
+- Umbral de pruebas del CI: 232.
+
+## [Sin publicar] - 2026-10-10 (confiar: ensayo, verificación y deshacer por paso)
+
+Sube la versión a **5.10.0**. Es el lote 2 de `docs/HERRAMIENTAS_NUEVAS.md §6`,
+que ese documento declara no negociable: agregar herramientas que tocan el
+sistema sin ensayo ni deshacer aumenta la superficie de daño a la misma
+velocidad que el valor.
+
+### Medición, más corta y más honesta
+- **Caché WMI por corrida** (§8.2.3). El inventario que no cambia en segundos se
+  consulta una vez. Nunca se cachean contadores de rendimiento: el módulo de
+  rendimiento mide por diferencia entre dos muestras, y servirle dos veces la
+  misma fila congelada no da un valor viejo, da un cero. Tampoco se cachean las
+  consultas que fallaron.
+- **Límite de tiempo por módulo** (§8.2.2). Cada paso tiene su plazo. Al vencer,
+  el módulo se marca y la corrida sigue, y lo que traiga a medias no se fusiona.
+  El módulo omitido es un **hallazgo propio**, no una nota al pie: «no hay
+  problemas de red» cuando lo que pasó es que la red no se pudo medir es la
+  forma más dañina de estar en lo correcto. Se distingue la cancelación del
+  usuario (propaga) del vencimiento (avisa y continúa).
+- **Presupuesto de medición propio** (§8.2.8): tiempo de CPU y pico de memoria
+  de la corrida, en el pie y en el informe archivado.
+- **Puerta de XAML ampliada** (§8.2.10): cada `{Binding X}` tiene que
+  corresponder a un miembro real de su clase de datos.
+
+### Lote «Confiar»
+- **Verificación post-cambio** (3.3, §8.2.4). `Core/Windows/ChangeVerifier.cs`:
+  releer y comparar en vez de suponer. `TweakModule.Aplicar` devuelve un
+  resultado que separa «ya estaba así» de «se escribió y no quedó».
+- **Ensayo antes de aplicar** (3.1). `TweakModule.Ensayar` y botón «Ensayar (no
+  aplica nada)».
+- **Deshacer por paso** (3.2, §8.2.6). `Core/Windows/ActionLog.cs` +
+  `Ui/CambiosWindow`: un botón por paso, delegando en el módulo que aplicó el
+  cambio. Lo no reversible se registra igual y marcado.
+- **Restauración selectiva** (3.4). `OptimizeModule.Restore` omite y nombra lo
+  que ya no existe, en vez de no restaurar nada por una pieza que borró otro
+  programa.
+
+### Herramientas nuevas
+- **Informe redactado para soporte** (4.2). Quita equipo, usuario, ruta del
+  perfil, series, nombres de red y MAC, sobre una copia.
+- **Exportación a Markdown** (4.3) y ventana `ExportarWindow` con los cinco
+  formatos (HTML, HTML redactado, Markdown, Markdown redactado, JSON).
+- **Decodificador de pantallazos** (2.7). Código de detención, qué significa y
+  qué controladores de terceros estaban cargados, sin WinDbg.
+- **Paleta de comandos Ctrl+K** (5.1), armada desde las mismas estructuras que
+  pintan la interfaz para no mantener dos listas paralelas.
+
+### Documentación
+- `docs/MEJORAS.md §9` y `docs/HERRAMIENTAS_NUEVAS.md` actualizado con lo que
+  ya está hecho y lo que queda.
+
+## [Sin publicar] - 2026-10-10 (gráficos, mediciones, interfaz por sección y activación)
+
+Sube la versión a **5.9.0**.
+
+### Gráficos
+- **Escala real en lugar de barras sueltas.** `BarChart` redondea el techo a un
+  peldaño de la escala (`Stats.Techo`), dibuja la rejilla en el propio riel —como
+  pincel, para que no agregue 4 × N elementos al árbol visual— y declara unidad,
+  rango y agregado en el pie. Antes el máximo del conjunto era el ancho entero y
+  no había forma de leer cuánto valía una barra intermedia.
+- **Línea de umbral** opcional en las barras (70 ms en latencia, 40 % en CPU): la
+  misma cifra con la que el motor califica el dato, así no hay dos criterios que
+  aprender para leer una medición.
+- **Evolución del puntaje con eje ajustado.** El historial ya no está clavado en
+  0-100: ajusta el rango a los datos con margen y paso redondo, sin salirse nunca
+  del dominio. Suma rótulos de eje, rejilla, promedio y el último punto marcado.
+  Con puntajes entre 78 y 84, la escala completa aplanaba la serie.
+- **Anillo de composición** nuevo (`DonutChart`) para el espacio en disco: la
+  pregunta ahí no es «cuál es más grande» sino «de qué está hecho el total».
+- **Gráfico de líneas** (`LineChart`) y **series en vivo** (`LiveSeries`) con
+  percentil 95, jitter RFC 3550 y marcas de pérdida, reutilizables por cualquier
+  panel futuro.
+- **Eventos críticos en escala logarítmica**: con un tipo que se repite 40 000
+  veces y otros que se repiten 3, la escala lineal dibujaba una barra y cinco
+  ceros. Los rótulos se escriben a mano porque la barra mide log₁₀(n) y no n.
+
+### Mediciones
+- **`Core/Stats.cs`**: percentiles, desviación estándar muestral, jitter RFC 3550 y
+  escalas de eje como funciones puras, con `Tools/IntegrationTests/StatsTests.cs`.
+  Antes esa aritmética vivía solo en la capa de interfaz, así que un recolector no
+  podía usarla; y `ChartMath` ahora delega en ella en lugar de duplicarla.
+- **Rendimiento**: núcleo más cargado (y cuántos pasan de 90 %), RAM disponible,
+  compromiso de memoria, páginas por segundo, caudal de disco y de red, subprocesos
+  y tiempo encendido. Tres avisos nuevos: núcleo saturado con total bajo, paginación
+  sostenida y cola de disco.
+- **Red**: `LatencyResult` suma **p95** y **dispersión**. Sin esas dos columnas, una
+  red con media de 25 ms y p95 de 180 ms aparecía como sana.
+- **Procesos**: la RAM se reporta también como porcentaje de la memoria instalada.
+  «1 200 MB» no dice si es mucho; en 8 GB y en 64 GB significa cosas opuestas.
+
+### Interfaz por sección
+- **Hallazgos**: filtro por severidad (todos / críticos / avisos / correctos) con el
+  contador a la vista. Al cambiar el filtro, la selección salta al primer hallazgo
+  visible: sin eso, el panel de la derecha seguía mostrando la recomendación de algo
+  que ya no estaba en la lista.
+- **Datos**: búsqueda sobre todas las columnas visibles de la tabla activa, contador
+  «7 de 312 filas» y un estado propio para «la búsqueda no devuelve nada», que antes
+  se veía igual que «la tabla no cargó».
+- **Registro**: filtro por nivel (todo / avisos y errores / solo errores), búsqueda
+  por texto y **Copiar**, que copia lo que se está viendo y no todo el registro.
+- **Monitor de ping**: franja roja por cada paquete perdido —el arreglo que rellena
+  los huecos para que la línea no se corte hacía invisible justo el dato que
+  importa—, umbral de 100 ms y una línea de resumen con mínima, media, p95, máxima,
+  jitter y pérdida.
+
+### Herramientas
+- **Activación de Windows 10/11** (`Core/Windows/ActivationModule.cs` +
+  `Ui/ActivacionWindowsWindow`), en el panel Sistema. No es un activador: lee el
+  estado real de la licencia por WMI e instala claves **que el usuario ya tiene**
+  o apunta a un host KMS **propio** de su organización, todo por `slmgr.vbs`, la
+  utilidad del propio Windows, con los argumentos en lista y la clave enmascarada en
+  el registro. El aviso de qué hace y qué no va arriba de la ventana, no escondido.
+  Ver el README y `docs/HERRAMIENTAS_NUEVAS.md §1`.
+
+### Documentación
+- `docs/HERRAMIENTAS_NUEVAS.md`, nuevo: catálogo de herramientas nuevas ordenadas
+  para poder elegir, con el límite explícito de lo que no entra.
+- `docs/MEJORAS.md §8`: mejoras generales del lote, lo aplicado y lo pendiente
+  ordenado por valor.
+
+### Pruebas
+- `StatsTests` (escalas, percentiles, desviación, jitter y formato) y
+  `ActivationTests` (normalización, validación y enmascarado de claves), ambos sobre
+  funciones puras, sin Windows ni WPF.
+
 ## [Sin publicar] - 2026-10-10 (la documentación y las puertas, al día)
 
 ### Herramientas

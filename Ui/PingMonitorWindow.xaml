@@ -127,6 +127,16 @@
               <Line X1="0" Y1="0" X2="0" Y2="0" x:Name="LineaTope" Stroke="{StaticResource BStrokeSoft}" StrokeThickness="1"/>
               <Line X1="0" Y1="0" X2="0" Y2="0" x:Name="LineaMedio" Stroke="{StaticResource BStrokeSoft}" StrokeThickness="1"/>
               <Line X1="0" Y1="0" X2="0" Y2="0" x:Name="LineaBase" Stroke="{StaticResource BStroke}" StrokeThickness="1"/>
+              <!-- Umbral de 100 ms: la misma cifra con la que el diagnóstico
+                   completo califica la latencia como mala. Verlo acá permite
+                   saber si un pico importa sin acordarse del número. -->
+              <Line x:Name="LineaUmbral" X1="0" X2="0" Y1="0" Y2="0" Stroke="{StaticResource BWarn}"
+                    StrokeThickness="1" StrokeDashArray="5 4" Opacity="0.7" Visibility="Collapsed"/>
+              <!-- Cada paquete perdido deja una franja roja. La línea une los
+                   huecos con el último valor válido para no cortarse, y sin
+                   esta capa ese arreglo haría invisible justo el dato que
+                   importa: cuántos paquetes se perdieron y cuándo. -->
+              <Canvas x:Name="CapaPerdidas"/>
               <Polygon x:Name="Area" Fill="{StaticResource GAreaCian}"/>
               <Polyline x:Name="Linea" Stroke="{StaticResource BAccent2}" StrokeThickness="2" StrokeLineJoin="Round"/>
               <!-- El punto de la última muestra respira. De los acentos del tema,
@@ -167,6 +177,13 @@
 
             <TextBlock x:Name="TxtVacio" Style="{StaticResource Dim}" HorizontalAlignment="Center"
                        VerticalAlignment="Center" Text="Elegí un destino y tocá Iniciar."/>
+
+            <!-- Agregados de la serie completa. Los cuatro números de arriba
+                 son el presente; esta línea es el resumen de lo medido, y es
+                 la que se copia cuando hay que reportar un problema. -->
+            <TextBlock x:Name="TxtResumen" Style="{StaticResource Eyebrow}" FontSize="10"
+                       HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="4,0,0,0"
+                       Foreground="{StaticResource BTextMuted}" IsHitTestVisible="False"/>
           </Grid>
         </Grid>
       </Border>

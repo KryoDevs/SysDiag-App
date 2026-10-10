@@ -103,10 +103,23 @@ public static class StabilityModule
         }
         r.Minidumps = dumps;
 
+        // Los volcados se decodifican acá, sin depurador. Antes la recomendación
+        // era «abrilos con WinDbg», que es correcta y casi nadie sigue: instalar
+        // las herramientas de depuración para leer un número convierte un dato
+        // disponible en un dato perdido.
+        r.Pantallazos = BugCheckDecoder.Decodificar();
+
         if (dumps.Count > 0)
         {
-            r.Add(Severity.Warn, "Estabilidad", $"{dumps.Count} volcados de memoria disponibles.",
-                "Analízalos con WinDbg o BlueScreenView: el driver culpable aparece nombrado ahí. Es la vía más directa a la causa raíz.");
+            // Se nombra el código del volcado más reciente que tenga uno. Si
+            // ninguno lo tiene, no se dice nada: «0x00000000» no es un dato.
+            var conCodigo = r.Pantallazos.LastOrDefault(p => !string.IsNullOrEmpty(p.Codigo));
+            string detalle = conCodigo == null
+                ? ""
+                : $" Código de detención del más reciente: {conCodigo.Codigo} ({conCodigo.Nombre}).";
+            r.Add(Severity.Warn, "Estabilidad", $"{dumps.Count} volcados de memoria disponibles." + detalle,
+                "La tabla «Pantallazos» de la vista Datos dice qué significa el código y qué controladores de terceros estaban cargados. " +
+                "Para llegar al módulo exacto hace falta análisis de pila (WinDbg); acá se lista lo accionable sin instalar nada.");
         }
         else if (kp41.Count > 0)
         {

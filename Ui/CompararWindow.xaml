@@ -1,0 +1,58 @@
+<Window x:Class="SysDiag.Ui.CompararWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:SysDiag.Ui"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        SizeToContent="Height" Width="900" ResizeMode="NoResize" MaxHeight="860"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+
+  <!-- Al abrirse, el panel sube y aparece: el gesto que explica de
+       dónde salió respecto de la ventana madre. -->
+  <Border Style="{StaticResource PanelShell}" ui:Motion.Enter="True">
+    <DockPanel LastChildFill="True">
+      <StackPanel DockPanel.Dock="Top">
+        <Rectangle Height="4" Width="46" HorizontalAlignment="Left" RadiusX="2" RadiusY="2"
+                   Fill="{StaticResource BAccent}" Margin="0,0,0,16"/>
+        <TextBlock Text="Comparar dos diagnósticos" Style="{StaticResource H2}"/>
+        <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,8,0,12"
+                   Text="Elige dos mediciones guardadas y mira qué cambió: hallazgos nuevos, resueltos, los que empeoraron y las cifras que se movieron. Es lo que hay que mirar después de aplicar un cambio, para saber si sirvió."/>
+
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+
+          <StackPanel Grid.Column="0">
+            <TextBlock Text="ANTERIOR" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+            <ComboBox x:Name="ComboAnterior" SelectionChanged="Seleccion_Cambiada"/>
+          </StackPanel>
+
+          <TextBlock Grid.Column="1" Text="→" Style="{StaticResource H2}" VerticalAlignment="Bottom"
+                     Margin="16,0,16,8" Foreground="{StaticResource BTextMuted}"/>
+
+          <StackPanel Grid.Column="2">
+            <TextBlock Text="RECIENTE" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+            <ComboBox x:Name="ComboReciente" SelectionChanged="Seleccion_Cambiada"/>
+          </StackPanel>
+        </Grid>
+
+        <TextBlock x:Name="TxtAviso" Style="{StaticResource Dim}" Foreground="{StaticResource BWarn}"
+                   TextWrapping="Wrap" Margin="0,10,0,0" Visibility="Collapsed"/>
+      </StackPanel>
+
+      <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+        <Button Content="Invertir" Style="{StaticResource BtnGhost}" Margin="0,0,8,0" Click="Invertir_Click"
+                ToolTip="Cambia cuál se toma como anterior."/>
+        <Button Content="Cerrar" Style="{StaticResource BtnGhost}" Margin="0,0,8,0" Click="Cerrar_Click"/>
+        <Button x:Name="BtnComparar" Content="Comparar" Style="{StaticResource BtnPrimary}"
+                Click="Comparar_Click" IsDefault="True"/>
+      </StackPanel>
+
+      <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,16,-14,0" Padding="0,0,14,0">
+        <StackPanel x:Name="PanelResultado"/>
+      </ScrollViewer>
+    </DockPanel>
+  </Border>
+</Window>

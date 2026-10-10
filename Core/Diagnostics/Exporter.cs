@@ -138,12 +138,22 @@ public static class Exporter
             ?? throw new InvalidDataException("El diagnóstico está vacío.");
     }
 
-    private static string Serializar(DiagnosticReport report)
+    /// <summary>
+    /// Serializa con las mismas opciones del archivo. Es pública porque la
+    /// redacción trabaja sobre el JSON: sustituir los datos sensibles en la
+    /// cadena serializada alcanza todas las tablas de una vez, en lugar de
+    /// recorrer treinta listas de tipos distintos.
+    /// </summary>
+    public static string Serializar(DiagnosticReport report)
     {
         report.Puntaje = HealthScore.Calcular(report);
         report.ActualizarRecomendaciones();
         return JsonSerializer.Serialize(report, JsonOptions);
     }
+
+    /// <summary>Vuelta del JSON al modelo. `null` si el texto no es un diagnóstico.</summary>
+    public static DiagnosticReport Deserializar(string json) =>
+        string.IsNullOrWhiteSpace(json) ? null : JsonSerializer.Deserialize<DiagnosticReport>(json, JsonOptions);
 
     /// <summary>Neutraliza fórmulas de Excel/LibreOffice y escapa separador, comillas y ambos saltos de línea.</summary>
     public static string EscapeCsvField(string value)
