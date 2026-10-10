@@ -172,6 +172,12 @@
                     <TextBlock Text="Almacenamiento" Style="{StaticResource NavLabel}"/>
                   </StackPanel>
                 </ListBoxItem>
+                <ListBoxItem Tag="smart" ToolTip="Atributos SMART del disco: sectores reasignados, pendientes y vida útil restante">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE9F3;" Style="{StaticResource NavIcon}"/>
+                    <TextBlock Text="SMART del disco" Style="{StaticResource NavLabel}"/>
+                  </StackPanel>
+                </ListBoxItem>
                 <ListBoxItem Tag="seguridad" ToolTip="Defender, Firewall, BitLocker, TPM, Secure Boot y UAC — solo lectura">
                   <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xEA18;" Style="{StaticResource NavIcon}"/>

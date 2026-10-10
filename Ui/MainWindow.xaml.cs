@@ -232,6 +232,10 @@ public partial class MainWindow : Window
                 await CrearPunto();
                 break;
 
+            case "smart":
+                new SmartWindow { Owner = this }.ShowDialog();
+                break;
+
             case "comparar":
                 new CompararWindow { Owner = this }.ShowDialog();
                 break;
