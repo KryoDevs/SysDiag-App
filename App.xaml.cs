@@ -38,6 +38,8 @@ public partial class App : Application
                 _ = new Ui.CleanupWindow();
                 _ = new Ui.PingMonitorWindow();
                 _ = new Ui.DialogWindow();
+                _ = new Ui.ActivationWindow();
+                _ = new Ui.TweaksWindow();
                 Console.WriteLine($"SYSDIAG_SELF_TEST_OK {AppEnv.Version}");
                 Shutdown(0);
             }
@@ -69,6 +71,7 @@ public partial class App : Application
         };
         AppDomain.CurrentDomain.UnhandledException += (_, args) => AppLog.Write($"Error fatal: {args.ExceptionObject}", "ERROR");
         Core.Windows.SettingsService.Aplicar(Core.Windows.SettingsService.Cargar());
+        Core.Licensing.LicenseService.Inicializar();
         base.OnStartup(e);
     }
 

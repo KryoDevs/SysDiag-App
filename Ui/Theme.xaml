@@ -875,6 +875,132 @@
   </Style>
 
   <!-- ================================================================
+       Piezas de las bandas de sección, activación y ajustes de Windows.
+       ================================================================ -->
+
+  <!-- Cuadro de icono de la banda de sección: el color lo pone el módulo. -->
+  <Style x:Key="ModuleTile" TargetType="Border">
+    <Setter Property="Width" Value="44"/>
+    <Setter Property="Height" Value="44"/>
+    <Setter Property="CornerRadius" Value="{StaticResource RMd}"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+
+  <!-- Icono dentro de ModuleTile. -->
+  <Style x:Key="ModuleTileIcon" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+    <Setter Property="FontSize" Value="20"/>
+    <Setter Property="HorizontalAlignment" Value="Center"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+
+  <!-- Chip de dato corto (KPI) de la banda de sección. -->
+  <Style x:Key="KpiChip" TargetType="Border">
+    <Setter Property="Background" Value="{StaticResource BSurfaceAlt}"/>
+    <Setter Property="CornerRadius" Value="{StaticResource RPill}"/>
+    <Setter Property="Padding" Value="11,5"/>
+    <Setter Property="Margin" Value="0,0,7,0"/>
+  </Style>
+
+  <Style x:Key="KpiChipText" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{StaticResource FMono}"/>
+    <Setter Property="FontSize" Value="11.5"/>
+    <Setter Property="Foreground" Value="{StaticResource BTextDim}"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+
+  <!-- Botón de acción rápida de la banda de sección (icono + texto). -->
+  <Style x:Key="AccionTile" TargetType="Button" BasedOn="{StaticResource BtnBase}">
+    <Setter Property="Padding" Value="12,8"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="Margin" Value="0,0,7,0"/>
+    <Setter Property="Background" Value="{StaticResource BSurfaceAlt}"/>
+    <Setter Property="Foreground" Value="{StaticResource BTextDim}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource BStrokeSoft}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{StaticResource RSm}" Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource BSurfaceHi}"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BStroke}"/>
+              <Setter Property="Foreground" Value="{StaticResource BText}"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Botón primario con el mismo formato que AccionTile. -->
+  <Style x:Key="AccionTilePrimary" TargetType="Button" BasedOn="{StaticResource BtnBase}">
+    <Setter Property="Padding" Value="13,8"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="Margin" Value="0,0,7,0"/>
+    <Setter Property="Background" Value="{StaticResource GAccent}"/>
+    <Setter Property="Foreground" Value="{StaticResource BInk}"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                  CornerRadius="{StaticResource RSm}" Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Opacity" Value="0.88"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Campo de texto ancho (búsqueda, código de activación). -->
+  <Style x:Key="CampoTexto" TargetType="TextBox" BasedOn="{StaticResource CampoNumero}">
+    <Setter Property="Width" Value="Auto"/>
+    <Setter Property="Height" Value="36"/>
+    <Setter Property="FontFamily" Value="{StaticResource FBody}"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="TextAlignment" Value="Left"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+  </Style>
+
+  <!-- Campo del código de activación: monoespaciado y legible al teclear. -->
+  <Style x:Key="CampoCodigo" TargetType="TextBox" BasedOn="{StaticResource CampoNumero}">
+    <Setter Property="Width" Value="Auto"/>
+    <Setter Property="Height" Value="42"/>
+    <Setter Property="FontFamily" Value="{StaticResource FMono}"/>
+    <Setter Property="FontSize" Value="15"/>
+    <Setter Property="TextAlignment" Value="Left"/>
+    <Setter Property="CharacterCasing" Value="Upper"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+  </Style>
+
+  <!-- Chip de estado (Aplicado / No aplicado / riesgo) con color de etiqueta. -->
+  <Style x:Key="EstadoChip" TargetType="Border">
+    <Setter Property="CornerRadius" Value="{StaticResource RPill}"/>
+    <Setter Property="Padding" Value="9,3"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="HorizontalAlignment" Value="Right"/>
+  </Style>
+
+  <!-- ================================================================
        Gráfico de barras. Etiqueta a la izquierda, barra al centro y
        cifra a la derecha: se lee por columnas o comparando longitudes,
        sin tener que interpretar ejes. El riel de fondo marca el máximo

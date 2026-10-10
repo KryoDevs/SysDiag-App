@@ -1,4 +1,4 @@
-# SysDiag 5.7.1
+# SysDiag 5.8.0
 
 [![Compilar y probar](https://github.com/KryoDevs/SysDiag-App/actions/workflows/build.yml/badge.svg)](https://github.com/KryoDevs/SysDiag-App/actions/workflows/build.yml) [![Validar fixture](https://github.com/KryoDevs/SysDiag-App/actions/workflows/validate-fixture.yml/badge.svg)](https://github.com/KryoDevs/SysDiag-App/actions/workflows/validate-fixture.yml)
 
@@ -125,6 +125,38 @@ Administradores/SYSTEM y ACL que impide escritura sin elevar. Se conserva la pri
 captura hasta restaurar. Los respaldos antiguos de Documentos no se importan automáticamente
 ni se borran; revisar sus valores manualmente si se necesita recuperar aquel estado.
 
+## Licencia y activación
+
+SysDiag incluye **prueba de 14 días** con todas las funciones y, al terminar,
+un modelo de lectura libre: el diagnóstico y la consulta nunca se bloquean, y
+las acciones que modifican el equipo (optimizar, instalar, limpiar, reparar)
+piden un **código de activación**.
+
+- Los códigos tienen el formato `SDG7-AAAAA-BBBBB-CCCCC-DDDDD-EEEE` y se
+  verifican **en el equipo, sin conexión** (HMAC-SHA256, base32 Crockford).
+- La activación se gestiona desde la barra superior (etiqueta de licencia),
+  desde `Ajustes ▸ Licencia` o al intentar una acción protegida.
+- El emisor de códigos es `Tools/New-ActivationCode.ps1` (para quien vende las
+  licencias): `-Dias 365 -Cantidad 10` emite; `-Verificar <código>` comprueba
+  y muestra vigencia, serial y si está vinculado al equipo.
+
+## Ajustes de Windows 10 y 11
+
+`Ajustes de Windows` (panel izquierdo ▸ Mantenimiento) reúne ajustes
+reversibles agrupados en Privacidad, Rendimiento, Explorador y Sistema:
+telemetría, ID de publicidad, sugerencias y anuncios del menú Inicio, búsqueda
+local, efectos visuales, programación de GPU por hardware, modo Juego, arranque
+rápido, prioridad para juegos, extensiones de archivo, menú contextual clásico
+(Windows 11), alineación de la barra de tareas, Widgets/Chat, servicios
+(SysMain, WSearch, DiagTrack), exclusión de drivers en Windows Update y más.
+
+Cada ajuste muestra su riesgo y sus requisitos (admin, cerrar sesión,
+reiniciar). Antes de escribir se guarda el valor anterior en
+`LocalAppData\SysDiag\ajustes-respaldo.json`: cada ajuste se revierte de uno
+en uno o todos a la vez, y también desde `Restaurar estado`. Si alguna opción
+necesita administrador, SysDiag lo dice antes de tocar nada y ofrece
+reiniciarse elevado.
+
 ## CI, pruebas y distribución
 
 - Windows compila la solución, ejecuta regresiones y conserva TRX. Se incluyen ramas
@@ -148,6 +180,15 @@ dotnet publish SysDiag.csproj -c Release -o publish
 .\Tools\validate_release.ps1 -Root .\publish
 .\Tools\validate_version.ps1 -Root .\publish
 ```
+
+> **Política de ejecución de PowerShell:** si al correr un `.ps1` aparece
+> `UnauthorizedAccess` o «la ejecución de scripts está deshabilitada en este sistema»,
+> es la política de ejecución de Windows (o la marca de web del ZIP descargado), no un
+> fallo del proyecto. Ejecuta los scripts con
+> `powershell -NoProfile -ExecutionPolicy Bypass -File .\Tools\validate_release.ps1 ...`
+> o usa `Set-ExecutionPolicy -Scope Process Bypass` en tu sesión. `build.bat` ya invoca
+> la validación con `-ExecutionPolicy Bypass`: solo afecta a esa sesión y no cambia la
+> política del sistema.
 
 Consulta [la auditoría y sus tres listas de diez](docs/AUDITORIA.md) para los fallos,
 correcciones, evidencia de CI y límites pendientes. Un CI anterior no certifica cambios

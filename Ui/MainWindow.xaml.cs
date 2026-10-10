@@ -151,6 +151,7 @@ public partial class MainWindow : Window
         {
             // La selección marca el módulo activo; se limpia al terminar para que
             // volver a pulsar el mismo vuelva a ejecutarlo.
+            _vm.SetContexto(clave);
             switch (clave)
             {
                 case "red":
@@ -198,29 +199,20 @@ public partial class MainWindow : Window
                     await Optimizar();
                     break;
 
+                case "tweaks":
+                    new TweaksWindow { Owner = this }.ShowDialog();
+                    break;
+
                 case "perfiles":
                     new ProfilesWindow { Owner = this }.ShowDialog();
                     break;
 
                 case "restaurar":
-                    if (RequiereAdmin())
-                    {
-                        string result = null;
-                        if (await _vm.RunActionAsync("Restaurando estado", (r, t) => Task.Run(() => result = OptimizeModule.Restore(), t)))
-                            Dialog.Info("Restaurar estado previo", result);
-                    }
+                    await RestaurarEstado();
                     break;
 
                 case "punto-restauracion":
-                    if (RequiereAdmin())
-                    {
-                        RestorePointModule.Resultado punto = null;
-                        if (!await _vm.RunActionAsync("Creando punto de restauración", (r, t) => Task.Run(() => punto = RestorePointModule.Crear("Punto manual desde SysDiag"), t))) break;
-                        if (punto.Exito)
-                            Dialog.Info("Punto de restauración creado", punto.Mensaje);
-                        else
-                            Dialog.Error("No se pudo crear el punto de restauración", punto.Mensaje);
-                    }
+                    await CrearPunto();
                     break;
 
                 case "historial":
@@ -307,6 +299,12 @@ public partial class MainWindow : Window
         catch (Exception ex) { Dialog.Error("No se pudo abrir Windows Update", ex.Message); }
     }
 
+    private void AbrirWindowsUpdateSistema_Click(object sender, RoutedEventArgs e)
+    {
+        try { Process.Start(new ProcessStartInfo("ms-settings:windowsupdate") { UseShellExecute = true })?.Dispose(); }
+        catch (Exception ex) { Dialog.Error("No se pudo abrir Windows Update", ex.Message); }
+    }
+
     private async void BuscarDrivers_Click(object sender, RoutedEventArgs e) => await BuscarDrivers();
 
     private async Task BuscarDrivers()
@@ -346,6 +344,7 @@ public partial class MainWindow : Window
 
     private async Task InstalarDrivers(List<DriverUpdateRow> seleccion, string descripcion)
     {
+        if (!ExigeLicenciaPro("instalar drivers")) return;
         if (!RequiereAdmin()) return;
 
         bool ok = Dialog.Confirm($"Instalar {descripcion}",
@@ -425,6 +424,7 @@ public partial class MainWindow : Window
 
     private void ActualizarTodo_Click(object sender, RoutedEventArgs e)
     {
+        if (!ExigeLicenciaPro("actualizar programas")) return;
         bool ok = Dialog.Confirm("Actualizar todos los programas",
             "Se abrirá una consola con winget donde verás cada instalación y podrás cortarla en cualquier momento. " +
             "Cierra los programas que estén en uso antes de continuar.",
@@ -440,6 +440,7 @@ public partial class MainWindow : Window
             Dialog.Info("Nada seleccionado", "Elige primero una fila en la tabla.");
             return;
         }
+        if (!ExigeLicenciaPro("actualizar programas")) return;
 
         bool ok = Dialog.Confirm($"Actualizar {fila.Nombre}",
             $"Se actualizará de {fila.Actual} a {fila.Disponible} mediante winget, en una consola visible.",
@@ -499,12 +500,16 @@ public partial class MainWindow : Window
             "Borrar ahora");
 
         if (borrar)
+        {
+            if (!ExigeLicenciaPro("borrar temporales")) return;
             await _vm.RunAsync("Limpieza",
                 ("limpieza", (r, t) => Task.Run(() => CleanupModule.Clean(r, filas, t), t)));
+        }
     }
 
     private async Task Optimizar()
     {
+        if (!ExigeLicenciaPro("optimizar el equipo")) return;
         if (!RequiereAdmin()) return;
 
         var dlg = new OptimizeWindow { Owner = this };
@@ -532,6 +537,116 @@ public partial class MainWindow : Window
         if (AppEnv.RelaunchElevated()) Application.Current.Shutdown();
     }
 
+    // ---- Licencia y acciones rápidas --------------------------------------
+
+    /// <summary>
+    /// Las acciones que modifican el equipo requieren licencia vigente
+    /// (prueba o código Pro). El diagnóstico y la lectura nunca se bloquean.
+    /// </summary>
+    private bool ExigeLicenciaPro(string accion)
+    {
+        if (Core.Licensing.LicenseService.PuedeModificar) return true;
+        Dialog.Info("Se requiere activación",
+            $"La prueba terminó y {accion} modifica el equipo. Activa SysDiag con un código para usarla; el diagnóstico y la lectura siguen libres.");
+        new ActivationWindow { Owner = this }.ShowDialog();
+        return Core.Licensing.LicenseService.PuedeModificar;
+    }
+
+    private void Licencia_Click(object sender, RoutedEventArgs e) =>
+        new ActivationWindow { Owner = this }.ShowDialog();
+
+    /// <summary>
+    /// Destino de cada botón de la banda de sección. Muchos reutilizan los
+    /// mismos handlers del pie y de la vista Datos: una sola implementación
+    /// por acción, se invoque desde donde se invoque.
+    /// </summary>
+    private async void AccionRapida_Click(object sender, RoutedEventArgs e)
+    {
+        if (_vm.Ocupado) return;
+        if (sender is not Button { Tag: string id }) return;
+        switch (id)
+        {
+            case "ping-monitor": new PingMonitorWindow { Owner = this }.ShowDialog(); break;
+            case "historial": new HistoryWindow { Owner = this }.ShowDialog(); break;
+            case "informe": Informe_Click(sender, e); break;
+            case "export-json": ExportarJson_Click(sender, e); break;
+            case "ajustes": new SettingsWindow { Owner = this }.ShowDialog(); break;
+            case "licencia": new ActivationWindow { Owner = this }.ShowDialog(); break;
+            case "tweaks": new TweaksWindow { Owner = this }.ShowDialog(); break;
+            case "perfiles": new ProfilesWindow { Owner = this }.ShowDialog(); break;
+            case "optimizar": await Optimizar(); break;
+            case "limpieza": await Limpieza(); break;
+            case "buscar-drivers": await BuscarDrivers(); break;
+            case "actualizar-todo": ActualizarTodo_Click(sender, e); break;
+            case "abrir-wu": AbrirWindowsUpdateSistema_Click(sender, e); break;
+            case "abrir-devmgmt": AbrirDeviceManager_Click(sender, e); break;
+            case "verificar-driver": VerificarDriver_Click(sender, e); break;
+            case "ver-procesos": SeleccionarTabla("Procesos por CPU"); break;
+            case "ver-eventos": SeleccionarTabla("Eventos (detalle)"); break;
+            case "ver-hallazgos": VHallazgos.IsChecked = true; break;
+            case "ir-red": await _vm.RunAsync("Red y latencia", ("red", PasoRed)); break;
+            case "limpiar-dns": await LimpiarDns(); break;
+            case "crear-punto": await CrearPunto(); break;
+            case "restaurar": await RestaurarEstado(); break;
+            case "energia": AbrirHerramienta("powercfg.cpl"); break;
+            case "diskmgmt": AbrirHerramienta("diskmgmt.msc"); break;
+            case "defender": AbrirHerramienta("windowsdefender:"); break;
+            case "taskmgr": AbrirHerramienta("taskmgr.exe"); break;
+            case "servicios": AbrirHerramienta("services.msc"); break;
+            case "rstrui": AbrirHerramienta("rstrui.exe"); break;
+        }
+    }
+
+    private void SeleccionarTabla(string nombre)
+    {
+        VDatos.IsChecked = true;
+        if (_vm.Tablas.Contains(nombre)) _vm.TablaSeleccionada = nombre;
+    }
+
+    private static void AbrirHerramienta(string destino)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(destino) { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            Dialog.Error("No se pudo abrir la herramienta", ex.Message);
+        }
+    }
+
+    private async Task LimpiarDns()
+    {
+        bool ok = false;
+        if (await _vm.RunActionAsync("Vaciar caché DNS", (r, t) => Task.Run(() =>
+        {
+            var res = AppEnv.RunCommand("ipconfig", new[] { "/flushdns" }, token: t);
+            ok = res.ExitCode == 0;
+        }, t)))
+            Dialog.Info("Caché DNS", ok
+                ? "La caché DNS quedó vacía: Windows resolverá los nombres de nuevo."
+                : "Windows no permitió vaciar la caché DNS. Revisa Registro para el detalle.");
+    }
+
+    private async Task CrearPunto()
+    {
+        if (!RequiereAdmin()) return;
+        RestorePointModule.Resultado punto = null;
+        if (!await _vm.RunActionAsync("Creando punto de restauración", (r, t) => Task.Run(() => punto = RestorePointModule.Crear("Punto manual desde SysDiag"), t))) return;
+        if (punto.Exito)
+            Dialog.Info("Punto de restauración creado", punto.Mensaje);
+        else
+            Dialog.Error("No se pudo crear el punto de restauración", punto.Mensaje);
+    }
+
+    private async Task RestaurarEstado()
+    {
+        if (!RequiereAdmin()) return;
+        string result = null;
+        if (await _vm.RunActionAsync("Restaurando estado", (r, t) => Task.Run(() => result = OptimizeModule.Restore(), t)))
+            Dialog.Info("Restaurar estado previo", result);
+    }
+
     // ---- Pie --------------------------------------------------------------
 
     private async void Reparar_Click(object sender, RoutedEventArgs e)
@@ -539,6 +654,7 @@ public partial class MainWindow : Window
         var hallazgo = _vm.HallazgoSeleccionado;
         var accion = Remediation.Obtener(hallazgo?.AccionId);
         if (accion == null) return;
+        if (!ExigeLicenciaPro("reparar el hallazgo")) return;
 
         // Los casos que abren su propio flujo con opciones no se ejecutan a
         // ciegas: llevan al usuario a la pantalla donde decide el detalle.

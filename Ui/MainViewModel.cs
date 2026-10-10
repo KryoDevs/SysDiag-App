@@ -80,6 +80,30 @@ public class MetricCard
     }
 }
 
+/// <summary>Acción rápida de la banda de sección (icono + texto + destino).</summary>
+public class AccionRapida
+{
+    public string Id { get; init; } = "";
+    public string Texto { get; init; } = "";
+    public string Icono { get; init; } = "";
+    public bool EsPrimario { get; init; }
+}
+
+/// <summary>
+/// Identidad de la sección activa: qué módulo se está mirando, con qué color
+/// se presenta y qué acciones propias ofrece. Es lo que hace que cada sección
+/// no se vea igual a todas las demás.
+/// </summary>
+public class ContextoModulo
+{
+    public string Nombre { get; init; } = "";
+    public string Icono { get; init; } = "";
+    public string Descripcion { get; init; } = "";
+    /// <summary>Clave de recurso del color de acento de la sección («BAccent2», «BWarn»…).</summary>
+    public string ColorClave { get; init; } = "BAccent";
+    public List<AccionRapida> Acciones { get; init; } = new();
+}
+
 public class MainViewModel : INotifyPropertyChanged, IDisposable
 {
     public ObservableCollection<LogLine> Registro { get; } = new();
@@ -116,11 +140,215 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         ["limpieza"] = new[] { "Temporales" }
     };
 
+    /// <summary>
+    /// Identidad y acciones propias de cada sección. El color sigue la
+    /// familia: análisis en cian, mantenimiento en violeta, sistema en
+    /// ámbar y datos en verde — la misma persona siempre reconoce dónde está.
+    /// </summary>
+    private static readonly Dictionary<string, ContextoModulo> Contextos = new()
+    {
+        ["completo"] = new ContextoModulo
+        {
+            Nombre = "Diagnóstico completo", Icono = "\uE9D9", ColorClave = "BAccent",
+            Descripcion = "Una pasada por red, rendimiento, térmicas, almacenamiento y estabilidad.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "ping-monitor", Texto = "Monitor de ping", Icono = "\uE9D9" },
+                new AccionRapida { Id = "historial", Texto = "Historial", Icono = "\uE81C" },
+                new AccionRapida { Id = "informe", Texto = "Generar informe", Icono = "\uE896", EsPrimario = true }
+            }
+        },
+        ["red"] = new ContextoModulo
+        {
+            Nombre = "Red y latencia", Icono = "\uEC05", ColorClave = "BAccent2",
+            Descripcion = "Latencia, jitter, pérdida, Wi-Fi, canales y traceroute.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "ping-monitor", Texto = "Monitor de ping", Icono = "\uE9D9", EsPrimario = true },
+                new AccionRapida { Id = "limpiar-dns", Texto = "Vaciar caché DNS", Icono = "\uE9F5" },
+                new AccionRapida { Id = "historial", Texto = "Historial", Icono = "\uE81C" }
+            }
+        },
+        ["ping-monitor"] = new ContextoModulo
+        {
+            Nombre = "Monitor de ping", Icono = "\uE9D9", ColorClave = "BAccent2",
+            Descripcion = "Un ping por segundo en vivo: ve si un pico de lag coincide con algo puntual.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "ping-monitor", Texto = "Abrir monitor", Icono = "\uE9D9", EsPrimario = true },
+                new AccionRapida { Id = "ir-red", Texto = "Medir red completa", Icono = "\uEC05" }
+            }
+        },
+        ["rendimiento"] = new ContextoModulo
+        {
+            Nombre = "Rendimiento", Icono = "\uE9D2", ColorClave = "BOk",
+            Descripcion = "CPU real por proceso, memoria y disco medidos en vivo.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "ver-procesos", Texto = "Ver procesos por CPU", Icono = "\uE9D2", EsPrimario = true },
+                new AccionRapida { Id = "optimizar", Texto = "Optimizar", Icono = "\uE9F5" }
+            }
+        },
+        ["termicas"] = new ContextoModulo
+        {
+            Nombre = "Térmicas y energía", Icono = "\uE9CA", ColorClave = "BWarn",
+            Descripcion = "Temperatura, frecuencia, throttling, batería y GPU.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "energia", Texto = "Opciones de energía", Icono = "\uE9CA", EsPrimario = true },
+                new AccionRapida { Id = "optimizar", Texto = "Optimizar", Icono = "\uE9F5" }
+            }
+        },
+        ["almacenamiento"] = new ContextoModulo
+        {
+            Nombre = "Almacenamiento", Icono = "\uEDA2", ColorClave = "BAccent",
+            Descripcion = "Salud SMART, desgaste, temperatura y errores del disco.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "limpieza", Texto = "Limpieza", Icono = "\uE74D", EsPrimario = true },
+                new AccionRapida { Id = "diskmgmt", Texto = "Administrar discos", Icono = "\uEDA2" }
+            }
+        },
+        ["seguridad"] = new ContextoModulo
+        {
+            Nombre = "Seguridad", Icono = "\uEA18", ColorClave = "BAccent2",
+            Descripcion = "Defender, Firewall, BitLocker, TPM, Secure Boot y UAC — solo lectura.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "defender", Texto = "Seguridad de Windows", Icono = "\uEA18", EsPrimario = true },
+                new AccionRapida { Id = "ver-hallazgos", Texto = "Ver hallazgos", Icono = "\uE7BA" }
+            }
+        },
+        ["estabilidad"] = new ContextoModulo
+        {
+            Nombre = "Estabilidad", Icono = "\uE7BA", ColorClave = "BWarn",
+            Descripcion = "Reinicios inesperados, pantallazos, WHEA y volcados de memoria.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "crear-punto", Texto = "Crear punto de restauración", Icono = "\uE777", EsPrimario = true },
+                new AccionRapida { Id = "ver-eventos", Texto = "Ver eventos", Icono = "\uE7BA" }
+            }
+        },
+        ["drivers"] = new ContextoModulo
+        {
+            Nombre = "Drivers", Icono = "\uE950", ColorClave = "BAccent",
+            Descripcion = "Inventario de controladores y novedades de Windows Update para este hardware.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "buscar-drivers", Texto = "Buscar drivers nuevos", Icono = "\uE950", EsPrimario = true },
+                new AccionRapida { Id = "abrir-devmgmt", Texto = "Administrador de dispositivos", Icono = "\uE950" },
+                new AccionRapida { Id = "verificar-driver", Texto = "Verificar driver descargado", Icono = "\uEA18" }
+            }
+        },
+        ["arranque"] = new ContextoModulo
+        {
+            Nombre = "Arranque y software", Icono = "\uE7B5", ColorClave = "BAccent",
+            Descripcion = "Programas al inicio, servicios y software instalado.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "taskmgr", Texto = "Administrador de tareas", Icono = "\uE7B5", EsPrimario = true },
+                new AccionRapida { Id = "servicios", Texto = "Servicios", Icono = "\uE7B5" }
+            }
+        },
+        ["actualizaciones"] = new ContextoModulo
+        {
+            Nombre = "Actualizaciones", Icono = "\uE896", ColorClave = "BOk",
+            Descripcion = "Programas con versión nueva disponible vía winget y actualizaciones de Windows.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "actualizar-todo", Texto = "Actualizar todo", Icono = "\uE896", EsPrimario = true },
+                new AccionRapida { Id = "abrir-wu", Texto = "Windows Update", Icono = "\uE896" }
+            }
+        },
+        ["limpieza"] = new ContextoModulo
+        {
+            Nombre = "Limpieza", Icono = "\uE74D", ColorClave = "BAccent",
+            Descripcion = "Calcula y borra archivos temporales con categorías seguras y reversibles donde aplica.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "limpieza", Texto = "Analizar temporales", Icono = "\uE74D", EsPrimario = true },
+                new AccionRapida { Id = "crear-punto", Texto = "Crear punto de restauración", Icono = "\uE777" }
+            }
+        },
+        ["optimizar"] = new ContextoModulo
+        {
+            Nombre = "Optimizar", Icono = "\uE9F5", ColorClave = "BAccent",
+            Descripcion = "Optimizaciones rápidas reversibles de red y energía, más los ajustes de Windows 10/11.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "optimizar", Texto = "Optimizaciones", Icono = "\uE9F5", EsPrimario = true },
+                new AccionRapida { Id = "tweaks", Texto = "Ajustes de Windows", Icono = "\uE713" }
+            }
+        },
+        ["tweaks"] = new ContextoModulo
+        {
+            Nombre = "Ajustes de Windows", Icono = "\uE713", ColorClave = "BWarn",
+            Descripcion = "Ajustes de Windows 10 y 11 por categorías, con respaldo y reversión total.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "tweaks", Texto = "Abrir ajustes", Icono = "\uE713", EsPrimario = true },
+                new AccionRapida { Id = "optimizar", Texto = "Optimizaciones", Icono = "\uE9F5" }
+            }
+        },
+        ["perfiles"] = new ContextoModulo
+        {
+            Nombre = "Perfiles", Icono = "\uE8FC", ColorClave = "BAccent",
+            Descripcion = "Universidad, Trabajo o Juego: combinaciones listas de energía y red.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "perfiles", Texto = "Abrir perfiles", Icono = "\uE8FC", EsPrimario = true },
+                new AccionRapida { Id = "optimizar", Texto = "Optimizar", Icono = "\uE9F5" }
+            }
+        },
+        ["punto-restauracion"] = new ContextoModulo
+        {
+            Nombre = "Punto de restauración", Icono = "\uE777", ColorClave = "BWarn",
+            Descripcion = "Un punto de restauración completo de Windows, para volver atrás si algo sale mal.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "crear-punto", Texto = "Crear punto", Icono = "\uE777", EsPrimario = true },
+                new AccionRapida { Id = "rstrui", Texto = "Restaurar sistema", Icono = "\uE7A7" }
+            }
+        },
+        ["restaurar"] = new ContextoModulo
+        {
+            Nombre = "Restaurar estado", Icono = "\uE7A7", ColorClave = "BWarn",
+            Descripcion = "Deshace la última optimización con el respaldo guardado antes de aplicarla.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "restaurar", Texto = "Restaurar estado previo", Icono = "\uE7A7", EsPrimario = true },
+                new AccionRapida { Id = "crear-punto", Texto = "Crear punto", Icono = "\uE777" }
+            }
+        },
+        ["historial"] = new ContextoModulo
+        {
+            Nombre = "Historial", Icono = "\uE81C", ColorClave = "BOk",
+            Descripcion = "Diagnósticos guardados: abrí cualquiera para ver sus hallazgos.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "historial", Texto = "Abrir historial", Icono = "\uE81C", EsPrimario = true },
+                new AccionRapida { Id = "export-json", Texto = "Exportar todo", Icono = "\uE896" }
+            }
+        },
+        ["ajustes"] = new ContextoModulo
+        {
+            Nombre = "Ajustes", Icono = "\uE713", ColorClave = "BOk",
+            Descripcion = "Segundos de muestreo, cantidad de pings, ventanas de días y licencia.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "ajustes", Texto = "Abrir ajustes", Icono = "\uE713", EsPrimario = true },
+                new AccionRapida { Id = "licencia", Texto = "Activación", Icono = "\uEA18" }
+            }
+        }
+    };
+
     public DiagnosticReport Report { get; private set; } = new();
 
     public MainViewModel()
     {
         AppLog.Line += OnLog;
+        Core.Licensing.LicenseService.EstadoCambiado += RefrescarLicencia;
+        SetContexto("completo");
     }
 
     // ---- Estado observable ------------------------------------------------
@@ -293,6 +521,50 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
     public Visibility AvisoAdmin => AppEnv.IsAdmin ? Visibility.Collapsed : Visibility.Visible;
     public string Version => AppEnv.Version;
 
+    /// <summary>Ruta real donde se guardan informes y registros: la del pie, sin letra chica inventada.</summary>
+    public string RutaSalidaTexto => "Los informes y registros se guardan en " + AppEnv.OutputPath;
+
+    // ---- Contexto de sección ----------------------------------------------
+
+    private ContextoModulo _contexto;
+    /// <summary>Identidad y acciones de la sección activa.</summary>
+    public ContextoModulo Contexto
+    {
+        get => _contexto;
+        private set
+        {
+            Set(ref _contexto, value);
+            OnPropertyChanged(nameof(ModuloAcento));
+            OnPropertyChanged(nameof(ModuloLavado));
+        }
+    }
+
+    public Brush ModuloAcento => Res(Contexto?.ColorClave ?? "BAccent");
+
+    public Brush ModuloLavado
+    {
+        get
+        {
+            var c = ((SolidColorBrush)ModuloAcento).Color;
+            var wash = new SolidColorBrush(Color.FromArgb(38, c.R, c.G, c.B));
+            wash.Freeze();
+            return wash;
+        }
+    }
+
+    /// <summary>Cambia la identidad de la sección (nombre, icono, color y acciones).</summary>
+    public void SetContexto(string clave)
+    {
+        if (clave != null && Contextos.TryGetValue(clave, out var ctx) && Contexto != ctx) Contexto = ctx;
+    }
+
+    // ---- Licencia ----------------------------------------------------------
+
+    private string _licenciaEtiqueta = Core.Licensing.LicenseService.EtiquetaCorta;
+    public string LicenciaEtiqueta { get => _licenciaEtiqueta; private set => Set(ref _licenciaEtiqueta, value); }
+
+    private void RefrescarLicencia() => LicenciaEtiqueta = Core.Licensing.LicenseService.EtiquetaCorta;
+
     // ---- Ejecución --------------------------------------------------------
 
     public void Cancelar() { if (PuedeCancelar) _cts?.Cancel(); }
@@ -312,6 +584,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         _cts = new CancellationTokenSource();
         _cancelable = permiteCancelar;
         _moduloActivo = pasos.Length > 1 ? "completo" : pasos[0].Clave;
+        SetContexto(_moduloActivo);
         Ocupado = true;
         Titulo = titulo;
         Subtitulo = permiteCancelar ? "Midiendo. El detalle va apareciendo en Registro."
@@ -775,6 +1048,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         if (_disposed) return;
         _disposed = true;
         AppLog.Line -= OnLog;
+        Core.Licensing.LicenseService.EstadoCambiado -= RefrescarLicencia;
         _cts?.Cancel();
         if (!Ocupado) _cts?.Dispose();
         _pendientes.Clear();

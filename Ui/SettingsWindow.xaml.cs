@@ -1,5 +1,6 @@
 using System;
 using System.Windows;
+using SysDiag.Core.Licensing;
 using SysDiag.Core.Windows;
 using SysDiag.Models;
 
@@ -16,6 +17,22 @@ public partial class SettingsWindow : Window
 
         _actual = SettingsService.Cargar();
         Volcar(_actual);
+        ActualizarLicencia();
+    }
+
+    private void ActualizarLicencia()
+    {
+        TxtLicencia.Text = LicenseService.EsPro
+            ? "SysDiag Pro activado en este equipo."
+            : LicenseService.Estado == EstadoLicencia.Prueba
+                ? $"Prueba gratuita: {LicenseService.DiasPruebaRestantes} día(s) restantes."
+                : "La prueba terminó: el diagnóstico sigue libre; las acciones que modifican el equipo piden un código.";
+    }
+
+    private void Licencia_Click(object sender, RoutedEventArgs e)
+    {
+        new ActivationWindow { Owner = this }.ShowDialog();
+        ActualizarLicencia();
     }
 
     private void Volcar(AppSettings s)

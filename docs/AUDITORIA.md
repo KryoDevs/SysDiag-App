@@ -93,6 +93,8 @@ dotnet publish SysDiag.csproj -c Release -o publish
 .\Tools\validate_version.ps1 -Root .\publish
 ```
 
+Si PowerShell bloquea los `.ps1` (`UnauthorizedAccess` / «la ejecución de scripts está deshabilitada»), es su política de ejecución o la marca de web del ZIP descargado; usa `powershell -NoProfile -ExecutionPolicy Bypass -File ...` o `Set-ExecutionPolicy -Scope Process Bypass`. `build.bat` ya lo hace así, sin cambiar la política del sistema.
+
 La suite de ACL crea/elimina **solo su carpeta temporal protegida**, y la de energía únicamente lee valores; no altera un plan. La de Authenticode copia/modifica un PE en un temporal **sin ejecutarlo**. Para generar instalador, instalar Inno Setup 6 y usar `Tools/build_installer.ps1`; no se ha compilado en este sandbox. Para diagnóstico CLI real (solo lectura): `HeadlessRunner.exe --output <carpeta>`.
 
 ## Pendientes y límites honestos
