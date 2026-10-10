@@ -114,7 +114,11 @@ public static class TraceMath
         }
 
         // --- Pérdida --------------------------------------------------------
-        int primeroConPerdida = ruta.FindIndex(h => h.Respondidos > 0 && h.PerdidaPct > 0);
+        int primeroConPerdida = -1;
+        for (int i = 0; i < ruta.Count; i++)
+        {
+            if (ruta[i].Respondidos > 0 && ruta[i].PerdidaPct > 0) { primeroConPerdida = i; break; }
+        }
         if (primeroConPerdida >= 0)
         {
             var siguientes = ruta.Skip(primeroConPerdida + 1).Where(h => h.Respondidos > 0).ToList();
