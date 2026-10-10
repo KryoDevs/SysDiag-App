@@ -1,4 +1,4 @@
-﻿<Application x:Class="SysDiag.App"
+<Application x:Class="SysDiag.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="clr-namespace:SysDiag.Ui"
@@ -11,6 +11,8 @@
 
       <ui:BoolToVisibility x:Key="BoolVis"/>
       <ui:BoolToVisibilityInverse x:Key="BoolVisNot"/>
+      <ui:NotEmptyToVisibility x:Key="NotEmptyVis"/>
+      <ui:ModuleLabelConverter x:Key="ModuloLabel"/>
       <ui:SeverityToBrush x:Key="SevBrush"/>
       <ui:SeverityToWash x:Key="SevWash"/>
       <ui:ScoreArcConverter x:Key="ScoreArc"/>

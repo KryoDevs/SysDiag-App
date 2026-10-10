@@ -56,7 +56,7 @@ public class MetricCard
             Acento = acento,
             Modulo = modulo,
             TicksOn = Ticks(((SolidColorBrush)acento).Color),
-            TicksOff = Ticks(Color.FromRgb(0x2A, 0x32, 0x3D)),
+            TicksOff = Ticks(Color.FromRgb(0x1A, 0x22, 0x40)),
             FillStar = new GridLength(fill, GridUnitType.Star),
             RestStar = new GridLength(1 - fill, GridUnitType.Star)
         };
@@ -207,6 +207,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(AvisoDrivers));
             OnPropertyChanged(nameof(TextoAvisoDrivers));
             OnPropertyChanged(nameof(MostrarAyudaUpdates));
+            OnPropertyChanged(nameof(MostrarAccionesTabla));
         }
     }
 
@@ -224,6 +225,13 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         ? "Windows Update no ofrece drivers más recientes para este equipo. Si un driver concreto sigue apareciendo viejo en la tabla «Drivers», el fabricante puede publicar una versión que Microsoft todavía no distribuye."
         : DriverUpdateModule.UltimoError;
     public bool MostrarAyudaUpdates => _tablaSel == "Actualizaciones disponibles";
+
+    /// <summary>
+    /// Alguna de las tres barras de acciones de la vista Datos está visible.
+    /// La vista lo necesita para no dejar un panel vacío con marco cuando la
+    /// tabla elegida es de solo lectura (Equipo, Discos, Temporales…).
+    /// </summary>
+    public bool MostrarAccionesTabla => MostrarAyudaDrivers || MostrarAccionesDrivers || MostrarAyudaUpdates;
 
     private int _puntaje = -1;
     public int Puntaje { get => _puntaje; private set => Set(ref _puntaje, value); }
@@ -624,7 +632,15 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
             Hallazgos.Add(f);
 
         HallazgoSeleccionado = Hallazgos.FirstOrDefault();
+        OnPropertyChanged(nameof(SinHallazgos));
     }
+
+    /// <summary>
+    /// La vista de hallazgos avisa cuando la lista está vacía en vez de
+    /// quedarse en blanco: si no, «sin hallazgos» y «todavía no medí nada»
+    /// se ven exactamente igual.
+    /// </summary>
+    public bool SinHallazgos => Hallazgos.Count == 0;
 
     private void BuildTables()
     {

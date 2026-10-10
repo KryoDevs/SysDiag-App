@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
@@ -61,6 +62,48 @@ public class SeverityToBrush : IValueConverter
         };
         return Application.Current?.Resources[clave] as Brush ?? Brushes.Gray;
     }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>
+/// Cadena con texto -> Visible; cadena vacía o nula -> Collapsed. Sirve para
+/// los rótulos opcionales de una tarjeta: si el dato no viene, el espacio que
+/// ocuparía el rótulo desaparece en vez de quedar como un hueco.
+/// </summary>
+public class NotEmptyToVisibility : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => string.IsNullOrWhiteSpace(value as string) ? Visibility.Collapsed : Visibility.Visible;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>
+/// Clave interna de módulo -> nombre legible. Las tarjetas del resumen saben
+/// de qué módulo salió cada medición; la clave («termicas») no se muestra tal
+/// cual porque es un identificador, no una etiqueta.
+/// </summary>
+public class ModuleLabelConverter : IValueConverter
+{
+    private static readonly Dictionary<string, string> Nombres = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["red"] = "Red",
+        ["rendimiento"] = "Rendimiento",
+        ["termicas"] = "Térmicas",
+        ["seguridad"] = "Seguridad",
+        ["estabilidad"] = "Estabilidad",
+        ["almacenamiento"] = "Disco",
+        ["arranque"] = "Arranque",
+        ["drivers"] = "Drivers",
+        ["actualizaciones"] = "Actualizaciones",
+        ["limpieza"] = "Limpieza"
+    };
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is string clave && Nombres.TryGetValue(clave, out string nombre) ? nombre : value as string ?? "";
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();

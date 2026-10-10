@@ -2,109 +2,111 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        SizeToContent="Height" Width="600" ResizeMode="NoResize" MaxHeight="700"
+        SizeToContent="Height" Width="620" ResizeMode="NoResize" MaxHeight="720"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
 
-  <Border Background="{StaticResource BSurface}" BorderBrush="{StaticResource BStroke}"
-          BorderThickness="1" CornerRadius="8" Padding="26,24,26,20">
+  <Border Style="{StaticResource PanelShell}">
     <DockPanel LastChildFill="True">
-      <StackPanel DockPanel.Dock="Top" Margin="0,0,0,20">
-        <TextBlock Text="Optimizaciones a aplicar" Style="{StaticResource H1}"/>
-        <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,8,0,0"
+      <StackPanel DockPanel.Dock="Top">
+        <Rectangle Height="4" Width="46" HorizontalAlignment="Left" RadiusX="2" RadiusY="2"
+                   Fill="{StaticResource BAccent}" Margin="0,0,0,16"/>
+        <TextBlock Text="Optimizaciones a aplicar" Style="{StaticResource H2}"/>
+        <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,8,0,20"
                    Text="El estado actual se guarda antes de aplicar. Todo esto se revierte desde «Restaurar estado»."/>
       </StackPanel>
 
-      <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+      <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
         <Button Content="Cancelar" Style="{StaticResource BtnGhost}" Margin="0,0,8,0" Click="Cancelar_Click"/>
         <Button Content="Aplicar" Style="{StaticResource BtnPrimary}" Click="Aplicar_Click" IsDefault="True"/>
       </StackPanel>
 
       <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,0,-14,0" Padding="0,0,14,0">
-      <StackPanel>
-      <CheckBox x:Name="ChkDns" Style="{StaticResource Opcion}" IsChecked="True"
-                Tag="{StaticResource BOk}">
         <StackPanel>
-          <TextBlock Text="Vaciar la caché DNS" Style="{StaticResource Body}" FontWeight="SemiBold"/>
-          <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
-                     Text="Sin riesgo. Fuerza a resolver de nuevo los nombres de dominio."/>
-        </StackPanel>
-      </CheckBox>
 
-      <CheckBox x:Name="ChkWlan" Style="{StaticResource Opcion}" IsChecked="True"
-                Tag="{StaticResource BOk}">
-        <StackPanel>
-          <TextBlock Text="Reparar la configuración automática de WLAN" Style="{StaticResource Body}" FontWeight="SemiBold"/>
-          <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
-                     Text="Devuelve al equipo la capacidad de reconectarse solo a las redes guardadas."/>
-        </StackPanel>
-      </CheckBox>
+          <CheckBox x:Name="ChkDns" Style="{StaticResource Opcion}" IsChecked="True"
+                    Tag="{StaticResource BOk}">
+            <StackPanel>
+              <TextBlock Text="Vaciar la caché DNS" Style="{StaticResource Body}" FontWeight="SemiBold"/>
+              <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
+                         Text="Sin riesgo. Fuerza a resolver de nuevo los nombres de dominio."/>
+            </StackPanel>
+          </CheckBox>
 
-      <CheckBox x:Name="ChkArp" Style="{StaticResource Opcion}" IsChecked="True"
-                Tag="{StaticResource BOk}">
-        <StackPanel>
-          <TextBlock Text="Vaciar la caché ARP" Style="{StaticResource Body}" FontWeight="SemiBold"/>
-          <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
-                     Text="Sin riesgo. Fuerza a redescubrir los equipos de la red local."/>
-        </StackPanel>
-      </CheckBox>
+          <CheckBox x:Name="ChkWlan" Style="{StaticResource Opcion}" IsChecked="True"
+                    Tag="{StaticResource BOk}">
+            <StackPanel>
+              <TextBlock Text="Reparar la configuración automática de WLAN" Style="{StaticResource Body}" FontWeight="SemiBold"/>
+              <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
+                         Text="Devuelve al equipo la capacidad de reconectarse solo a las redes guardadas."/>
+            </StackPanel>
+          </CheckBox>
 
-      <CheckBox x:Name="ChkCpuMax" Style="{StaticResource Opcion}" Tag="{StaticResource BWarn}">
-        <StackPanel>
-          <TextBlock Text="Limitar el máximo de CPU al 70%" Style="{StaticResource Body}" FontWeight="SemiBold"/>
-          <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
-                     Text="Menos frecuencia permitida, menos calor, menos ventilador. A cambio, el equipo rinde menos en tareas pesadas."/>
-        </StackPanel>
-      </CheckBox>
+          <CheckBox x:Name="ChkArp" Style="{StaticResource Opcion}" IsChecked="True"
+                    Tag="{StaticResource BOk}">
+            <StackPanel>
+              <TextBlock Text="Vaciar la caché ARP" Style="{StaticResource Body}" FontWeight="SemiBold"/>
+              <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
+                         Text="Sin riesgo. Fuerza a redescubrir los equipos de la red local."/>
+            </StackPanel>
+          </CheckBox>
 
-      <CheckBox x:Name="ChkWifiPowerSave" Style="{StaticResource Opcion}" Tag="{StaticResource BOk}">
-        <StackPanel>
-          <TextBlock Text="Wi-Fi en ahorro de energía" Style="{StaticResource Body}" FontWeight="SemiBold"/>
-          <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
-                     Text="Lo contrario a «máximo rendimiento» de abajo. Baja consumo y calor de la radio a cambio de algo de latencia."/>
-        </StackPanel>
-      </CheckBox>
+          <CheckBox x:Name="ChkCpuMax" Style="{StaticResource Opcion}" Tag="{StaticResource BWarn}">
+            <StackPanel>
+              <TextBlock Text="Limitar el máximo de CPU al 70%" Style="{StaticResource Body}" FontWeight="SemiBold"/>
+              <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
+                         Text="Menos frecuencia permitida, menos calor, menos ventilador. A cambio, el equipo rinde menos en tareas pesadas."/>
+            </StackPanel>
+          </CheckBox>
 
-      <CheckBox x:Name="ChkWifi" Style="{StaticResource Opcion}" Tag="{StaticResource BWarn}">
-        <StackPanel>
-          <TextBlock Text="Adaptador Wi-Fi en máximo rendimiento" Style="{StaticResource Body}" FontWeight="SemiBold"/>
-          <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
-                     Text="Desactiva el ahorro de energía de la radio cuando el equipo está enchufado. Es una causa habitual de picos de ping en portátiles; a cambio consume algo más."/>
-        </StackPanel>
-      </CheckBox>
+          <CheckBox x:Name="ChkWifiPowerSave" Style="{StaticResource Opcion}" Tag="{StaticResource BOk}">
+            <StackPanel>
+              <TextBlock Text="Wi-Fi en ahorro de energía" Style="{StaticResource Body}" FontWeight="SemiBold"/>
+              <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
+                         Text="Lo contrario a «máximo rendimiento» de abajo. Baja consumo y calor de la radio a cambio de algo de latencia."/>
+            </StackPanel>
+          </CheckBox>
 
-      <CheckBox x:Name="ChkDnsPublico" Style="{StaticResource Opcion}" Tag="{StaticResource BWarn}">
-        <StackPanel>
-          <TextBlock Text="Usar DNS público (1.1.1.1)" Style="{StaticResource Body}" FontWeight="SemiBold"/>
-          <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
-                     Text="Suele resolver nombres más rápido que el DNS del proveedor. Si tu red usa DNS interno (empresa o campus), esto puede romper el acceso a recursos locales. Se revierte desde «Restaurar estado»."/>
-        </StackPanel>
-      </CheckBox>
+          <CheckBox x:Name="ChkWifi" Style="{StaticResource Opcion}" Tag="{StaticResource BWarn}">
+            <StackPanel>
+              <TextBlock Text="Adaptador Wi-Fi en máximo rendimiento" Style="{StaticResource Body}" FontWeight="SemiBold"/>
+              <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
+                         Text="Desactiva el ahorro de energía de la radio cuando el equipo está enchufado. Es una causa habitual de picos de ping en portátiles; a cambio consume algo más."/>
+            </StackPanel>
+          </CheckBox>
 
-      <CheckBox x:Name="ChkEfectos" Style="{StaticResource Opcion}" Tag="{StaticResource BWarn}">
-        <StackPanel>
-          <TextBlock Text="Ajustar efectos visuales a rendimiento" Style="{StaticResource Body}" FontWeight="SemiBold"/>
-          <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
-                     Text="Quita animaciones y sombras de la interfaz de Windows. Se nota en equipos justos; hay que cerrar sesión para verlo aplicado."/>
-        </StackPanel>
-      </CheckBox>
+          <CheckBox x:Name="ChkDnsPublico" Style="{StaticResource Opcion}" Tag="{StaticResource BWarn}">
+            <StackPanel>
+              <TextBlock Text="Usar DNS público (1.1.1.1)" Style="{StaticResource Body}" FontWeight="SemiBold"/>
+              <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
+                         Text="Suele resolver nombres más rápido que el DNS del proveedor. Si tu red usa DNS interno (empresa o campus), esto puede romper el acceso a recursos locales. Se revierte desde «Restaurar estado»."/>
+            </StackPanel>
+          </CheckBox>
 
-      <CheckBox x:Name="ChkPlan" Style="{StaticResource Opcion}" Tag="{StaticResource BWarn}">
-        <StackPanel>
-          <TextBlock Text="Cambiar a plan de energía de alto rendimiento" Style="{StaticResource Body}" FontWeight="SemiBold"/>
-          <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
-                     Text="Sube el consumo y la temperatura. En batería dura menos."/>
-        </StackPanel>
-      </CheckBox>
+          <CheckBox x:Name="ChkEfectos" Style="{StaticResource Opcion}" Tag="{StaticResource BWarn}">
+            <StackPanel>
+              <TextBlock Text="Ajustar efectos visuales a rendimiento" Style="{StaticResource Body}" FontWeight="SemiBold"/>
+              <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
+                         Text="Quita animaciones y sombras de la interfaz de Windows. Se nota en equipos justos; hay que cerrar sesión para verlo aplicado."/>
+            </StackPanel>
+          </CheckBox>
 
-      <CheckBox x:Name="ChkReset" Style="{StaticResource Opcion}" Tag="{StaticResource BBad}">
-        <StackPanel>
-          <TextBlock Text="Reiniciar Winsock y la pila TCP/IP" Style="{StaticResource Body}" FontWeight="SemiBold"/>
-          <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
-                     Text="Riesgo alto. Borra IP fija, DNS personalizados y configuración de VPN, y exige reiniciar el equipo. Úsalo solo si sospechas corrupción de la pila de red."/>
-        </StackPanel>
-      </CheckBox>
+          <CheckBox x:Name="ChkPlan" Style="{StaticResource Opcion}" Tag="{StaticResource BWarn}">
+            <StackPanel>
+              <TextBlock Text="Cambiar a plan de energía de alto rendimiento" Style="{StaticResource Body}" FontWeight="SemiBold"/>
+              <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
+                         Text="Sube el consumo y la temperatura. En batería dura menos."/>
+            </StackPanel>
+          </CheckBox>
 
-      </StackPanel>
+          <CheckBox x:Name="ChkReset" Style="{StaticResource Opcion}" Tag="{StaticResource BBad}">
+            <StackPanel>
+              <TextBlock Text="Reiniciar Winsock y la pila TCP/IP" Style="{StaticResource Body}" FontWeight="SemiBold"/>
+              <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,3,0,0"
+                         Text="Riesgo alto. Borra IP fija, DNS personalizados y configuración de VPN, y exige reiniciar el equipo. Úsalo solo si sospechas corrupción de la pila de red."/>
+            </StackPanel>
+          </CheckBox>
+
+        </StackPanel>
       </ScrollViewer>
     </DockPanel>
   </Border>

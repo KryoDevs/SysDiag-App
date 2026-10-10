@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -58,6 +58,8 @@ public partial class HistoryWindow : Window
             txt.Text = "Todavía no hay diagnósticos guardados. Corré «Diagnóstico completo» al menos una vez.";
         }
     }
+
+    private void Cerrar_Click(object sender, RoutedEventArgs e) => Close();
 
     private void Lista_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {

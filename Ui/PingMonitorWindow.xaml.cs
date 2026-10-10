@@ -48,6 +48,8 @@ public partial class PingMonitorWindow : Window
         if (_corriendo) Detener(); else Iniciar();
     }
 
+    private void Cerrar_Click(object sender, RoutedEventArgs e) => Close();
+
     private void Iniciar()
     {
         if (ComboDestino.SelectedItem is not DestinoPing destino)

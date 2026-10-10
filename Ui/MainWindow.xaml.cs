@@ -145,21 +145,6 @@ public partial class MainWindow : Window
             // volver a pulsar el mismo vuelva a ejecutarlo.
             switch (clave)
             {
-                case "completo":
-                    _vm.BusquedaDriversHecha = false;
-                    await _vm.RunAsync("Diagnóstico completo",
-                        ("red", PasoRed),
-                        ("rendimiento", PasoRendimiento),
-                        ("termicas", PasoTermicas),
-                        ("almacenamiento", PasoAlmacenamiento),
-                        ("seguridad", PasoSeguridad),
-                        ("estabilidad", PasoEstabilidad),
-                        ("drivers", PasoDrivers),
-                        ("actualizaciones", PasoActualizaciones),
-                        ("arranque", PasoArranque),
-                        ("limpieza", PasoAnalisisLimpieza));
-                    break;
-
                 case "red":
                     await _vm.RunAsync("Red y latencia", ("red", PasoRed));
                     break;
@@ -244,6 +229,33 @@ public partial class MainWindow : Window
             }
         }
         finally { Nav.SelectedIndex = -1; }
+    }
+
+    /// <summary>
+    /// Botón principal del rail. El diagnóstico completo dejó de ser un ítem
+    /// más de la lista: es la acción que se hace al abrir la aplicación, y
+    /// como tal se dibuja arriba y separada del resto de los módulos.
+    /// </summary>
+    private async void Completo_Click(object sender, RoutedEventArgs e)
+    {
+        if (_vm.Ocupado) return;
+        await EjecutarCompleto();
+    }
+
+    private async Task EjecutarCompleto()
+    {
+        _vm.BusquedaDriversHecha = false;
+        await _vm.RunAsync("Diagnóstico completo",
+            ("red", PasoRed),
+            ("rendimiento", PasoRendimiento),
+            ("termicas", PasoTermicas),
+            ("almacenamiento", PasoAlmacenamiento),
+            ("seguridad", PasoSeguridad),
+            ("estabilidad", PasoEstabilidad),
+            ("drivers", PasoDrivers),
+            ("actualizaciones", PasoActualizaciones),
+            ("arranque", PasoArranque),
+            ("limpieza", PasoAnalisisLimpieza));
     }
 
     // Cada paso delega en su servicio de dominio (Services/), no en el
