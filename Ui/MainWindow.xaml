@@ -160,6 +160,12 @@
                     <TextBlock Text="Rendimiento" Style="{StaticResource NavLabel}"/>
                   </StackPanel>
                 </ListBoxItem>
+                <ListBoxItem Tag="consumo" ToolTip="Qué proceso mueve el disco y cuáles tienen la red abierta">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE9D2;" Style="{StaticResource NavIcon}"/>
+                    <TextBlock Text="Consumo por proceso" Style="{StaticResource NavLabel}"/>
+                  </StackPanel>
+                </ListBoxItem>
                 <ListBoxItem Tag="termicas" ToolTip="Temperatura, frecuencia, throttling, batería y GPU">
                   <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE9CA;" Style="{StaticResource NavIcon}"/>

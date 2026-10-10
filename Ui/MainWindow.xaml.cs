@@ -179,6 +179,10 @@ public partial class MainWindow : Window
                 await _vm.RunAsync("Rendimiento", ("rendimiento", PasoRendimiento));
                 break;
 
+            case "consumo":
+                new ConsumoWindow { Owner = this }.ShowDialog();
+                break;
+
             case "termicas":
                 await _vm.RunAsync("Térmicas y energía", ("termicas", PasoTermicas));
                 break;
