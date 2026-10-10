@@ -44,6 +44,7 @@ public partial class App : Application
                 _ = new Ui.CambiosWindow();
                 _ = new Ui.ExportarWindow(new DiagnosticReport());
                 _ = new Ui.PaletteWindow(new List<Ui.Comando>());
+                _ = new Ui.CompararWindow();
                 Console.WriteLine($"SYSDIAG_SELF_TEST_OK {AppEnv.Version}");
                 Shutdown(0);
             }

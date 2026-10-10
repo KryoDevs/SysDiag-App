@@ -286,6 +286,12 @@
                   </Grid>
                 </ListBoxItem>
 
+                <ListBoxItem Tag="comparar" ToolTip="Elige dos diagnósticos guardados y mira qué cambió entre uno y otro">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE8B1;" Style="{StaticResource NavIcon}"/>
+                    <TextBlock Text="Comparar" Style="{StaticResource NavLabel}"/>
+                  </StackPanel>
+                </ListBoxItem>
                 <ListBoxItem Tag="historial" ToolTip="Diagnósticos guardados: abrí cualquiera para ver sus hallazgos">
                   <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE81C;" Style="{StaticResource NavIcon}"/>

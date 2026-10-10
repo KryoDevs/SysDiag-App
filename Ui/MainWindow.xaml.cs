@@ -232,6 +232,10 @@ public partial class MainWindow : Window
                 await CrearPunto();
                 break;
 
+            case "comparar":
+                new CompararWindow { Owner = this }.ShowDialog();
+                break;
+
             case "historial":
                 new HistoryWindow { Owner = this }.ShowDialog();
                 break;
