@@ -141,14 +141,15 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
    verifica además que el embudo de ejecución de procesos siga siendo uno solo. Cuesta
    40 líneas de aritmética y es lo que evita que el próximo color nuevo se cuele sin
    pasar (F05 es precisamente eso: se detectó midiendo, no con una prueba).
-   Y una brecha que esta tanda dejó a la vista, por honestidad: —el control es el arreglo de F03
-   (no borrarle al comprador la prueba de su licencia) entró **sin prueba unitaria**, porque `LicenseService` tiene la ruta del archivo fijada a
-   `LocalAppData` y no hay forma de apuntarlo a un directorio temporal sin tocar el
-   equipo de quien prueba. Pasar una `RutaBase` opcional —el valor actual por
-   defecto— lo vuelve testeable en cinco líneas y abre el mismo camino para
-   `SettingsService` (que escribe el registro al leer). Ese es F10, y esta es su
-   consecuencia más concreta: sin dependencias inyectables, hay arreglos que solo
-   se pueden verificar leyendo.
+   Y una brecha que esta tanda dejó a la vista, para que no se lea como
+   «arreglado y ya»: el cambio de F03 (no borrarle al comprador la prueba de su
+   licencia) entró **sin prueba unitaria**. `LicenseService` tiene la ruta del
+   archivo fijada a `LocalAppData`, y apuntarlo a un directorio temporal sin tocar
+   el equipo de quien prueba no se puede. Pasar una `RutaBase` opcional —con el
+   valor actual por defecto— lo vuelve testeable en cinco líneas y abre el mismo
+   camino para `SettingsService`, que escribe el registro al leer. Ese es F10, y
+   esta es su consecuencia más incómoda: sin dependencias inyectables hay arreglos
+   que solo se pueden verificar leyendo.
 
 **Distribución y operación**
 
