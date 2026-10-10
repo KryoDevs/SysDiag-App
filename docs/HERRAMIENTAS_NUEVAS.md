@@ -161,6 +161,22 @@ Elegir dos del historial y ver el diff: hallazgos nuevos, desaparecidos, umbrale
 cruzados, drivers que envejecieron, disco que perdió salud. Todos los datos ya están
 archivados. Es la pantalla de un técnico.
 
+**Hecho en 5.11.** `Core/Diagnostics/ReportDiff.cs` + `Ui/CompararWindow`, con
+14 pruebas sobre el motor. Dos decisiones que el análisis original no previó:
+
+- **Los hallazgos se emparejan por área y mensaje, sin la severidad.** Si se
+  emparejaran por severidad también, un hallazgo que pasó de Aviso a Crítico
+  saldría como «uno resuelto y uno nuevo», que es la lectura contraria a lo que
+  pasó. Tampoco cuenta el módulo que lo generó.
+- **Solo se comparan mediciones que son número en el modelo.** El desgaste del
+  SSD viaja dentro de un texto («12 %») y recuperarlo exige parsear una cadena
+  ya formateada: si el formato cambia, la comparación deja de encontrar nada y
+  no hay forma de darse cuenta. Queda pendiente hasta el contrato de medición
+  de `docs/MEJORAS.md §8.2.1`.
+
+La cobertura se declara antes del puntaje: comparar un «Red» suelto con un
+diagnóstico completo da un puntaje que bajó sin que nada empeorara.
+
 ### 4.2 Informe «para soporte» con redacción automática — [c / alto]
 Nombre de equipo, usuario, rutas y SSID redactados por la app. Hoy el README
 **aconseja** editar a mano, y nadie lo hace. Tiene que ser una opción del exportador.

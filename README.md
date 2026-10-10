@@ -1,4 +1,4 @@
-# SysDiag 5.10.0
+# SysDiag 5.11.0
 
 [![Compilar y probar](https://github.com/KryoDevs/SysDiag-App/actions/workflows/build.yml/badge.svg)](https://github.com/KryoDevs/SysDiag-App/actions/workflows/build.yml) [![Validar fixture](https://github.com/KryoDevs/SysDiag-App/actions/workflows/validate-fixture.yml/badge.svg)](https://github.com/KryoDevs/SysDiag-App/actions/workflows/validate-fixture.yml)
 
@@ -75,7 +75,8 @@ SysDiag/
    ├─ Charts.cs / Converters.cs   gráficos: barras con rejilla, líneas, anillos y series en vivo
    ├─ Dialog.xaml                 Diálogos propios (no MessageBox)
    ├─ CleanupWindow / OptimizeWindow / ProfilesWindow   acciones con confirmación
-   ├─ HistoryWindow / SettingsWindow / PingMonitorWindow   historial, ajustes y monitor de latencia
+   ├─ HistoryWindow / CompararWindow / SettingsWindow      historial y diff entre dos diagnósticos
+   ├─ PingMonitorWindow                     monitor de latencia en vivo
    └─ ActivacionWindowsWindow     licencia de Windows 10/11 (solo canales oficiales)
 ```
 
@@ -94,6 +95,7 @@ SysDiag/
 | Restaurar | Revierte los valores capturados antes del primer ajuste pendiente; no TCP/IP/IP fija/VPN | sí |
 | Monitor de ping | Latencia en vivo hacia el router o internet: último valor, promedio, máximo y pérdida | no |
 | Historial | Diagnósticos archivados con su puntaje y cobertura; la tendencia compara solo cobertura equivalente | no |
+| Comparar | Diferencia entre dos diagnósticos: hallazgos nuevos, resueltos, los que empeoraron y los que mejoraron | no |
 | Perfiles | Combinaciones de optimización (universidad, trabajo, juego) con respaldo previo | sí |
 | Ajustes | Muestreo, ventanas de eventos, retención de historial y registros | no |
 | Activación de Windows | Estado de la licencia y activación por canales oficiales de Microsoft | sí* |

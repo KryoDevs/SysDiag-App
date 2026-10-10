@@ -1,4 +1,4 @@
-# Análisis y plan de mejoras — SysDiag 5.10.0
+# Análisis y plan de mejoras — SysDiag 5.11.0
 
 Fecha: 2026-10-10 · Rama: `arena/e864cf80-sysdiag-app` · Base: `34a2aa1`
 Continúa [AUDITORIA.md](AUDITORIA.md) y [AUDITORIA_2026-10-09.md](AUDITORIA_2026-10-09.md).
@@ -526,6 +526,10 @@ hechas y se concentra en lo que apareció al tocar esas cuatro cosas. Coste:
    entre dos diagnósticos —hallazgos nuevos, desaparecidos, umbrales cruzados,
    drivers que envejecieron— es la pantalla que un técnico abre primero. Los datos
    ya están archivados; falta compararlos.
+
+   **Hecho en 5.11.** `Core/Diagnostics/ReportDiff.cs` + `Ui/CompararWindow`.
+   Ver `docs/HERRAMIENTAS_NUEVAS.md §4.1` para las dos decisiones de diseño
+   (emparejar sin la severidad y comparar solo mediciones estructuradas).
 6. **Registro de acciones con deshacer por paso** [m/alto]. Un JSON con «qué hice,
    en qué orden y con qué valor anterior» y un botón por paso. Es lo que separa
    una herramienta que asusta de una que se usa.
@@ -648,15 +652,14 @@ superficie de daño a la misma velocidad que el valor.
 
 ### 9.2 Lo que sigue, actualizado
 
-De §8.2 quedan pendientes: **1** contrato de medición con unidad, **5** línea de
-base y diff entre diagnósticos, **7** accesibilidad más allá del foco, **9**
+De §8.2 quedan pendientes: **1** contrato de medición con unidad, **7**
+accesibilidad más allá del foco, **9**
 unidades en el HTML, **11** más pruebas de funciones puras, **12**
 `docs/REGLAS.md` generado, **13** decisión de i18n, **14** actualizaciones y
 firma, **15** persistencia de la ventana.
 
 De `HERRAMIENTAS_NUEVAS.md` quedan: 2.1 monitor en vivo, 2.2 línea térmica,
 2.3 SMART por atributos, 2.4 pérdida por salto, 2.5 mapa de canales, 2.6 I/O
-por proceso, 2.8 batería, 3.5 desinstalación asistida, 4.1 comparar dos
-diagnósticos, 4.4 modo equipos, 5.2 editor de umbrales, 5.3 perfiles
-editables, 5.4 programador, 5.5 actualizaciones y firma, 5.6 tema claro y alto
-contraste.
+por proceso, 2.8 batería, 3.5 desinstalación asistida, 4.4 modo equipos,
+5.2 editor de umbrales, 5.3 perfiles editables, 5.4 programador, 5.5
+actualizaciones y firma, 5.6 tema claro y alto contraste.

@@ -3,6 +3,38 @@
 Los cambios notables de este proyecto se documentan en este archivo. Las secciones
 `[Sin publicar]` son lotes de una rama: se consolidan al cortar el siguiente release.
 
+## [Sin publicar] - 2026-10-10 (comparar dos diagnósticos)
+
+Sube la versión a **5.11.0**. Cierra el lote 3 de `docs/HERRAMIENTAS_NUEVAS.md
+§6` («Explicar») en lo que respecta a 4.1, y el punto 5 de `docs/MEJORAS.md
+§8.2`.
+
+Los datos del historial ya se archivaban desde hacía versiones, pero solo se
+podían mirar de a uno: «¿mejoró o empeoró?» exigía acordarse de lo que decía el
+diagnóstico anterior. Después de aplicar un arreglo, esta es la pantalla que
+dice si sirvió.
+
+- **`Core/Diagnostics/ReportDiff.cs`**, motor puro con 14 pruebas. Los
+  hallazgos se emparejan por **área y mensaje, sin la severidad ni el módulo**:
+  si se emparejaran por severidad, un hallazgo que pasó de Aviso a Crítico
+  saldría como «uno resuelto y uno nuevo», que es la lectura contraria a lo que
+  pasó.
+- **Solo se comparan mediciones que son número en el modelo** (espacio libre,
+  latencia y pérdida por destino, repeticiones de eventos, volcados). El
+  desgaste del SSD viaja dentro de un texto ya formateado y compararlo exigiría
+  parsear la presentación: si el formato cambia, la comparación deja de
+  encontrar nada y no hay forma de darse cuenta. Queda para el contrato de
+  medición de §8.2.1.
+- **El ruido no se reporta**: menos de 3 ms de latencia o medio punto de disco
+  no aparecen. Un diff que siempre se mueve es un diff que no se lee.
+- **`Ui/CompararWindow`**: dos combos con el historial, inversión con un clic y
+  carga de los JSON en segundo plano (sesenta diagnósticos son decenas de
+  megabytes: leerlos en el hilo de la interfaz congela la ventana).
+- **La cobertura se declara antes que el puntaje.** Comparar un «Red» suelto con
+  un diagnóstico completo da un puntaje que bajó sin que nada empeorara, y sin
+  ese aviso la lectura es exactamente la contraria.
+- Umbral de pruebas del CI: 232.
+
 ## [Sin publicar] - 2026-10-10 (confiar: ensayo, verificación y deshacer por paso)
 
 Sube la versión a **5.10.0**. Es el lote 2 de `docs/HERRAMIENTAS_NUEVAS.md §6`,
