@@ -799,13 +799,18 @@ public partial class MainWindow : Window
 
     private void Cancelar_Click(object sender, RoutedEventArgs e) => _vm.Cancelar();
 
+    /// <summary>
+    /// El informe ya no se genera a ciegas en un solo formato: se elige para
+    /// quién es. Compartir un HTML con el nombre del equipo, el del usuario y
+    /// el SSID de la red de la casa es lo que pasaba siempre, porque el README
+    /// se limitaba a aconsejar editarlo a mano.
+    /// </summary>
     private void Informe_Click(object sender, RoutedEventArgs e)
     {
         if (!_vm.PuedeExportar) return;
         try
         {
-            string archivo = ReportBuilder.Build(_vm.Report);
-            Process.Start(new ProcessStartInfo(archivo) { UseShellExecute = true })?.Dispose();
+            new ExportarWindow(_vm.Report) { Owner = this }.ShowDialog();
         }
         catch (Exception ex)
         {

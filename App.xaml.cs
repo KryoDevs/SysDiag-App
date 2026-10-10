@@ -42,6 +42,7 @@ public partial class App : Application
                 _ = new Ui.TweaksWindow();
                 _ = new Ui.ActivacionWindowsWindow();
                 _ = new Ui.CambiosWindow();
+                _ = new Ui.ExportarWindow(new DiagnosticReport());
                 Console.WriteLine($"SYSDIAG_SELF_TEST_OK {AppEnv.Version}");
                 Shutdown(0);
             }

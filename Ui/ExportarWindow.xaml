@@ -1,0 +1,30 @@
+<Window x:Class="SysDiag.Ui.ExportarWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:SysDiag.Ui"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        SizeToContent="Height" Width="620" ResizeMode="NoResize" MaxHeight="760"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+
+  <!-- Al abrirse, el panel sube y aparece: el gesto que explica de
+       dónde salió respecto de la ventana madre. -->
+  <Border Style="{StaticResource PanelShell}" ui:Motion.Enter="True">
+    <DockPanel LastChildFill="True">
+      <StackPanel DockPanel.Dock="Top">
+        <Rectangle Height="4" Width="46" HorizontalAlignment="Left" RadiusX="2" RadiusY="2"
+                   Fill="{StaticResource BAccent}" Margin="0,0,0,16"/>
+        <TextBlock Text="Exportar diagnóstico" Style="{StaticResource H2}"/>
+        <TextBlock Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,8,0,4"
+                   Text="Elige el formato según para quién sea. Para un foro o un ticket, usa la versión redactada: quita el nombre del equipo, el del usuario, las rutas del perfil, los números de serie, los nombres de red y las direcciones MAC."/>
+      </StackPanel>
+
+      <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+        <Button Content="Cancelar" Style="{StaticResource BtnGhost}" Margin="0,0,8,0" Click="Cerrar_Click"/>
+        <Button x:Name="BtnGenerar" Content="Generar" Style="{StaticResource BtnPrimary}"
+                Click="Generar_Click" IsDefault="True"/>
+      </StackPanel>
+
+      <StackPanel x:Name="PanelFormatos" Margin="0,14,0,0"/>
+    </DockPanel>
+  </Border>
+</Window>
