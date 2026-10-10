@@ -1593,20 +1593,25 @@
              por cuadro dentro de la lista, y el origen en el borde izquierdo es
              lo que la mantiene pegada a la etiqueta. Se empieza en 0,5 y no en
              0 para que el radio de las puntas no se deforme de forma visible. -->
-        <Rectangle x:Name="Barra" Height="10" RadiusX="5" RadiusY="5" HorizontalAlignment="Left"
+        <Rectangle Height="10" RadiusX="5" RadiusY="5" HorizontalAlignment="Left"
                    Fill="{Binding Color}" Width="{Binding Ancho}" Opacity="0"
                    RenderTransformOrigin="0,0.5">
           <Rectangle.RenderTransform>
-            <ScaleTransform x:Name="BarraEscala" ScaleX="0.5"/>
+            <ScaleTransform ScaleX="0.5"/>
           </Rectangle.RenderTransform>
+          <!-- Sin Storyboard.TargetName: dentro de <Rectangle.Triggers> el
+               destino ya es el propio rectángulo, y la transformación se
+               alcanza por ruta de propiedad. Es el mismo truco del punto de la
+               barra superior, y evita depender de que el nombre esté en el
+               ámbito de esta plantilla. -->
           <Rectangle.Triggers>
             <EventTrigger RoutedEvent="FrameworkElement.Loaded">
               <BeginStoryboard>
                 <Storyboard>
-                  <DoubleAnimation Storyboard.TargetName="BarraEscala" Storyboard.TargetProperty="ScaleX"
+                  <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
                                    From="0.5" To="1" Duration="0:0:0.34"
                                    EasingFunction="{StaticResource EEaseSalida}"/>
-                  <DoubleAnimation Storyboard.TargetName="Barra" Storyboard.TargetProperty="Opacity"
+                  <DoubleAnimation Storyboard.TargetProperty="Opacity"
                                    From="0" To="1" Duration="0:0:0.14"/>
                 </Storyboard>
               </BeginStoryboard>
