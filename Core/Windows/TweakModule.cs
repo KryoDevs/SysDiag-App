@@ -118,7 +118,7 @@ public static class TweakModule
             try
             {
                 using var baseKey = AbrirBase(RegistryHive.CurrentUser, writable: true);
-                baseKey.DeleteSubKeyTree(ruta, throwOnMissing: false);
+                baseKey.DeleteSubKeyTree(ruta, throwOnMissingSubKey: false);
             }
             catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or ArgumentException)
             {
@@ -180,7 +180,7 @@ public static class TweakModule
         else if (entrada.Nombre != "")
         {
             using var clave = baseKey.OpenSubKey(entrada.Ruta, writable: true);
-            clave?.DeleteValue(entrada.Nombre, throwOnMissing: false);
+            clave?.DeleteValue(entrada.Nombre, throwOnMissingValue: false);
         }
         // Si no existía y es el valor predeterminado (Nombre == ""), no se
         // puede «borrar»: queda cubierto por BorrarAlRevertir del ajuste.
@@ -247,7 +247,7 @@ public static class TweakModule
                 Hive = reg.Hive.ToString(),
                 Ruta = reg.Ruta,
                 Nombre = reg.Nombre,
-                Tipo = valorAnterior != null ? LeerTipo(reg) : reg.Tipo.ToString(),
+                Tipo = (valorAnterior != null ? LeerTipo(reg) : reg.Tipo).ToString(),
                 Valor = valorAnterior != null ? HaciaTexto(LeerTipo(reg), valorAnterior) : "",
                 Existia = valorAnterior != null
             });
