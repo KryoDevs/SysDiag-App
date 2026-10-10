@@ -66,7 +66,38 @@ public partial class App : Application
         DispatcherUnhandledException += (_, args) =>
         {
             AppLog.Write($"Excepción no controlada: {args.Exception}", "ERROR");
-            Ui.Dialog.Error("Error inesperado", args.Exception.Message + "\n\nEl detalle quedó guardado en el registro.");
+            try
+            {
+                // `Handled = true` significa que la app sigue abierta en un estado
+                // que ya no conoce. Eso a veces está bien (un fallo pintando una
+                // fila) y a veces no (una excepción a media escritura de registro o
+                // a mitad de una instalación: quedan cambios aplicados y la
+                // interfaz ofrece los mismos botones como si nada). En lugar de
+                // decidir por él, se le pregunta al usuario, y se le dice dónde
+                // está el detalle. Si se estaba midiendo, lo que hay en pantalla
+                // son datos de una corrida que no terminó: eso va en el mensaje.
+                bool midiendo = Current.MainWindow?.DataContext is Ui.MainViewModel { Ocupado: true };
+                string cuerpo = args.Exception.Message
+                    + (midiendo
+                        ? "\n\nLa operación quedó interrumpida a medias: lo que sigue en pantalla puede no corresponderse con el equipo."
+                        : "\n\nEl resto de la aplicación sigue disponible.")
+                    + "\n\nDetalle: " + Core.AppLog.File
+                    + (midiendo ? "\n\nRecomendado: reiniciar antes de volver a aplicar cambios." : "");
+                if (Ui.Dialog.Confirm("Error inesperado", cuerpo, "Reiniciar SysDiag"))
+                {
+                    Core.AppEnv.Reiniciar();
+                    Shutdown();
+                }
+            }
+            catch (Exception ex)
+            {
+                // Si el propio diálogo no se puede construir (fue el fallo más
+                // probable de todos: un recurso del tema roto), MessageBox es lo
+                // último que todavía depende solo de Win32.
+                AppLog.Write($"No se pudo mostrar el diálogo de error: {ex.Message}", "WARN");
+                MessageBox.Show(args.Exception.Message, "SysDiag — error inesperado",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
             args.Handled = true;
         };
         AppDomain.CurrentDomain.UnhandledException += (_, args) => AppLog.Write($"Error fatal: {args.ExceptionObject}", "ERROR");

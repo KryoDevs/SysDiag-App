@@ -29,7 +29,13 @@
   <Color x:Key="CStrokeSoft">#FF1A2240</Color>
   <Color x:Key="CText">#FFEDEFFA</Color>
   <Color x:Key="CTextDim">#FFA6B0D4</Color>
-  <Color x:Key="CTextMuted">#FF6E79A8</Color>
+  <!-- El texto tenue es el único color del tema que estaba por debajo del mínimo
+       de contraste: 4,47 sobre el fondo base, 4,08 sobre la superficie y 3,65
+       sobre la superficie alterna, y se usa en rótulos de 10,5 px (Eyebrow,
+       SectionLabel, NavGroup, los chips). Subido a #808CC2: 5,81 / 5,30 / 4,74.
+       Mismo matiz frío, mismo peso visual, y ahora cumple AA en los cuatro
+       fundos. La regla la fija TemaRegressionTests, no este comentario. -->
+  <Color x:Key="CTextMuted">#FF808CC2</Color>
   <Color x:Key="CAccent">#FF8B7CFF</Color>
   <Color x:Key="CAccentDeep">#FF6D5AE8</Color>
   <Color x:Key="CAccent2">#FF38D6F0</Color>

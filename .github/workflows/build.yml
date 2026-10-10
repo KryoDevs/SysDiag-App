@@ -30,11 +30,10 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Comprobar el XAML (recursos y ámbitos de nombres)
-        # Advertencia y no puerta, por ahora: encuentra los errores que el
-        # autotest no ve (los triggers de una plantilla solo se materializan al
-        # pasar el cursor), pero todavía no tiene corridas encima como para
-        # bloquear una rama por él. Promoverlo a gate cuando pese.
-        continue-on-error: true
+        # Puerta desde la primera corrida verde sobre el tema reescrito. Es la
+        # comprobación que ve lo que el autotest no puede ver: los triggers de una
+        # plantilla solo se materializan al pasar el cursor, y un TargetName mal
+        # escrito no rompe la construcción de la ventana — rompe el primer hover.
         shell: pwsh
         run: |
           .\Tools\validate_xaml.ps1 -Root .

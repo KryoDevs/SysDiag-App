@@ -35,7 +35,22 @@ public static class LicenseService
         public string PrimerInicio { get; set; }
         public string Codigo { get; set; }
         public string Activacion { get; set; }
+
+        /// <summary>
+        /// Equipo (máquina\usuario) donde se activó el código guardado. Se
+        /// escribe desde esta versión: los archivos anteriores no lo tienen y se
+        /// les aplica el trato genérico. Sirve para poder decir algo cierto
+        /// cuando el código deja de verificar.
+        /// </summary>
+        public string Equipo { get; set; }
     }
+
+    /// <summary>
+    /// Huella legible del criterio con el que <see cref="LicenseCrypto"/> ata un
+    /// código al equipo. Coincide con su composición interna sin depender de
+    /// ella: si un día la etiqueta cambia, esto sigue describiendo el equipo.
+    /// </summary>
+    public static string EquipoActual => Environment.MachineName + @"\" + Environment.UserName;
 
     private static readonly object Bloqueo = new();
     private static ArchivoLicencia _archivo = new();
@@ -60,6 +75,13 @@ public static class LicenseService
 
     /// <summary>Último error de activación, para la ventana de licencia.</summary>
     public static string UltimoError => _error;
+
+    /// <summary>
+    /// Aviso pendiente de mostrar en la ventana de licencia: lo que hay que
+    /// decirle al usuario sobre un código guardado que no verifica. No es un
+    /// error de activación (nadie tecleó nada), por eso no comparte el campo.
+    /// </summary>
+    public static string Aviso { get; private set; } = "";
 
     /// <summary>Etiqueta corta para la barra superior: «Pro», «Prueba · 12 días», «Sin licencia».</summary>
     public static string EtiquetaCorta
@@ -113,7 +135,24 @@ public static class LicenseService
                 else
                 {
                     _estado = EstadoLicencia.Prueba;
-                    _archivo.Codigo = null;
+
+                    // Antes este ramo hacía `_archivo.Codigo = null` y guardaba,
+                    // o sea: borraba la prueba de que alguien compró una
+                    // licencia. Como el código vinculado se deriva de
+                    // máquina\usuario, renombrar el PC, entrar con otra cuenta o
+                    // un perfil roaming apagaban la licencia del comprador y le
+                    // quitaban hasta el código para recuperarla.
+                    //
+                    // Se deja de borrar. El estado igual es de prueba —no se
+                    // concede nada—, pero el dato del usuario sobrevive, y si el
+                    // equipo vuelve a llamarse como antes la licencia reaparece
+                    // sola. El aviso explica qué pasó en lugar de callarlo.
+                    if (!string.IsNullOrEmpty(_archivo.Codigo))
+                    {
+                        Aviso = string.Equals(_archivo.Equipo, EquipoActual, StringComparison.Ordinal)
+                            ? "El código guardado no verifica en este equipo: puede estar mal escrito, ser de otra versión o haberse editado el archivo."
+                            : $"El código guardado se activó en «{_archivo.Equipo}» y aquí no verifica; sigue guardado para que no lo pierdas.";
+                    }
                 }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or NotSupportedException)
@@ -161,6 +200,9 @@ public static class LicenseService
             string normalizado = (codigo ?? "").Trim();
             _archivo.Codigo = normalizado;
             _archivo.Activacion = DateTime.Now.ToString("o");
+            _archivo.Equipo = EquipoActual;
+            _error = "";
+            Aviso = "";
             try { GuardarInterno(); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {

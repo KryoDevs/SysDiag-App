@@ -2,7 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Sin publicar] - 2026-10-10 (capa de movimiento)
+## [Sin publicar] - 2026-10-10 (movimiento, legibilidad y licencia)
+
+### Corregido
+- **Una licencia ya no se autodestruye.** `LicenseService` borraba el código guardado
+  cuando no verificaba; como el código vinculado se deriva de `máquina\usuario`,
+  renombrar el PC o entrar con otra cuenta apagaba la licencia del comprador y le
+  quitaba hasta el código para recuperarla. Ahora el código se conserva, el archivo
+  recuerda en qué equipo se activó y la ventana de activación lo muestra con el
+  motivo. Si el equipo vuelve a su nombre anterior, la licencia reaparece sola.
+- **Contraste del texto tenue**: `CTextMuted` estaba por debajo del mínimo de WCAG AA
+  en los cuatro fondos donde se usa (4,47 / 4,61 / 4,08 / 3,65) y es el color de los
+  rótulos de 9,5–10,5 px. Subido a `#808CC2` (5,81 / 5,99 / 5,30 / 4,74).
+- **El error inesperado deja de ser un «Entendido»**: el diálogo distingue si había una
+  operación en curso (dice que quedó a medias), muestra la ruta del registro y ofrece
+  **Reiniciar SysDiag** con el mismo mecanismo de `--wait-for-parent` que usa la
+  elevación, para no chocar contra el mutex de instancia única. Si el propio diálogo no
+  se puede construir, queda `MessageBox` como último recurso.
+- **Trazas legibles**: `DebugType` pasa de `none` a `embedded`. El registro de un fallo
+  ya no termina en `<RunAsync>d__57.MoveNext()`; el PDB viaja dentro del ensamblado, así
+  que el paquete publicado sigue siendo un solo archivo.
+- **Parseo de la fecha WMI con cultura invariante** (antigüedad de drivers). Estaba
+  tapado por la cultura forzada del arranque; el fallo se tragaba como «fecha ilegible».
+- **`Core/ProcessRunner` como único embudo de procesos**, ahora con una prueba que lo
+  exige. Se corrigió de paso una afirmación de la auditoría: los «15 sitios que creaban
+  procesos fuera del runner» eran `ProcessStartInfo` para abrir URLs, archivos y páginas
+  de *ms-settings*, que es el API correcto ahí.
 
 ### Interfaz
 - **Sistema de movimiento con reglas propias** (`Ui/Motion.cs` y el bloque

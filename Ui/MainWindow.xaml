@@ -62,9 +62,17 @@
                      FontFamily="{StaticResource FMono}" VerticalAlignment="Center"
                      Foreground="{StaticResource BTextMuted}" Margin="0,0,10,0"/>
 
-          <Button Content="&#xE921;" Style="{StaticResource BtnCaption}" Click="Min_Click" ToolTip="Minimizar"/>
-          <Button x:Name="BtnMax" Content="&#xE922;" Style="{StaticResource BtnCaption}" Click="Max_Click" ToolTip="Maximizar"/>
-          <Button Content="&#xE8BB;" Style="{StaticResource BtnCaptionClose}" Click="Cerrar_Click" ToolTip="Cerrar"/>
+          <!-- El Name es para el lector de pantalla: el contenido es un glifo de
+               Segoe Fluent Icons, que leído en voz alta es un carácter de área de
+               uso privado. El ToolTip no sustituye: no lo anuncia nada. Son los
+               únicos cinco botones del programa sin texto visible, y están en la
+               cabecera, que es por donde se empieza a navegar. -->
+          <Button Content="&#xE921;" Style="{StaticResource BtnCaption}" Click="Min_Click" ToolTip="Minimizar"
+                  AutomationProperties.Name="Minimizar la ventana"/>
+          <Button x:Name="BtnMax" Content="&#xE922;" Style="{StaticResource BtnCaption}" Click="Max_Click" ToolTip="Maximizar"
+                  AutomationProperties.Name="Maximizar o restaurar la ventana"/>
+          <Button Content="&#xE8BB;" Style="{StaticResource BtnCaptionClose}" Click="Cerrar_Click" ToolTip="Cerrar"
+                  AutomationProperties.Name="Cerrar SysDiag"/>
         </StackPanel>
       </Grid>
     </Border>

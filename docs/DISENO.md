@@ -34,7 +34,7 @@ elemento, más clara es su superficie. El borde de 1 px solo define el canto.
 |---|---|---|
 | `CText` | `#EDEFFA` | Texto principal |
 | `CTextDim` | `#A6B0D4` | Texto secundario y notas |
-| `CTextMuted` | `#6E79A8` | Rótulos, etiquetas y texto de tercer nivel |
+| `CTextMuted` | `#808CC2` | Rótulos, etiquetas y texto de tercer nivel (antes `#6E79A8`: no llegaba al mínimo abajo) |
 
 ### Acentos
 
@@ -48,6 +48,16 @@ elemento, más clara es su superficie. El borde de 1 px solo define el canto.
 
 ### Reglas de uso del color
 
+0. **Contraste antes que elegancia.** Todo tinte de texto cumple WCAG AA
+   (4,5:1) sobre los cuatro fundos del tema, medido —no estimado— sobre los
+   valores de arriba: lo más ajustado es `CAccent` sobre `CSurfaceAlt` (4,72) y
+   `CTextMuted` sobre el mismo fondo (4,74). La superficie elevada
+   (`CSurfaceHi`, la del ToolTip) es la excepción deliberada: sobre ella solo
+   puede ir `CText`, y lo garantiza la propia plantilla del ToolTip. La regla la
+   verifica `Tools/IntegrationTests/ThemeRegressionTests.cs` cada vez que corre
+   la suite, así que un color nuevo se rechaza solo. Se numera desde 0 porque
+   manda sobre las demás: si un contraste no pasa, el color se cambia, no se le
+   busca el pretexto.
 1. **Un solo acento por pantalla.** El violeta señala la acción; el cian, el
    momento. Si ambos aparecen con el mismo peso, ninguno orienta.
 2. **El color semántico califica datos, nunca decora.** Verde, ámbar y rojo se

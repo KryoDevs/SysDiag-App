@@ -31,6 +31,7 @@
         </StackPanel>
         <Button HorizontalAlignment="Right" Content="&#xE8BB;" Style="{StaticResource BtnCaptionClose}"
                 Click="Cerrar_Click" ToolTip="Cerrar"
+                AutomationProperties.Name="Cerrar esta ventana"
                 shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
       </Grid>
     </Border>

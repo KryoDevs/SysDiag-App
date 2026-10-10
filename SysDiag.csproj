@@ -27,7 +27,12 @@
     <PublishSingleFile>true</PublishSingleFile>
     <PublishReadyToRun>true</PublishReadyToRun>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <DebugType>none</DebugType>
+    <!-- PDB dentro del ensamblado, no fuera: `none` dejaba el registro de un
+         fallo sin números de línea («en SysDiag.Ui.MainViewModel.<RunAsync>d__57»
+         es todo lo que se puede leer) y un .pdb suelto rompería la promesa de un
+         único archivo. Con `embedded` la traza del log es accionable y el
+         paquete sigue siendo SysDiag.exe solo. -->
+    <DebugType>embedded</DebugType>
     <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
 
