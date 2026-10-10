@@ -156,91 +156,102 @@ public partial class MainWindow : Window
             // La selección marca el módulo activo; se limpia al terminar para que
             // volver a pulsar el mismo vuelva a ejecutarlo.
             _vm.SetContexto(clave);
-            switch (clave)
-            {
-                case "red":
-                    await _vm.RunAsync("Red y latencia", ("red", PasoRed));
-                    break;
-
-                case "rendimiento":
-                    await _vm.RunAsync("Rendimiento", ("rendimiento", PasoRendimiento));
-                    break;
-
-                case "termicas":
-                    await _vm.RunAsync("Térmicas y energía", ("termicas", PasoTermicas));
-                    break;
-
-                case "estabilidad":
-                    await _vm.RunAsync("Estabilidad", ("estabilidad", PasoEstabilidad));
-                    break;
-
-                case "limpieza":
-                    await Limpieza();
-                    break;
-
-                case "drivers":
-                    _vm.BusquedaDriversHecha = false;
-                    await _vm.RunAsync("Drivers", ("drivers", PasoDrivers));
-                    break;
-
-                case "actualizaciones":
-                    await _vm.RunAsync("Actualizaciones", ("actualizaciones", PasoActualizaciones));
-                    break;
-
-                case "almacenamiento":
-                    await _vm.RunAsync("Almacenamiento", ("almacenamiento", PasoAlmacenamiento));
-                    break;
-
-                case "seguridad":
-                    await _vm.RunAsync("Seguridad", ("seguridad", PasoSeguridad));
-                    break;
-
-                case "arranque":
-                    await _vm.RunAsync("Arranque y software", ("arranque", PasoArranque));
-                    break;
-
-                case "optimizar":
-                    await Optimizar();
-                    break;
-
-                case "tweaks":
-                    new TweaksWindow { Owner = this }.ShowDialog();
-                    break;
-
-                case "perfiles":
-                    new ProfilesWindow { Owner = this }.ShowDialog();
-                    break;
-
-                case "restaurar":
-                    await RestaurarEstado();
-                    break;
-
-                case "punto-restauracion":
-                    await CrearPunto();
-                    break;
-
-                case "historial":
-                    new HistoryWindow { Owner = this }.ShowDialog();
-                    break;
-
-                case "ping-monitor":
-                    new PingMonitorWindow { Owner = this }.ShowDialog();
-                    break;
-
-                case "cambios":
-                    new CambiosWindow { Owner = this }.ShowDialog();
-                    break;
-
-                case "activacion-windows":
-                    new ActivacionWindowsWindow { Owner = this }.ShowDialog();
-                    break;
-
-                case "ajustes":
-                    new SettingsWindow { Owner = this }.ShowDialog();
-                    break;
-            }
+            await EjecutarModuloAsync(clave);
         }
         finally { Nav.SelectedIndex = -1; }
+    }
+
+    /// <summary>
+    /// Un solo lugar donde vive «qué hace cada módulo». La paleta de comandos
+    /// y la lista del rail llaman acá: dos despachos distintos para la misma
+    /// lista de veinte destinos es una lista que va a divergir en cuanto
+    /// alguien agregue un módulo.
+    /// </summary>
+    private async Task EjecutarModuloAsync(string clave)
+    {
+        switch (clave)
+        {
+            case "red":
+                await _vm.RunAsync("Red y latencia", ("red", PasoRed));
+                break;
+
+            case "rendimiento":
+                await _vm.RunAsync("Rendimiento", ("rendimiento", PasoRendimiento));
+                break;
+
+            case "termicas":
+                await _vm.RunAsync("Térmicas y energía", ("termicas", PasoTermicas));
+                break;
+
+            case "estabilidad":
+                await _vm.RunAsync("Estabilidad", ("estabilidad", PasoEstabilidad));
+                break;
+
+            case "limpieza":
+                await Limpieza();
+                break;
+
+            case "drivers":
+                _vm.BusquedaDriversHecha = false;
+                await _vm.RunAsync("Drivers", ("drivers", PasoDrivers));
+                break;
+
+            case "actualizaciones":
+                await _vm.RunAsync("Actualizaciones", ("actualizaciones", PasoActualizaciones));
+                break;
+
+            case "almacenamiento":
+                await _vm.RunAsync("Almacenamiento", ("almacenamiento", PasoAlmacenamiento));
+                break;
+
+            case "seguridad":
+                await _vm.RunAsync("Seguridad", ("seguridad", PasoSeguridad));
+                break;
+
+            case "arranque":
+                await _vm.RunAsync("Arranque y software", ("arranque", PasoArranque));
+                break;
+
+            case "optimizar":
+                await Optimizar();
+                break;
+
+            case "tweaks":
+                new TweaksWindow { Owner = this }.ShowDialog();
+                break;
+
+            case "perfiles":
+                new ProfilesWindow { Owner = this }.ShowDialog();
+                break;
+
+            case "restaurar":
+                await RestaurarEstado();
+                break;
+
+            case "punto-restauracion":
+                await CrearPunto();
+                break;
+
+            case "historial":
+                new HistoryWindow { Owner = this }.ShowDialog();
+                break;
+
+            case "ping-monitor":
+                new PingMonitorWindow { Owner = this }.ShowDialog();
+                break;
+
+            case "cambios":
+                new CambiosWindow { Owner = this }.ShowDialog();
+                break;
+
+            case "activacion-windows":
+                new ActivacionWindowsWindow { Owner = this }.ShowDialog();
+                break;
+
+            case "ajustes":
+                new SettingsWindow { Owner = this }.ShowDialog();
+                break;
+        }
     }
 
     /// <summary>
@@ -617,12 +628,22 @@ public partial class MainWindow : Window
     {
         if (_vm.Ocupado) return;
         if (sender is not Button { Tag: string id }) return;
+        await EjecutarAccionAsync(id);
+    }
+
+    /// <summary>
+    /// Igual que EjecutarModuloAsync pero para la banda de acciones. Un solo
+    /// despacho: la paleta de comandos ejecuta exactamente lo mismo que el
+    /// botón, porque llama a lo mismo.
+    /// </summary>
+    internal async Task EjecutarAccionAsync(string id)
+    {
         switch (id)
         {
             case "ping-monitor": new PingMonitorWindow { Owner = this }.ShowDialog(); break;
             case "historial": new HistoryWindow { Owner = this }.ShowDialog(); break;
-            case "informe": Informe_Click(sender, e); break;
-            case "export-json": ExportarJson_Click(sender, e); break;
+            case "informe": Informe_Click(this, new RoutedEventArgs()); break;
+            case "export-json": ExportarJson_Click(this, new RoutedEventArgs()); break;
             case "ajustes": new SettingsWindow { Owner = this }.ShowDialog(); break;
             case "licencia": new ActivationWindow { Owner = this }.ShowDialog(); break;
             case "tweaks": new TweaksWindow { Owner = this }.ShowDialog(); break;
@@ -630,10 +651,10 @@ public partial class MainWindow : Window
             case "optimizar": await Optimizar(); break;
             case "limpieza": await Limpieza(); break;
             case "buscar-drivers": await BuscarDrivers(); break;
-            case "actualizar-todo": ActualizarTodo_Click(sender, e); break;
-            case "abrir-wu": AbrirWindowsUpdateSistema_Click(sender, e); break;
-            case "abrir-devmgmt": AbrirDeviceManager_Click(sender, e); break;
-            case "verificar-driver": VerificarDriver_Click(sender, e); break;
+            case "actualizar-todo": ActualizarTodo_Click(this, new RoutedEventArgs()); break;
+            case "abrir-wu": AbrirWindowsUpdateSistema_Click(this, new RoutedEventArgs()); break;
+            case "abrir-devmgmt": AbrirDeviceManager_Click(this, new RoutedEventArgs()); break;
+            case "verificar-driver": VerificarDriver_Click(this, new RoutedEventArgs()); break;
             case "ver-procesos": SeleccionarTabla("Procesos por CPU"); break;
             case "ver-eventos": SeleccionarTabla("Eventos (detalle)"); break;
             case "ver-hallazgos": VHallazgos.IsChecked = true; break;
@@ -657,6 +678,170 @@ public partial class MainWindow : Window
     {
         VDatos.IsChecked = true;
         if (_vm.Tablas.Contains(nombre)) _vm.TablaSeleccionada = nombre;
+    }
+
+    // ---- Paleta de comandos (Ctrl+K) --------------------------------------
+
+    /// <summary>
+    /// El atajo se atiende en la ventana y no en el campo de búsqueda de la
+    /// paleta porque la paleta está cerrada cuando se pulsa: quien la dispara
+    /// es la ventana que la contiene.
+    /// </summary>
+    private void Ventana_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.K && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            AbrirPaleta();
+            e.Handled = true;
+        }
+    }
+
+    private void Paleta_Click(object sender, RoutedEventArgs e) => AbrirPaleta();
+
+    private void AbrirPaleta()
+    {
+        if (_vm.Ocupado)
+        {
+            AppLog.Write("Hay una operación en curso. Espera a que termine para abrir la paleta.", "WARN");
+            return;
+        }
+        new PaletteWindow(ConstruirComandos()) { Owner = this }.ShowDialog();
+    }
+
+    /// <summary>
+    /// La lista de comandos se arma desde las mismas estructuras que ya pintan
+    /// la interfaz, no desde una segunda lista mantenida a mano: los módulos
+    /// salen de los ítems del rail y las acciones salen de la sección activa.
+    /// Dos listas paralelas de lo mismo divergen en cuanto alguien agrega un
+    /// módulo, y ese desajuste se ve solo en la paleta.
+    /// </summary>
+    private List<Comando> ConstruirComandos()
+    {
+        var comandos = new List<Comando>();
+
+        comandos.Add(new Comando
+        {
+            Titulo = "Diagnóstico completo",
+            Grupo = "Medir",
+            Detalle = "Recorre todos los módulos y archiva el resultado.",
+            Sinonimos = "todo completo analisis escanear empezar",
+            Ejecutar = EjecutarCompleto
+        });
+
+        foreach (var item in Nav.Items.OfType<ListBoxItem>())
+        {
+            if (item.Tag is not string clave || clave.Length == 0) continue;
+            string etiqueta = EtiquetaNav(item);
+            if (etiqueta.Length == 0) continue;
+
+            comandos.Add(new Comando
+            {
+                Titulo = etiqueta,
+                Grupo = "Módulo",
+                Detalle = item.ToolTip?.ToString() ?? "",
+                Ejecutar = async () =>
+                {
+                    _vm.SetContexto(clave);
+                    await EjecutarModuloAsync(clave);
+                }
+            });
+        }
+
+        // Las acciones de la sección activa van primero en su propio grupo:
+        // quien abre la paleta desde la vista de Drivers casi siempre quiere
+        // una de esas, y encontrarlas al final de veinte módulos es perder el
+        // sentido del atajo.
+        foreach (var accion in _vm.Contexto?.Acciones ?? new List<AccionRapida>())
+        {
+            if (string.IsNullOrWhiteSpace(accion.Id)) continue;
+            string id = accion.Id;
+            comandos.Add(new Comando
+            {
+                Titulo = accion.Texto,
+                Grupo = _vm.Contexto.Nombre,
+                Detalle = "Acción de la sección actual.",
+                Ejecutar = () => EjecutarAccionAsync(id)
+            });
+        }
+
+        comandos.AddRange(new[]
+        {
+            new Comando { Titulo = "Exportar informe", Grupo = "Datos",
+                Detalle = "HTML o Markdown, completo o redactado para compartir.",
+                Sinonimos = "exportar informe html markdown soporte foro redactar",
+                Ejecutar = () => { Informe_Click(this, new RoutedEventArgs()); return Task.CompletedTask; } },
+            new Comando { Titulo = "Exportar todo (JSON)", Grupo = "Datos",
+                Detalle = "Todos los datos medidos, para procesarlos con otro programa.",
+                Sinonimos = "json exportar todo datos",
+                Ejecutar = () => { ExportarJson_Click(this, new RoutedEventArgs()); return Task.CompletedTask; } },
+            new Comando { Titulo = "Exportar tabla (CSV)", Grupo = "Datos",
+                Detalle = "La tabla que estás viendo en Datos.",
+                Sinonimos = "csv tabla exportar",
+                Ejecutar = () => { ExportarCsv_Click(this, new RoutedEventArgs()); return Task.CompletedTask; } },
+            new Comando { Titulo = "Abrir carpeta de salida", Grupo = "Datos",
+                Detalle = "Donde SysDiag guarda informes, historial y exportaciones.",
+                Sinonimos = "carpeta archivos salida ruta",
+                Ejecutar = () => { Carpeta_Click(this, new RoutedEventArgs()); return Task.CompletedTask; } },
+            new Comando { Titulo = "Copiar registro", Grupo = "Datos",
+                Detalle = "Copia al portapapeles lo que se está viendo, no todo el registro.",
+                Sinonimos = "copiar log registro portapapeles",
+                Ejecutar = () => { CopiarRegistro_Click(this, new RoutedEventArgs()); return Task.CompletedTask; } },
+            new Comando { Titulo = "Ver Resumen", Grupo = "Vista", Ejecutar = () => { VResumen.IsChecked = true; return Task.CompletedTask; } },
+            new Comando { Titulo = "Ver Hallazgos", Grupo = "Vista", Ejecutar = () => { VHallazgos.IsChecked = true; return Task.CompletedTask; } },
+            new Comando { Titulo = "Ver Datos", Grupo = "Vista", Ejecutar = () => { VDatos.IsChecked = true; return Task.CompletedTask; } },
+            new Comando { Titulo = "Ver Registro", Grupo = "Vista", Ejecutar = () => { VRegistro.IsChecked = true; return Task.CompletedTask; } },
+            new Comando { Titulo = "Ajustes", Grupo = "Ventana",
+                Detalle = "Segundos de muestreo, cantidad de pings, ventanas de días.",
+                Sinonimos = "ajustes configuracion opciones preferencias",
+                Ejecutar = () => { new SettingsWindow { Owner = this }.ShowDialog(); return Task.CompletedTask; } },
+            new Comando { Titulo = "Historial", Grupo = "Ventana",
+                Detalle = "Diagnósticos guardados.", Sinonimos = "historial guardados anteriores",
+                Ejecutar = () => { new HistoryWindow { Owner = this }.ShowDialog(); return Task.CompletedTask; } },
+            new Comando { Titulo = "Cambios aplicados", Grupo = "Ventana",
+                Detalle = "Lo que SysDiag cambió en el equipo, con deshacer paso por paso.",
+                Sinonimos = "cambios deshacer historial revertir",
+                Ejecutar = () => { new CambiosWindow { Owner = this }.ShowDialog(); return Task.CompletedTask; } },
+            new Comando { Titulo = "Ajustes de Windows", Grupo = "Ventana",
+                Detalle = "Catálogo de ajustes de Windows 10 y 11, con ensayo y reversión.",
+                Sinonimos = "tweaks ajustes windows registro",
+                Ejecutar = () => { new TweaksWindow { Owner = this }.ShowDialog(); return Task.CompletedTask; } },
+            new Comando { Titulo = "Activación de SysDiag", Grupo = "Ventana",
+                Detalle = "Estado de la licencia de la aplicación.",
+                Sinonimos = "licencia activacion pro codigo",
+                Ejecutar = () => { new ActivationWindow { Owner = this }.ShowDialog(); return Task.CompletedTask; } }
+        });
+
+        if (PuedeCancelarAhora()) comandos.Add(new Comando
+        {
+            Titulo = "Cancelar la operación en curso",
+            Grupo = "Ventana",
+            Ejecutar = () => { Cancelar_Click(this, new RoutedEventArgs()); return Task.CompletedTask; }
+        });
+
+        if (!AppEnv.IsAdmin) comandos.Add(new Comando
+        {
+            Titulo = "Reiniciar como administrador",
+            Grupo = "Ventana",
+            Detalle = "Algunos módulos solo se completan elevados.",
+            Sinonimos = "admin elevar permisos administrador",
+            Ejecutar = () => { Elevar_Click(this, new RoutedEventArgs()); return Task.CompletedTask; }
+        });
+
+        return comandos;
+    }
+
+    private bool PuedeCancelarAhora() => _vm.PuedeCancelar;
+
+    /// <summary>
+    /// El texto del ítem del rail. El contenido es un StackPanel con el icono y
+    /// la etiqueta, así que la etiqueta es el último TextBlock con texto.
+    /// </summary>
+    private static string EtiquetaNav(ListBoxItem item)
+    {
+        if (item.Content is not StackPanel panel) return "";
+        return panel.Children.OfType<TextBlock>()
+            .Select(t => t.Text)
+            .LastOrDefault(t => !string.IsNullOrWhiteSpace(t)) ?? "";
     }
 
     // ---- Filtros de las vistas --------------------------------------------

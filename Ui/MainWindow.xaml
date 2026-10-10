@@ -4,7 +4,7 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:ui="clr-namespace:SysDiag.Ui"
         Title="SysDiag" Height="860" Width="1340" MinHeight="640" MinWidth="1060"
-        WindowStartupLocation="CenterScreen"
+        WindowStartupLocation="CenterScreen" KeyDown="Ventana_KeyDown"
         Background="{StaticResource BBase}"
         TextOptions.TextFormattingMode="Ideal"
         UseLayoutRounding="True">
@@ -40,6 +40,22 @@
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
                     shell:WindowChrome.IsHitTestVisibleInChrome="True">
+
+          <!-- Un atajo de teclado que nadie ve no existe. El rótulo lleva la
+               combinación escrita, que es la forma más corta de enseñarla sin
+               un tutorial. -->
+          <Button Style="{StaticResource BtnQuiet}" Margin="0,0,10,0" Padding="11,5"
+                  FontSize="11.5" Click="Paleta_Click"
+                  AutomationProperties.Name="Buscar comandos"
+                  ToolTip="Busca un módulo, una acción o una tabla por nombre (Ctrl+K)">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                         VerticalAlignment="Center" Margin="0,0,7,0"/>
+              <TextBlock Text="Buscar" VerticalAlignment="Center"/>
+              <TextBlock Text="Ctrl+K" Style="{StaticResource Eyebrow}" Margin="8,0,0,0"
+                         VerticalAlignment="Center" Opacity="0.7"/>
+            </StackPanel>
+          </Button>
 
           <Button Content="{Binding LicenciaEtiqueta}" Style="{StaticResource BtnQuiet}"
                   Margin="0,0,10,0" Padding="11,5" FontSize="11.5" Click="Licencia_Click"
