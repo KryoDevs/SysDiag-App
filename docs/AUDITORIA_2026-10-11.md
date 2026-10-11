@@ -14,6 +14,14 @@ compilación Release, **345/345 pruebas**, umbral del gate, autotest del EXE pub
 `validate-fixture` y `compile-debug` en verde. El detalle de lo que se pudo comprobar —y de cómo—
 está en «Verificación realizada» y «Lo que no se pudo verificar».
 
+**Las cuatro causas, una línea cada una:** (1) `System.IO` no es un `using` implícito cuando el
+proyecto usa `UseWPF`; (2) el script de la puerta de documentación no analizaba en PowerShell 7 —un
+signo de dos puntos pegado a un nombre de variable— y por eso no comprobaba nada ni podía decir por
+qué; (3) una cita de sección con tres niveles en `release.yml`, que la puerta habría señalado si
+corriera; (4) la ruta donde Inno deja el setup, que el job `instalador` buscaba en otro lado. Las
+causas 1, 3 y 4 se podían arreglar leyendo; la 2 solo apareció cuando la puerta empezó a publicar su
+diagnóstico como anotación.
+
 ## Causas
 
 ### 1. La lista de `using` implícitos cambia con `UseWPF`
@@ -36,7 +44,7 @@ usan `System.IO` sin importarlo (`AuditRegressionTests`, `LicenseRegressionTests
 evita que `Path` se vuelva ambiguo el día que alguien importe WPF en las pruebas— y su comentario
 ahora describe lo que pasa de verdad.
 
-### 2. Un número inventado en una cita de documento
+### 2. Una cita de sección con tres niveles que no existe
 
 Entre las comprobaciones que la puerta de documentación hace está la de cada cita de sección: tiene
 que apuntar a un encabezado que exista. `release.yml` citaba la sección 2 de `docs/MEJORAS.md` con
