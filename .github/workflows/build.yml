@@ -19,6 +19,11 @@ concurrency:
 jobs:
   build:
     runs-on: windows-latest
+    # El gate de documentación deja el motivo del fallo como comentario del PR:
+    # los logs de una corrida fallida no siempre se pueden abrir desde la API.
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - name: Descargar el código
@@ -41,9 +46,28 @@ jobs:
       - name: Comprobar la coherencia de la documentación
         # Versión, umbral de pruebas, referencias «§» y nombres del README contra el código.
         # Ver el encabezado de Tools/validate_docs.ps1 para el porqué.
+        # Si falla, el motivo se imprime y además queda como comentario del PR: un
+        # mensaje que solo vive en el log de una corrida fallida es un mensaje que
+        # nadie lee, y el log ni siquiera siempre se puede abrir.
         shell: pwsh
+        env:
+          PR: ${{ github.event.pull_request.number }}
         run: |
-          .\Tools\validate_docs.ps1 -Root .
+          $salida = (pwsh -NoProfile -File .\Tools\validate_docs.ps1 -Root . 2>&1 | Out-String).Trim()
+          $codigo = $LASTEXITCODE
+          if ($salida.Length -gt 2500) { $salida = $salida.Substring(0, 2500) + ' ...' }
+          Write-Host $salida
+          if ($codigo -ne 0) {
+            if ($env:PR) {
+              $texto = "Gate de documentación en $($env:GITHUB_SHA.Substring(0, 7)):`n`n" + $salida
+              $uri = "$env:GITHUB_API_URL/repos/$env:GITHUB_REPOSITORY/issues/$env:PR/comments"
+              $cabeceras = @{ Authorization = "Bearer $env:GITHUB_TOKEN"; Accept = 'application/vnd.github+json' }
+              try {
+                Invoke-RestMethod -Method Post -Uri $uri -Headers $cabeceras -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes((@{ body = $texto } | ConvertTo-Json))) | Out-Null
+              } catch { Write-Host "No se pudo dejar el comentario en el PR: $_" }
+            }
+            exit 1
+          }
 
       - name: Restaurar dependencias
         run: dotnet restore SysDiag.sln
