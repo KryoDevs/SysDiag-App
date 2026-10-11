@@ -24,8 +24,8 @@ internal static class Program
             Console.WriteLine("Diagnóstico de solo lectura: no se limpiarán archivos ni se aplicarán ajustes.");
             IDiagnosticService[] services =
             {
-                new NetworkService(), new PerformanceService(), new HardwareService(), new StorageService(),
-                new SecurityService(), new StabilityService(), new DriverService(), new UpdateService(),
+                new NetworkService(SettingsService.Vigentes), new PerformanceService(SettingsService.Vigentes), new HardwareService(), new StorageService(),
+                new SecurityService(), new StabilityService(SettingsService.Vigentes), new DriverService(), new UpdateService(),
                 new StartupService(), new CleanupService()
             };
             var report = await new ScanService().EjecutarAsync(null!, services, cancellation.Token);

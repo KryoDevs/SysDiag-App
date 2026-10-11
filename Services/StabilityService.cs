@@ -11,12 +11,16 @@ public class StabilityService : IDiagnosticService
 {
     public string Clave => "estabilidad";
 
+    private readonly OpcionesDiagnostico? _opciones;
+
+    public StabilityService(OpcionesDiagnostico? opciones = null) => _opciones = opciones;
+
     public Task EjecutarAsync(DiagnosticReport reporte, CancellationToken token) => Task.Run(() =>
     {
         token.ThrowIfCancellationRequested();
         SystemModule.Run(reporte, token: token);
         token.ThrowIfCancellationRequested();
         token.ThrowIfCancellationRequested();
-        StabilityModule.Run(reporte, token);
+        StabilityModule.Run(reporte, token, _opciones);
     }, token);
 }

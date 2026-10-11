@@ -13,8 +13,6 @@ namespace SysDiag.Core.Network;
 
 public static class NetworkModule
 {
-    public static int PingCount = 20;
-
     /// <summary>
     /// Los mismos destinos que usa el diagnóstico de red, expuestos aparte
     /// para que el monitor en vivo pueda ofrecer la misma lista sin
@@ -68,10 +66,11 @@ public static class NetworkModule
         }
     }
 
-    public static async Task RunAsync(DiagnosticReport r, CancellationToken token)
+    public static async Task RunAsync(DiagnosticReport r, CancellationToken token, SysDiag.Models.OpcionesDiagnostico? opciones = null)
     {
         token.ThrowIfCancellationRequested();
         AppLog.Write("Calidad de red", "STEP");
+        int pings = (opciones ?? SysDiag.Models.OpcionesDiagnostico.PorDefecto).Pings;
 
         ReadWifi(r, token);
         ScanChannels(r, token);
@@ -82,7 +81,7 @@ public static class NetworkModule
         // segundos como destinos por muestras; ahora el total lo marca el
         // destino más lento, no la suma de todos.
         var medidas = await Task.WhenAll(
-            objetivos.Select(o => MeasureAsync(o.Host, o.Label, PingCount, token)));
+            objetivos.Select(o => MeasureAsync(o.Host, o.Label, pings, token)));
 
         var resultados = medidas.Where(x => x != null).ToList();
         r.Red = resultados;

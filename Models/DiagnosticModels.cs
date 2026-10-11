@@ -29,7 +29,6 @@ public class Finding
     /// ofrecer un botón ahí sería mentirle al usuario.
     /// </summary>
     public string AccionId { get; set; } = "";
-    public string AccionTexto { get; set; } = "";
 
     public string Etiqueta => Severity switch
     {
@@ -263,56 +262,6 @@ public class DiagnosticReport : IJsonOnDeserialized
     private bool ContainsFinding(Finding candidate)
     {
         return Hallazgos.Any(existing => SameFinding(existing, candidate));
-    }
-
-    /// <summary>
-    /// Copia los datos de otro reporte (de un módulo que sí corrió) sin tocar los
-    /// campos que ese módulo no toca. Así, correr un módulo suelto no borra lo
-    /// que ya se sabía de los demás. El inventario (Sistema/Discos/Memoria) se
-    /// maneja aparte porque todos los módulos lo refrescan de paso.
-    /// </summary>
-    public void MergeFrom(DiagnosticReport other)
-    {
-        ArgumentNullException.ThrowIfNull(other);
-        if (other.Sistema.Count > 0)
-        {
-            Equipo = other.Equipo;
-            Sistema = other.Sistema;
-            Discos = other.Discos;
-            Memoria = other.Memoria;
-        }
-        foreach (var (module, date) in other.ModulosCompletados) ModulosCompletados[module] = date;
-        if (other.WiFi.Count > 0) WiFi = other.WiFi;
-        if (other.Red.Count > 0) Red = other.Red;
-        if (other.Traceroute.Count > 0) { Traceroute = other.Traceroute; TracerouteDestino = other.TracerouteDestino; }
-        if (other.RendimientoResumen.Count > 0) RendimientoResumen = other.RendimientoResumen;
-        if (other.TopCpu.Count > 0) TopCpu = other.TopCpu;
-        if (other.TopRam.Count > 0) TopRam = other.TopRam;
-        if (other.Termicas.Count > 0) Termicas = other.Termicas;
-        if (other.Bateria.Count > 0) Bateria = other.Bateria;
-        if (other.EventosResumen.Count > 0) EventosResumen = other.EventosResumen;
-        if (other.EventosDetalle.Count > 0) EventosDetalle = other.EventosDetalle;
-        if (other.Whea.Count > 0) Whea = other.Whea;
-        if (other.Minidumps.Count > 0) Minidumps = other.Minidumps;
-        if (other.Limpieza.Count > 0) { Limpieza = other.Limpieza; EspacioLiberado = other.EspacioLiberado; }
-        if (other.Drivers.Count > 0) Drivers = other.Drivers;
-        if (other.Seguridad.Count > 0) Seguridad = other.Seguridad;
-        if (other.Gpus.Count > 0) Gpus = other.Gpus;
-        if (other.Actualizaciones.Count > 0) Actualizaciones = other.Actualizaciones;
-        if (other.DriversDisponibles.Count > 0) DriversDisponibles = other.DriversDisponibles;
-        if (other.Almacenamiento.Count > 0) Almacenamiento = other.Almacenamiento;
-        if (other.Arranque.Count > 0) Arranque = other.Arranque;
-        if (other.Servicios.Count > 0) Servicios = other.Servicios;
-        if (other.Programas.Count > 0) Programas = other.Programas;
-        if (other.RedesCercanas.Count > 0) RedesCercanas = other.RedesCercanas;
-
-        foreach (var hallazgo in other.Hallazgos)
-        {
-            if (!ContainsFinding(hallazgo))
-                Hallazgos.Add(hallazgo);
-        }
-
-        ActualizarRecomendaciones();
     }
 
     public static IReadOnlyDictionary<string, string> NombresModulos { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)

@@ -1,4 +1,4 @@
-param([string]$Compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")
+﻿param([string]$Compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")
 $ErrorActionPreference = 'Stop'
 if (-not (Test-Path $Compiler)) { throw 'Instala Inno Setup 6 o indica -Compiler con la ruta a ISCC.exe' }
 [xml]$project = Get-Content (Join-Path $PSScriptRoot '..\SysDiag.csproj') -Raw

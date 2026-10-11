@@ -50,14 +50,11 @@ public class FixtureTests
     }
 
     [Fact]
-    public void MergeFrom_MantieneDatosPreviosYCombinaHAllazgos()
+    public void ReplaceModuleFrom_ConservaLosDemasModulosYCombinaHallazgos()
     {
         var previo = new DiagnosticReport();
-        previo.WiFi = new List<KeyValueRow>
-        {
-            new() { Clave = "SSID", Valor = "Casa" }
-        };
-        previo.Hallazgos.Add(new Finding { Area = "Sistema", Severity = Severity.Warn, Message = "Aviso previo" });
+        previo.Arranque = new List<StartupRow> { new() { Nombre = "App previa", Origen = "Registro" } };
+        previo.Hallazgos.Add(new Finding { Area = "Arranque", Severity = Severity.Warn, Message = "Aviso previo", Modulo = "arranque" });
 
         var parcial = new DiagnosticReport();
         parcial.Red = new List<LatencyResult>
@@ -66,11 +63,11 @@ public class FixtureTests
         };
         parcial.Hallazgos.Add(new Finding { Area = "Red", Severity = Severity.Bad, Message = "Latencia alta" });
 
-        previo.MergeFrom(parcial);
+        previo.ReplaceModuleFrom(parcial, "red");
 
         Assert.Equal(2, previo.Hallazgos.Count);
         Assert.Equal("Router", previo.Red[0].Destino);
-        Assert.Equal("Casa", previo.WiFi[0].Valor);
+        Assert.Equal("App previa", previo.Arranque[0].Nombre);
         Assert.Contains(previo.Hallazgos, h => h.Area == "Red" && h.Severity == Severity.Bad);
     }
 
@@ -124,34 +121,32 @@ public class FixtureTests
     }
 
     [Fact]
-    public void MergeFrom_NoBorraDatosPreviosCuandoElParcialEstaVacio()
+    public void ReplaceModuleFrom_ModuloVacioBorraSoloSuTabla()
     {
         var previo = new DiagnosticReport();
-        previo.WiFi = new List<KeyValueRow>
-        {
-            new() { Clave = "SSID", Valor = "Casa" }
-        };
-        previo.Hallazgos.Add(new Finding { Area = "Sistema", Severity = Severity.Warn, Message = "Aviso previo" });
+        previo.WiFi = new List<KeyValueRow> { new() { Clave = "SSID", Valor = "Casa" } };
+        previo.Arranque = new List<StartupRow> { new() { Nombre = "App previa", Origen = "Registro" } };
+        previo.Hallazgos.Add(new Finding { Area = "Arranque", Severity = Severity.Warn, Message = "Aviso previo", Modulo = "arranque" });
 
-        var parcial = new DiagnosticReport();
+        // Un «Red» que terminó sin SSID sustituye la tabla de red: no deja la del diagnóstico anterior.
+        previo.ReplaceModuleFrom(new DiagnosticReport(), "red");
 
-        previo.MergeFrom(parcial);
-
+        Assert.Empty(previo.WiFi);
         Assert.Single(previo.Hallazgos);
-        Assert.Equal("Casa", previo.WiFi[0].Valor);
+        Assert.Equal("App previa", previo.Arranque[0].Nombre);
     }
 
     [Fact]
-    public void MergeFrom_NoDuplicaHallazgosRepetidos()
+    public void ReplaceModuleFrom_NoDuplicaHallazgosRepetidos()
     {
         var previo = new DiagnosticReport();
-        previo.Add(Severity.Warn, "Sistema", "Aviso previo");
+        previo.Add(Severity.Warn, "Sistema", "Aviso previo", modulo: "arranque");
 
         var parcial = new DiagnosticReport();
-        parcial.Add(Severity.Warn, "Sistema", "Aviso previo");
+        parcial.Add(Severity.Bad, "Red", "Latencia alta");
         parcial.Add(Severity.Bad, "Red", "Latencia alta");
 
-        previo.MergeFrom(parcial);
+        previo.ReplaceModuleFrom(parcial, "red");
 
         Assert.Equal(2, previo.Hallazgos.Count);
         Assert.Contains(previo.Hallazgos, h => h.Area == "Sistema" && h.Message == "Aviso previo");

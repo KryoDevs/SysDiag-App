@@ -5,8 +5,14 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>disable</Nullable>
+    <!-- «annotations»: marca null en los tipos sin activar avisos. Es el primer
+         paso de docs/MEJORAS.md §2, ítem 1; activar «enable» por carpeta viene después. -->
+    <Nullable>annotations</Nullable>
     <LangVersion>latest</LangVersion>
+    <!-- Analizadores de .NET en su nivel recomendado (docs/MEJORAS.md §2, ítem 2). Solo
+         producen avisos: TreatWarningsAsErrors sigue apagado. -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
 
     <RootNamespace>SysDiag</RootNamespace>
     <AssemblyName>SysDiag</AssemblyName>
@@ -33,7 +39,6 @@
          único archivo. Con `embedded` la traza del log es accionable y el
          paquete sigue siendo SysDiag.exe solo. -->
     <DebugType>embedded</DebugType>
-    <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

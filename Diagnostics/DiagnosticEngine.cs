@@ -22,8 +22,6 @@ public class DiagnosticEngine
         _reglas.Add(new MemoryRules());
     }
 
-    public void RegistrarRegla(IDiagnosticRule regla) => _reglas.Add(regla);
-
     public void Evaluar(DiagnosticReport reporte)
     {
         foreach (var regla in _reglas)

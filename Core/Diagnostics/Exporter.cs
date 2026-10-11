@@ -11,7 +11,6 @@ namespace SysDiag.Core.Diagnostics;
 public static class Exporter
 {
     public static string HistorialPath { get; } = Path.Combine(AppEnv.OutputPath, "historial");
-    public static int HistorialMaximo = 60;
     private static readonly object ArchiveGate = new();
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -44,7 +43,8 @@ public static class Exporter
         return file;
     }
 
-    public static bool Archivar(DiagnosticReport report, string historialDirectory = null)
+    public static bool Archivar(DiagnosticReport report, string historialDirectory = null,
+                                int historialMaximo = SysDiag.Models.OpcionesDiagnostico.HistorialPorDefecto)
     {
         try
         {
@@ -54,7 +54,7 @@ public static class Exporter
                 if (report.Id == Guid.Empty) report.Id = Guid.NewGuid();
                 string file = Path.Combine(root, $"{report.Inicio:yyyyMMdd_HHmmss_fffffff}_{report.Id:N}.json");
                 AtomicFile.WriteAllText(file, Serializar(report));
-                foreach (var old in ReadHistory(root).Skip(Math.Clamp(HistorialMaximo, 5, 500)))
+                foreach (var old in ReadHistory(root).Skip(Math.Clamp(historialMaximo, 5, 500)))
                 {
                     try { File.Delete(old.Archivo); } catch (IOException) { } catch (UnauthorizedAccessException) { }
                 }

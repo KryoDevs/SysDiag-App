@@ -1,4 +1,4 @@
-param([string]$Root = (Join-Path $PSScriptRoot '..\publish'))
+﻿param([string]$Root = (Join-Path $PSScriptRoot '..\publish'))
 $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path $Root).Path
 $exe = Join-Path $Root 'SysDiag.exe'

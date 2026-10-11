@@ -45,27 +45,11 @@ public static class Wmi
 
     private static readonly object CacheLock = new();
     private static readonly Dictionary<string, EntradaCache> Cache = new(StringComparer.Ordinal);
-    private static TimeSpan _vigencia = TimeSpan.FromSeconds(20);
-    private static bool _cacheActiva = true;
+    private static readonly TimeSpan Vigencia = TimeSpan.FromSeconds(20);
 
     /// <summary>Número de consultas servidas desde caché en la corrida actual. El pie lo muestra.</summary>
     public static int ConsultasReutilizadas { get; private set; }
     public static int ConsultasEjecutadas { get; private set; }
-
-    /// <summary>
-    /// Activa o desactiva la caché y fija su vigencia. Desactivada deja el
-    /// comportamiento anterior, consulta a consulta, que es lo que necesitan
-    /// las pruebas que comparan dos muestras tomadas a propósito.
-    /// </summary>
-    public static void ConfigurarCache(bool activa, TimeSpan? vigencia = null)
-    {
-        lock (CacheLock)
-        {
-            _cacheActiva = activa;
-            if (vigencia.HasValue) _vigencia = vigencia.Value;
-            if (!activa) Cache.Clear();
-        }
-    }
 
     /// <summary>
     /// Vacía la caché. Se llama al empezar cada corrida: la vigencia protege
@@ -94,7 +78,6 @@ public static class Wmi
     private static bool IntentarCache(string clave, out IReadOnlyList<WmiRow> filas)
     {
         filas = null;
-        if (!_cacheActiva) return false;
         lock (CacheLock)
         {
             if (!Cache.TryGetValue(clave, out var entrada)) return false;
@@ -107,13 +90,12 @@ public static class Wmi
 
     private static void GuardarCache(string clave, IReadOnlyList<WmiRow> filas)
     {
-        if (!_cacheActiva) return;
         lock (CacheLock)
         {
             // Tope duro: una caché sin límite en un proceso que corre horas
             // termina siendo una fuga con forma de optimización.
             if (Cache.Count >= 256) Cache.Clear();
-            Cache[clave] = new EntradaCache { Expira = DateTime.UtcNow + _vigencia, Filas = filas };
+            Cache[clave] = new EntradaCache { Expira = DateTime.UtcNow + Vigencia, Filas = filas };
         }
     }
 
@@ -122,7 +104,7 @@ public static class Wmi
         token.ThrowIfCancellationRequested();
 
         string clave = ClaveCache(query, scope);
-        if (_cacheActiva && !EsVolatil(query) && IntentarCache(clave, out var cacheadas)) return cacheadas;
+        if (!EsVolatil(query) && IntentarCache(clave, out var cacheadas)) return cacheadas;
 
         lock (CacheLock) ConsultasEjecutadas++;
 
@@ -156,7 +138,7 @@ public static class Wmi
             return results;
         }
 
-        if (_cacheActiva && !EsVolatil(query)) GuardarCache(clave, results);
+        if (!EsVolatil(query)) GuardarCache(clave, results);
         return results;
     }
 

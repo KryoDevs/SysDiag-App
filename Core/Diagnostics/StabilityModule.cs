@@ -9,23 +9,27 @@ namespace SysDiag.Core.Diagnostics;
 
 public static class StabilityModule
 {
-    public static int EventDays = 30;
-
     private const int EventosMaximo = 50000;
 
     // Cada fila WHEA se archiva en el JSON del historial (~200 bytes indentada): con hardware fallando, 50.000
     // filas serían ~10 MB por diagnóstico. Los conteos quedan como límite inferior, y el aviso lo declara.
     private const int WheaMaximo = 2000;
 
-    public static void Run(DiagnosticReport r, CancellationToken token = default)
+    /// <summary>
+    /// Los días de ventana llegan como argumento (MEJORAS §1, F10): antes eran estáticos mutables
+    /// que <c>SettingsService.Aplicar</c> pisaba, y una prueba no podía fijar uno sin afectar al resto.
+    /// </summary>
+    public static void Run(DiagnosticReport r, CancellationToken token = default, OpcionesDiagnostico? opciones = null)
     {
         token.ThrowIfCancellationRequested();
-        AppLog.Write($"Estabilidad (últimos {EventDays} días)", "STEP");
+        var o = opciones ?? OpcionesDiagnostico.PorDefecto;
+        int dias = o.DiasEventos;
+        AppLog.Write($"Estabilidad (últimos {dias} días)", "STEP");
 
         if (!AppEnv.IsAdmin)
             AppLog.Write("Sin privilegios de administrador: el registro puede venir incompleto.", "WARN");
 
-        var eventos = LeerEventos(token, out bool complete);
+        var eventos = LeerEventos(token, out bool complete, dias);
         if (!complete)
             r.Add(Severity.Warn, "Estabilidad", "La consulta del registro de eventos quedó incompleta.",
                 "Revisa permisos y Registro. No se puede concluir que no hubo fallos.");
@@ -67,7 +71,7 @@ public static class StabilityModule
                            .First();
 
             r.Add(Severity.Bad, "Estabilidad",
-                $"{kp41.Count} reinicios inesperados (Kernel-Power 41) en {EventDays} días.",
+                $"{kp41.Count} reinicios inesperados (Kernel-Power 41) en {dias} días.",
                 $"Se concentran alrededor de las {hora.Key:00}:00. Si no hay pantalla azul asociada, el sistema se cortó sin alcanzar a registrar nada: apunta a alimentación, batería, temperatura o memoria. Comprueba si coincide con el equipo en reposo o con tareas programadas.");
         }
 
@@ -128,7 +132,7 @@ public static class StabilityModule
         }
 
         if (complete && eventos.Count == 0 && dumps.Count == 0)
-            r.Add(Severity.Ok, "Estabilidad", $"Sin eventos del catálogo de estabilidad en {EventDays} días.");
+            r.Add(Severity.Ok, "Estabilidad", $"Sin eventos del catálogo de estabilidad en {dias} días.");
 
         // Un pantallazo azul real es la señal más directa para sugerir
         // sfc/DISM: a diferencia de un corte de energía (Kernel-Power 41
@@ -137,11 +141,11 @@ public static class StabilityModule
         var bugchecks = eventos.Where(e => e.Id == 1001).ToList();
         if (bugchecks.Count > 0)
             r.Add(Severity.Bad, "Estabilidad",
-                $"{bugchecks.Count} pantalla(s) azul(es) registrada(s) en {EventDays} días.",
+                $"{bugchecks.Count} pantalla(s) azul(es) registrada(s) en {dias} días.",
                 "Vale la pena comprobar la integridad de los archivos de sistema. Si sigue pasando después de eso, el minidump correspondiente suele nombrar al driver responsable.",
                 "sfc");
 
-        RunWheaScan(r, token);
+        RunWheaScan(r, token, o.DiasWhea);
     }
 
     /// <summary>
@@ -151,12 +155,10 @@ public static class StabilityModule
     /// que emita, no solo esos dos IDs, y con una ventana más corta porque el
     /// hardware que está fallando ahora es más relevante que hace un mes.
     /// </summary>
-    public static int WheaDays = 15;
-
-    private static void RunWheaScan(DiagnosticReport r, CancellationToken token)
+    private static void RunWheaScan(DiagnosticReport r, CancellationToken token, int diasWhea)
     {
         var eventos = new List<EventRow>();
-        long ms = (long)Math.Clamp(WheaDays, 1, 90) * 24 * 60 * 60 * 1000;
+        long ms = (long)Math.Clamp(diasWhea, 1, 90) * 24 * 60 * 60 * 1000;
         string xpath = $"*[System[Provider[@Name='Microsoft-Windows-WHEA-Logger'] and TimeCreated[timediff(@SystemTime) <= {ms}]]]";
 
         try
@@ -209,13 +211,13 @@ public static class StabilityModule
         r.Whea = eventos;
         if (eventos.Count == 0) return;
 
-        AppLog.Write($"WHEA-Logger: {eventos.Count} eventos en los últimos {WheaDays} días.", "WARN");
+        AppLog.Write($"WHEA-Logger: {eventos.Count} eventos en los últimos {diasWhea} días.", "WARN");
 
         if (eventos.Count >= 20)
-            r.Add(Severity.Bad, "Hardware", $"{eventos.Count} errores WHEA en {WheaDays} días.",
+            r.Add(Severity.Bad, "Hardware", $"{eventos.Count} errores WHEA en {diasWhea} días.",
                 "El firmware está corrigiendo errores de hardware con frecuencia: CPU, RAM o el bus PCIe. Esto suele preceder a una pantalla azul. Revisa temperaturas, el asiento de la RAM y si hay una actualización de BIOS pendiente.");
         else
-            r.Add(Severity.Warn, "Hardware", $"{eventos.Count} errores WHEA en {WheaDays} días.",
+            r.Add(Severity.Warn, "Hardware", $"{eventos.Count} errores WHEA en {diasWhea} días.",
                 "Errores de hardware corregidos automáticamente. Vale la pena vigilar si aumentan.");
     }
 
@@ -224,11 +226,11 @@ public static class StabilityModule
 
     private record Evento(int Id, DateTime Cuando, string Origen, string Detalle);
 
-    private static List<Evento> LeerEventos(CancellationToken token, out bool complete)
+    private static List<Evento> LeerEventos(CancellationToken token, out bool complete, int dias)
     {
         complete = false;
         var lista = new List<Evento>();
-        string xpath = SystemEventCatalog.QueryXml(EventDays);
+        string xpath = SystemEventCatalog.QueryXml(dias);
 
         try
         {

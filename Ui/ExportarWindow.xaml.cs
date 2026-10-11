@@ -138,8 +138,8 @@ public partial class ExportarWindow : Window
         {
             string archivo = elegido switch
             {
-                Formato.Html => ReportBuilder.Build(_reporte),
-                Formato.HtmlRedactado => ReportBuilder.Build(Redactor.Aplicar(_reporte)),
+                Formato.Html => ReportBuilder.Build(_reporte, null, SysDiag.Core.Windows.SettingsService.Vigentes),
+                Formato.HtmlRedactado => ReportBuilder.Build(Redactor.Aplicar(_reporte), null, SysDiag.Core.Windows.SettingsService.Vigentes),
                 Formato.Markdown => MarkdownReport.Build(_reporte),
                 Formato.MarkdownRedactado => MarkdownReport.Build(Redactor.Aplicar(_reporte)),
                 _ => Exporter.ToJson(_reporte)

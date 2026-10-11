@@ -7,12 +7,15 @@ namespace SysDiag.Services;
 public class NetworkService : INetworkService
 {
     public string Clave => "red";
+    private readonly OpcionesDiagnostico? _opciones;
+
+    public NetworkService(OpcionesDiagnostico? opciones = null) => _opciones = opciones;
     // netsh y el inventario son síncronos: tampoco pueden ejecutarse en el dispatcher de WPF.
     public Task EjecutarAsync(DiagnosticReport report, CancellationToken token) => Task.Run(async () =>
     {
         token.ThrowIfCancellationRequested();
         SystemModule.Run(report, token: token);
         token.ThrowIfCancellationRequested();
-        await NetworkModule.RunAsync(report, token);
+        await NetworkModule.RunAsync(report, token, _opciones);
     }, token);
 }

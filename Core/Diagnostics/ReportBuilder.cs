@@ -12,8 +12,9 @@ namespace SysDiag.Core.Diagnostics;
 
 public static class ReportBuilder
 {
-    public static string Build(DiagnosticReport r, string outputDirectory = null)
+    public static string Build(DiagnosticReport r, string outputDirectory = null, OpcionesDiagnostico? opciones = null)
     {
+        var opc = opciones ?? OpcionesDiagnostico.PorDefecto;
         string folder = outputDirectory ?? AppEnv.OutputPath;
         Directory.CreateDirectory(folder);
         r.Puntaje = HealthScore.Calcular(r);
@@ -115,12 +116,12 @@ public static class ReportBuilder
             if (r.Minidumps.Count > 0) body.Append("<h3>Volcados de memoria</h3>").Append(Table(r.Minidumps));
             if (r.EventosDetalle.Count > 0) body.Append("<h3>Últimos eventos</h3>").Append(Table(r.EventosDetalle));
             Section(sb, "Estabilidad", body.ToString(),
-                $"Eventos críticos del registro del sistema en los últimos {StabilityModule.EventDays} días.");
+                $"Eventos críticos del registro del sistema en los últimos {opc.DiasEventos} días.");
         }
 
         if (r.Whea.Count > 0)
             Section(sb, "Errores WHEA (hardware)", Table(r.Whea),
-                $"Eventos del proveedor Microsoft-Windows-WHEA-Logger en los últimos {StabilityModule.WheaDays} días: errores de CPU, RAM o PCIe que el firmware corrigió automáticamente. Suelen preceder a una pantalla azul si se repiten.");
+                $"Eventos del proveedor Microsoft-Windows-WHEA-Logger en los últimos {opc.DiasWhea} días: errores de CPU, RAM o PCIe que el firmware corrigió automáticamente. Suelen preceder a una pantalla azul si se repiten.");
 
         if (r.Traceroute.Count > 0)
             Section(sb, "Traceroute — " + r.TracerouteDestino, Table(r.Traceroute),

@@ -38,6 +38,13 @@ jobs:
         run: |
           .\Tools\validate_xaml.ps1 -Root .
 
+      - name: Comprobar la coherencia de la documentación
+        # Versión, umbral de pruebas, referencias «§» y nombres del README contra el código.
+        # Ver el encabezado de Tools/validate_docs.ps1 para el porqué.
+        shell: pwsh
+        run: |
+          .\Tools\validate_docs.ps1 -Root .
+
       - name: Restaurar dependencias
         run: dotnet restore SysDiag.sln
 
@@ -45,7 +52,10 @@ jobs:
         run: dotnet build SysDiag.sln -c Release --no-restore
 
       - name: Ejecutar la suite de pruebas
-        run: dotnet test SysDiag.sln -c Release --no-build --verbosity minimal --logger "trx;LogFileName=tests.trx" --results-directory TestResults
+        run: dotnet test SysDiag.sln -c Release --no-build --verbosity minimal --collect:"XPlat Code Coverage" --logger "trx;LogFileName=tests.trx" --results-directory TestResults
+
+      # Cobertura medida y publicada, sin umbral todavía. Cuando se sepa la línea base de
+      # Core/Storage y Core/Windows (MEJORAS §2, ítem 7) se añade un gate de no-regresión.
 
       - name: Resumir y verificar todas las regresiones
         if: always()
@@ -64,7 +74,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: test-results-${{ github.sha }}
-          path: TestResults/*.trx
+          path: TestResults/**
           if-no-files-found: ignore
 
       - name: Publicar el ejecutable autocontenido
@@ -90,3 +100,31 @@ jobs:
             release/SysDiag-${{ github.sha }}.zip
             publish/SysDiag.exe
           retention-days: 30
+
+  instalador:
+    # Compila el setup de Inno Setup, lo instala en silencio y comprueba el EXE instalado.
+    # Un job aparte porque publica otra vez; no bloquea la publicación del build principal.
+    runs-on: windows-latest
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Instalar .NET 8
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Instalar Inno Setup 6
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Publicar el ejecutable autocontenido
+        run: dotnet publish SysDiag.csproj -c Release -o publish
+
+      - name: Compilar el instalador
+        shell: pwsh
+        run: .\Tools\build_installer.ps1
+
+      - name: Instalar, autotestear y desinstalar
+        shell: pwsh
+        run: .\Tools\validate_installer.ps1

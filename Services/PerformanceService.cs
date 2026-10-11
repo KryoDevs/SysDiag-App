@@ -11,11 +11,15 @@ public class PerformanceService : IDiagnosticService
 {
     public string Clave => "rendimiento";
 
+    private readonly OpcionesDiagnostico? _opciones;
+
+    public PerformanceService(OpcionesDiagnostico? opciones = null) => _opciones = opciones;
+
     public Task EjecutarAsync(DiagnosticReport reporte, CancellationToken token) => Task.Run(() =>
     {
         token.ThrowIfCancellationRequested();
         SystemModule.Run(reporte, token: token);
         token.ThrowIfCancellationRequested();
-        PerformanceModule.Run(reporte, token);
+        PerformanceModule.Run(reporte, token, _opciones);
     }, token);
 }

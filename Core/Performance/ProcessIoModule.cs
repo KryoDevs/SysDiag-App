@@ -217,10 +217,6 @@ public static class ProcessIoModule
     private static extern uint GetExtendedTcpTable(IntPtr tabla, ref int largo, bool ordenar,
         int familia, int clase, uint reservado);
 
-    [DllImport("iphlpapi.dll", SetLastError = true)]
-    private static extern uint GetExtendedUdpTable(IntPtr tabla, ref int largo, bool ordenar,
-        int familia, int clase, uint reservado);
-
     /// <summary>
     /// Conexiones TCP activas por PID, con el extremo remoto de cada una. Es lo
     /// que permite decir «este proceso habla con este equipo de allá».

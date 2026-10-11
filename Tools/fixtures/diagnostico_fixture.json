@@ -9,7 +9,6 @@
       "Action": "El problema est\u00E1 dentro de tu casa, no en el proveedor: enlace inal\u00E1mbrico d\u00E9bil, saturaci\u00F3n del router o interferencia.",
       "Modulo": "",
       "AccionId": "",
-      "AccionTexto": "",
       "Etiqueta": "Cr\u00EDtico"
     },
     {
@@ -19,7 +18,6 @@
       "Action": "",
       "Modulo": "",
       "AccionId": "",
-      "AccionTexto": "",
       "Etiqueta": "Correcto"
     },
     {
@@ -29,7 +27,6 @@
       "Action": "Para lecturas por n\u00FAcleo hace falta una herramienta con driver propio, como HWiNFO64 o LibreHardwareMonitor.",
       "Modulo": "",
       "AccionId": "",
-      "AccionTexto": "",
       "Etiqueta": "Atenci\u00F3n"
     },
     {
@@ -39,7 +36,6 @@
       "Action": "Puede ser ahorro de energ\u00EDa, normal en reposo, o limitaci\u00F3n t\u00E9rmica. Vuelve a medir bajo carga para distinguirlo.",
       "Modulo": "",
       "AccionId": "",
-      "AccionTexto": "",
       "Etiqueta": "Atenci\u00F3n"
     },
     {
@@ -49,7 +45,6 @@
       "Action": "En bater\u00EDa el port\u00E1til limita CPU y GPU deliberadamente. Cualquier medici\u00F3n de rendimiento hecha as\u00ED no es comparable.",
       "Modulo": "",
       "AccionId": "",
-      "AccionTexto": "",
       "Etiqueta": "Atenci\u00F3n"
     },
     {
@@ -59,7 +54,6 @@
       "Action": "Es un desgaste esperable con el tiempo. Evita dejarla al 100% enchufada de forma permanente si quieres frenarlo.",
       "Modulo": "",
       "AccionId": "",
-      "AccionTexto": "",
       "Etiqueta": "Atenci\u00F3n"
     },
     {
@@ -69,7 +63,6 @@
       "Action": "Si un juego usa la integrada por error, el rendimiento cae mucho. Revisa en Configuraci\u00F3n \u25B8 Pantalla \u25B8 Gr\u00E1ficos que la app correcta use \u00ABAlto rendimiento\u00BB.",
       "Modulo": "",
       "AccionId": "",
-      "AccionTexto": "",
       "Etiqueta": "Correcto"
     },
     {
@@ -79,7 +72,6 @@
       "Action": "",
       "Modulo": "",
       "AccionId": "",
-      "AccionTexto": "",
       "Etiqueta": "Correcto"
     },
     {
@@ -89,7 +81,6 @@
       "Action": "Se concentran alrededor de las 19:00. Si no hay pantalla azul asociada, el sistema se cort\u00F3 sin alcanzar a registrar nada: apunta a alimentaci\u00F3n, bater\u00EDa, temperatura o memoria. Comprueba si coincide con el equipo en reposo o con tareas programadas.",
       "Modulo": "",
       "AccionId": "",
-      "AccionTexto": "",
       "Etiqueta": "Cr\u00EDtico"
     },
     {
@@ -99,7 +90,6 @@
       "Action": "Anal\u00EDzalos con WinDbg o BlueScreenView: el driver culpable aparece nombrado ah\u00ED. Es la v\u00EDa m\u00E1s directa a la causa ra\u00EDz.",
       "Modulo": "",
       "AccionId": "",
-      "AccionTexto": "",
       "Etiqueta": "Atenci\u00F3n"
     },
     {
@@ -109,7 +99,6 @@
       "Action": "Vale la pena comprobar la integridad de los archivos de sistema. Si sigue pasando despu\u00E9s de eso, el minidump correspondiente suele nombrar al driver responsable.",
       "Modulo": "",
       "AccionId": "sfc",
-      "AccionTexto": "",
       "Etiqueta": "Cr\u00EDtico"
     }
   ],

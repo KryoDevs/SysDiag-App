@@ -14,6 +14,9 @@ if exist "%LOCALAPPDATA%\SysDiag\dotnet-sdk\dotnet.exe" (
 if errorlevel 1 goto sdk_error
 "%DOTNET_EXE%" restore SysDiag.csproj
 if errorlevel 1 goto build_error
+rem `build.bat test` ejecuta la suite y el mismo umbral que el CI, sin publicar el .exe.
+rem Es lo que conviene pegar cuando alguien reporta un fallo.
+if /i "%~1"=="test" goto run_tests
 "%DOTNET_EXE%" publish SysDiag.csproj -c Release -o publish
 if errorlevel 1 goto build_error
 rem -ExecutionPolicy Bypass solo rige para esta sesion de PowerShell: no cambia la
@@ -24,6 +27,22 @@ if errorlevel 1 goto validate_error
 echo Listo: %CD%\publish\SysDiag.exe
 pause
 exit /b 0
+
+:run_tests
+"%DOTNET_EXE%" test SysDiag.sln -c Release --logger "trx;LogFileName=tests.trx" --results-directory TestResults
+if errorlevel 1 goto test_error
+"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%~dp0Tools\validate_tests.ps1"
+if errorlevel 1 goto test_error
+echo Pruebas dentro del umbral de regresiones.
+pause
+exit /b 0
+
+:test_error
+echo.
+echo Las pruebas fallaron o no alcanzaron el minimo de regresiones.
+echo Revisa los mensajes anteriores; TestResults\tests.trx tiene el detalle.
+pause
+exit /b 1
 
 :sdk_error
 echo Instala el SDK .NET 8 desde https://dotnet.microsoft.com/download/dotnet/8.0

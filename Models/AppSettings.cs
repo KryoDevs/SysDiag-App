@@ -1,10 +1,9 @@
 namespace SysDiag.Models;
 
 /// <summary>
-/// Parámetros ajustables. Antes vivían fijos como campos estáticos en cada
-/// módulo (siguen siéndolo — es justo lo que permite ajustarlos sin tocar la
-/// firma de cada método); esta clase es solo la capa de carga/guardado en
-/// disco y los valores por defecto documentados en un solo lugar.
+/// Parámetros ajustables tal como se guardan en settings.json. Los módulos no los leen:
+/// <see cref="OpcionesDiagnostico"/> es la copia inmutable que recibe cada corrida.
+/// Esta clase es la capa de carga/guardado y el lugar de los valores por defecto.
 /// </summary>
 public class AppSettings
 {

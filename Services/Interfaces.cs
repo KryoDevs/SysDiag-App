@@ -29,23 +29,3 @@ public interface IScanService
     Task<DiagnosticReport> EjecutarAsync(
         DiagnosticReport acumulado, IDiagnosticService[] pasos, CancellationToken token);
 }
-
-/// <summary>Aplica una reparación de un clic asociada a un hallazgo.</summary>
-public interface IRepairService
-{
-    string Ejecutar(string accionId, DiagnosticReport contexto);
-}
-
-/// <summary>Genera el informe HTML del diagnóstico.</summary>
-public interface IReportService
-{
-    string GenerarHtml(DiagnosticReport reporte);
-}
-
-/// <summary>Archiva diagnósticos y expone la serie histórica de puntajes.</summary>
-public interface IHistoryService
-{
-    void Archivar(DiagnosticReport reporte);
-    System.Collections.Generic.List<(System.DateTime Fecha, int Puntaje)> Serie(int maximo = 30);
-    int PuntajeAnterior(System.DateTime actual);
-}

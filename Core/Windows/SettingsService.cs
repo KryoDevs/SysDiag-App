@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Threading;
 using SysDiag.Models;
 
 namespace SysDiag.Core.Windows;
@@ -8,12 +9,22 @@ public static class SettingsService
 {
     private static string Archivo => Path.Combine(AppEnv.OutputPath, "settings.json");
 
-    public static AppSettings Cargar()
+    /// <summary>
+    /// Foto de los valores vigentes, solo para los textos de la interfaz y de los informes («en los
+    /// últimos 30 días»). Los módulos NO la leen: reciben <see cref="OpcionesDiagnostico"/> como
+    /// argumento (MEJORAS §1, F10). Se reemplaza entera y nunca se modifica en sitio.
+    /// </summary>
+    private static OpcionesDiagnostico _vigentes = OpcionesDiagnostico.PorDefecto;
+    public static OpcionesDiagnostico Vigentes => Volatile.Read(ref _vigentes);
+
+    /// <param name="archivo">Ruta alternativa; sin valor, el settings.json de SysDiag. Existe para las pruebas.</param>
+    public static AppSettings Cargar(string? archivo = null)
     {
+        string ruta = archivo ?? Archivo;
         try
         {
-            if (!File.Exists(Archivo)) return AppSettings.PorDefecto();
-            return (JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(Archivo))
+            if (!File.Exists(ruta)) return AppSettings.PorDefecto();
+            return (JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(ruta))
                     ?? AppSettings.PorDefecto()).Normalizar();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
@@ -23,12 +34,13 @@ public static class SettingsService
         }
     }
 
-    public static bool Guardar(AppSettings settings)
+    /// <param name="archivo">Ruta alternativa; sin valor, el settings.json de SysDiag. Existe para las pruebas.</param>
+    public static bool Guardar(AppSettings settings, string? archivo = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         try
         {
-            AtomicFile.WriteAllText(Archivo, JsonSerializer.Serialize(settings.Normalizar(),
+            AtomicFile.WriteAllText(archivo ?? Archivo, JsonSerializer.Serialize(settings.Normalizar(),
                 new JsonSerializerOptions { WriteIndented = true }));
             return true;
         }
@@ -39,15 +51,14 @@ public static class SettingsService
         }
     }
 
+    /// <summary>
+    /// Publica los valores para la interfaz y aplica la rotación de registros, que es el único efecto
+    /// de disco de los ajustes. Ya no toca estáticos de los módulos: esos reciben las opciones al correr.
+    /// </summary>
     public static void Aplicar(AppSettings settings)
     {
         var valid = (settings ?? AppSettings.PorDefecto()).Normalizar();
-        Performance.PerformanceModule.SampleSeconds = valid.SampleSeconds;
-        Network.NetworkModule.PingCount = valid.PingCount;
-        Diagnostics.StabilityModule.EventDays = valid.EventDays;
-        Diagnostics.StabilityModule.WheaDays = valid.WheaDays;
-        Diagnostics.Exporter.HistorialMaximo = valid.HistorialMaximo;
-        AppEnv.LogsMaximo = valid.LogsMaximo;
-        AppEnv.RotarLogs();
+        Volatile.Write(ref _vigentes, OpcionesDiagnostico.Desde(valid));
+        AppEnv.RotarLogs(valid.LogsMaximo);
     }
 }

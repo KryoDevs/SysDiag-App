@@ -21,7 +21,9 @@ jobs:
           }
           pwsh -NoProfile -File Tools\validate_fixture.ps1
 
-  run-integration-tests:
+  compile-debug:
+    # Compila el proyecto de pruebas en Debug para cazar errores que solo aparecen ahí
+    # (símbolos, #if DEBUG). No ejecuta la suite: build.yml ya la corre en Release.
     runs-on: windows-latest
     needs: validate-fixture
     steps:
@@ -39,6 +41,6 @@ jobs:
       - name: Build app for test references
         run: dotnet build SysDiag.sln -c Debug --no-restore
 
-      - name: Run integration tests
-        run: dotnet test "Tools/IntegrationTests/IntegrationTests.csproj" -c Debug --no-build --verbosity minimal
+      - name: Compilar las pruebas en Debug
+        run: dotnet build "Tools/IntegrationTests/IntegrationTests.csproj" -c Debug --no-restore
 

@@ -47,8 +47,24 @@ public class ScanService : IScanService
 
     public static readonly TimeSpan LimiteDefecto = TimeSpan.FromMinutes(2);
 
-    public static TimeSpan LimitePara(string clave) =>
-        LimitesPorModulo.TryGetValue(clave ?? "", out var limite) ? limite : LimiteDefecto;
+    private readonly IReadOnlyDictionary<string, TimeSpan> _limites;
+    private readonly TimeSpan _limiteDefecto;
+
+    /// <summary>
+    /// Los límites se pueden inyectar: las pruebas de «módulo colgado» necesitan
+    /// fracciones de segundo, y con los valores reales tardarían minutos. Sin
+    /// argumentos se usan los de producción, así que los llamadores no cambian.
+    /// </summary>
+    public ScanService() : this(null, null) { }
+
+    public ScanService(IReadOnlyDictionary<string, TimeSpan>? limites, TimeSpan? limiteDefecto = null)
+    {
+        _limites = limites ?? LimitesPorModulo;
+        _limiteDefecto = limiteDefecto ?? LimiteDefecto;
+    }
+
+    public TimeSpan LimitePara(string clave) =>
+        _limites.TryGetValue(clave ?? "", out var limite) ? limite : _limiteDefecto;
 
     public async Task<DiagnosticReport> EjecutarAsync(DiagnosticReport acumulado, IDiagnosticService[] pasos,
         CancellationToken token)

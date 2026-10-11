@@ -3,6 +3,63 @@
 Los cambios notables de este proyecto se documentan en este archivo. Las secciones
 `[Sin publicar]` son lotes de una rama: se consolidan al cortar el siguiente release.
 
+## [Sin publicar] - 2026-10-10 (auditoría: código muerto, licencia y coherencia)
+
+Sigue en 5.14.0: no hay cambio de versión, solo limpieza y correcciones. Análisis y
+evidencia en `docs/AUDITORIA_2026-10-10.md`.
+
+- **Licencia: un motivo de rechazo que nadie leía.** `LicenseCrypto.Verificar` distinguía
+  «vencido» de «mal escrito» en su texto, pero el llamador no tenía forma de saberlo. Ahora
+  devuelve `MotivoRechazo`, y `Inicializar` avisa «ya venció» para un código guardado vencido.
+- **Licencia: mensaje inalcanzable.** «Este código fue emitido para otro equipo» (en `Activar`)
+  nunca se mostraba. `Verificar` ya rechazaba un código vinculado a otra máquina con el mensaje
+  genérico, así que la comprobación posterior no podía ser verdadera. Ahora el mensaje sale de
+  `Verificar` y dice «es para otro equipo, o está mal escrito»: sin la clave del equipo no hay
+  forma de distinguir los dos casos.
+- **Licencia: forma canónica.** Se guarda `CodigoInfo.Canonico` (mayúsculas, con guiones) en
+  lugar de lo tecleado con espacios.
+- **Código muerto eliminado:** `HistoryService`, `RepairService`, `ReportService` y sus tres
+  interfaces (nada los creaba); `DiagnosticReport.MergeFrom` (solo lo usaban pruebas: la ruta
+  real es `ReplaceModuleFrom`); `LiveSeries` y `LineChart` (sin llamadores); `ConfigurarCache`
+  y su bandera; `RegistrarRegla`; `EsAdmin`; `ReportDiff.EsNuevo`; `LicenseCrypto.Vigente`;
+  `Finding.AccionTexto`; y el extern UDP de `ProcessIoModule`, que no se usaba.
+- **Pruebas:** las de `MergeFrom` pasan a `ReplaceModuleFrom`, que es lo que ejecuta el escaneo.
+  Nuevas: motivo de vencimiento y firma alterada en un código vinculado (que nombra el equipo).
+  Umbral de pruebas del CI: 314.
+- **Coherencia de documentación:** `Tools/validate_docs.ps1` corre en el CI y comprueba versión,
+  umbral (README y CHANGELOG), referencias «§» a `docs/` y nombres de clases del README. Encontró
+  tres servicios que el README seguía nombrando aunque ya no existían, y cuatro referencias «§»
+  rotas; todo corregido.
+- **Configuración (`docs/MEJORAS.md` §2):** `Nullable=annotations`, analizadores en
+  `latest-recommended` (solo avisos), `SupportedOSPlatform("windows")` en lugar de silenciar CA1416,
+  y `.editorconfig` con convenciones básicas (sin paso de CI que lo haga cumplir todavía).
+- **`build.bat test`:** ejecuta la suite y el umbral de regresiones sin publicar el `.exe`.
+- **Notas de release:** `release.yml` toma el texto de `## [X.Y.Z]` del CHANGELOG. Si no existe esa
+  sección, mantiene las notas generadas por GitHub y deja un aviso.
+- **Scripts en Windows PowerShell 5.1:** `Tools/*.ps1` con texto no ASCII no tenían BOM. Con 5.1, el
+  `—` de `validate_tests.ps1` se leía como comilla y podía romper el análisis; ahora llevan BOM.
+- **Licencia (README):** se documenta qué protege y qué no: es un umbral, no una barrera, y la clave
+  de firma está en el repositorio público (rotación pendiente, F01).
+- **Ingeniería pendiente (segunda tanda del mismo lote):**
+  - **Opciones de medición inmutables (MEJORAS §1, F10).** `OpcionesDiagnostico` reemplaza los estáticos
+    mutables de los módulos (`SampleSeconds`, `PingCount`, `EventDays`, `WheaDays`, `HistorialMaximo`,
+    `LogsMaximo`). Los módulos y servicios las reciben como argumento; `SettingsService.Vigentes` es la
+    única instantánea y solo la leen los textos de la interfaz y de los informes.
+  - **Tiempo de espera por módulo: probado (MEJORAS §4.1, ítem 1).** Ya estaba implementado; los límites
+    ahora se inyectan y `ScanTimeoutTests` comprueba que un módulo colgado se omite, que los demás se
+    miden, que el aviso aparece y que se retira en la corrida siguiente.
+  - **Ajustes con ruta de prueba.** `SettingsService.Cargar` y `Guardar` aceptan una ruta; antes no había
+    forma de probarlos sin tocar el `settings.json` del usuario.
+  - **Convertidores probados (`Ui/Converters.cs`).** El proyecto de pruebas usa `UseWPF`. Para que no
+    choque con `System.IO.Path` en las pruebas existentes, se quitan los `using` implícitos de WPF.
+  - **Cobertura medida (MEJORAS §2, ítem 7).** `coverlet.collector` 6.0.2 en el proyecto de pruebas; el CI
+    publica la cobertura como artefacto. Sin umbral todavía.
+  - **`validate-fixture` no repite la suite (ítem 8).** Su job Debug compila las pruebas y no las ejecuta.
+  - **Instalador probado en CI (ítem 11).** Job `instalador`: compila el setup con Inno Setup, lo instala en
+    silencio, ejecuta el EXE instalado con `--self-test` y desinstala (`Tools/validate_installer.ps1`).
+  - Umbral de pruebas: 314 (+30: 5 de tiempo de espera, 5 de ajustes y opciones, 20 de convertidores).
+    **Estimación:** el número se calculó sumando las pruebas nuevas, no contando una ejecución.
+
 ## [Sin publicar] - 2026-10-10 (pérdida por salto)
 
 Sube la versión a **5.14.0**. Cierra el 2.4 de `docs/HERRAMIENTAS_NUEVAS.md` y
@@ -101,7 +158,7 @@ dice si sirvió.
   desgaste del SSD viaja dentro de un texto ya formateado y compararlo exigiría
   parsear la presentación: si el formato cambia, la comparación deja de
   encontrar nada y no hay forma de darse cuenta. Queda para el contrato de
-  medición de §8.2.1.
+  medición de §8.2, ítem 1.
 - **El ruido no se reporta**: menos de 3 ms de latencia o medio punto de disco
   no aparecen. Un diff que siempre se mueve es un diff que no se lee.
 - **`Ui/CompararWindow`**: dos combos con el historial, inversión con un clic y
@@ -120,29 +177,29 @@ sistema sin ensayo ni deshacer aumenta la superficie de daño a la misma
 velocidad que el valor.
 
 ### Medición, más corta y más honesta
-- **Caché WMI por corrida** (§8.2.3). El inventario que no cambia en segundos se
+- **Caché WMI por corrida** (§8.2, ítem 3). El inventario que no cambia en segundos se
   consulta una vez. Nunca se cachean contadores de rendimiento: el módulo de
   rendimiento mide por diferencia entre dos muestras, y servirle dos veces la
   misma fila congelada no da un valor viejo, da un cero. Tampoco se cachean las
   consultas que fallaron.
-- **Límite de tiempo por módulo** (§8.2.2). Cada paso tiene su plazo. Al vencer,
+- **Límite de tiempo por módulo** (§8.2, ítem 2). Cada paso tiene su plazo. Al vencer,
   el módulo se marca y la corrida sigue, y lo que traiga a medias no se fusiona.
   El módulo omitido es un **hallazgo propio**, no una nota al pie: «no hay
   problemas de red» cuando lo que pasó es que la red no se pudo medir es la
   forma más dañina de estar en lo correcto. Se distingue la cancelación del
   usuario (propaga) del vencimiento (avisa y continúa).
-- **Presupuesto de medición propio** (§8.2.8): tiempo de CPU y pico de memoria
+- **Presupuesto de medición propio** (§8.2, ítem 8): tiempo de CPU y pico de memoria
   de la corrida, en el pie y en el informe archivado.
-- **Puerta de XAML ampliada** (§8.2.10): cada `{Binding X}` tiene que
+- **Puerta de XAML ampliada** (§8.2, ítem 10): cada `{Binding X}` tiene que
   corresponder a un miembro real de su clase de datos.
 
 ### Lote «Confiar»
-- **Verificación post-cambio** (3.3, §8.2.4). `Core/Windows/ChangeVerifier.cs`:
+- **Verificación post-cambio** (3.3, §8.2, ítem 4). `Core/Windows/ChangeVerifier.cs`:
   releer y comparar en vez de suponer. `TweakModule.Aplicar` devuelve un
   resultado que separa «ya estaba así» de «se escribió y no quedó».
 - **Ensayo antes de aplicar** (3.1). `TweakModule.Ensayar` y botón «Ensayar (no
   aplica nada)».
-- **Deshacer por paso** (3.2, §8.2.6). `Core/Windows/ActionLog.cs` +
+- **Deshacer por paso** (3.2, §8.2, ítem 6). `Core/Windows/ActionLog.cs` +
   `Ui/CambiosWindow`: un botón por paso, delegando en el módulo que aplicó el
   cambio. Lo no reversible se registra igual y marcado.
 - **Restauración selectiva** (3.4). `OptimizeModule.Restore` omite y nombra lo

@@ -134,8 +134,9 @@ public static class LicenseService
                     GuardarInterno();
                 }
 
+                var motivo = MotivoRechazo.Ninguno;
                 if (!string.IsNullOrEmpty(_archivo.Codigo) &&
-                    LicenseCrypto.Verificar(_archivo.Codigo, out _, out _))
+                    LicenseCrypto.Verificar(_archivo.Codigo, out _, out _, out motivo))
                 {
                     _estado = EstadoLicencia.Pro;
                 }
@@ -161,7 +162,10 @@ public static class LicenseService
                         // esta versión: decir «se activó en «»» sería peor que no
                         // decir nada, así que la ausencia de dato tiene su propia
                         // rama en lugar de compartir la del equipo distinto.
-                        Aviso = string.IsNullOrEmpty(_archivo.Equipo)
+                        // Un código vencido sí verifica la firma: decirle «mal escrito» sería mentirle.
+                        Aviso = motivo == MotivoRechazo.Vencido
+                            ? "El código guardado ya venció. Escribe uno nuevo para volver a activar las acciones que modifican el equipo. Se conserva para que no lo pierdas."
+                            : string.IsNullOrEmpty(_archivo.Equipo)
                             ? "El código guardado no verifica en este equipo: puede estar mal escrito, ser de otra versión o haberse editado el archivo. Se conserva para que no lo pierdas."
                             : string.Equals(_archivo.Equipo, EquipoActual, StringComparison.Ordinal)
                                 ? "El código guardado no verifica en este equipo aunque se activó aquí: revisa que no se haya editado el archivo de licencia."
@@ -200,19 +204,17 @@ public static class LicenseService
         lock (Bloqueo)
         {
             _error = "";
+            // Verificar ya cubre el equipo: un código vinculado a otra máquina no
+            // produce la misma firma, y el mensaje lo dice.
             if (!LicenseCrypto.Verificar(codigo, out CodigoInfo info, out string error))
             {
                 _error = error ?? "El código no es válido.";
                 return false;
             }
-            if (info.VinculadaEquipo && !LicenseCrypto.VerificarParaEsteEquipo(codigo, out _, out _))
-            {
-                _error = "Este código fue emitido para otro equipo.";
-                return false;
-            }
 
-            string normalizado = (codigo ?? "").Trim();
-            _archivo.Codigo = normalizado;
+            // Se guarda la forma canónica, no lo que se tecleó: el archivo queda limpio
+            // y la comparación posterior no depende de espacios ni de minúsculas.
+            _archivo.Codigo = info.Canonico;
             _archivo.Activacion = DateTime.Now.ToString("o");
             _archivo.Equipo = EquipoActual;
             _error = "";

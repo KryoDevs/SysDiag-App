@@ -20,8 +20,10 @@ pasada honesta del trabajo:
   `--self-test` del EXE publicado, que construye las diez ventanas) también. Es
   decir: el tema reescrito, los adjuntos `ui:Motion.*` en las diez ventanas y el
   recorte de tamaño por área de trabajo se cargan en WPF de verdad.
-- Suite de regresión: **163/163** en el último empujón de la rama, tras la serie
-  114 → 148 → 152 → 160 → 163. El umbral de `validate_tests.ps1` se subió en cada tanda
+- Suite de regresión: **163/163** en el último CI verde registrado, tras la serie
+  114 → 148 → 152 → 160 → 163; el gate vigente es **314** (ver el lote de auditoría de
+  2026-10-10 en el CHANGELOG, sin publicar y aún sin CI en esta rama). El umbral de
+  `validate_tests.ps1` se subió en cada tanda
   para que siga apretando: que la cuenta sea exacta es lo que impide que se cuele una
   prueba eliminada sin reemplazo.
 - `Tools/validate_xaml.ps1` pasó los doce XAML reales y **es puerta** en `build.yml` y
@@ -91,7 +93,7 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
 | # | Qué | Evidencia |
 |---|---|---|
 | R01+ | La regla de recorte es una función y está probada: `Ventana.Recortar(declarado, piso, disponible)`, once casos que fijan la frontera del contrato —un recorte **solo achica**: ni un mínimo de 900 empuja hacia arriba un alto de 860, ni un `MaxHeight` de 660 se estira hasta los 704 disponibles—. | `Tools/IntegrationTests/WindowSizingTests.cs`. El CI rechazó dos expectativas que había escrito mal quien hizo el arreglo, y quedó dicho dentro del propio archivo. |
-| §4.1.1 | El pie dice **cuánto lleva** el módulo: `3 de 5 · Red y latencia · 14 s`, y a los 90 s deja una línea `WARN` única en el registro. Con WMI colgado, «midiendo» y «no va a terminar» eran el mismo fotograma. | `Ui/MainViewModel.cs`; el reloj es un `DispatcherTimer` que solo vive durante la corrida. El `Timeout` que cancele un módulo sigue sin existir: esto nombra el problema, no lo corta. |
+| §4.1, ítem 1 | El pie dice **cuánto lleva** el módulo: `3 de 5 · Red y latencia · 14 s`, y a los 90 s deja una línea `WARN` única en el registro. Con WMI colgado, «midiendo» y «no va a terminar» eran el mismo fotograma. | `Ui/MainViewModel.cs`; el reloj es un `DispatcherTimer` que solo vive durante la corrida. El `Timeout` que cancele un módulo sigue sin existir: esto nombra el problema, no lo corta. |
 | — | `validate_xaml.ps1` gana dos reglas y deja de ser advertencia: es puerta en `build.yml` y ahora también en `release.yml`, antes de que un tag pueda publicarse. | Calibrado contra un gemelo en Python: cero hallazgos en el XAML real, tres de tres en errores sembrados. |
 | F12 | `sysdiag-1.0.0.sha256` fuera del repositorio, con sus dos sumas trasladadas a la entrada `[1.0.0]` del CHANGELOG. | `git rm` + bloque «Sumas de control del paquete». |
 | — | La maqueta `docs/preview/index.html` vuelve a ser espejo del tema. | Tiempos y curvas como variables, hover con transición, elevación, latido con curva, barra del pie escalando y rótulo de avance. |
@@ -104,7 +106,7 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
 | F02 | Alta | La prueba de 14 días se autogobierna con un JSON plano: `%LocalAppData%\SysDiag\licencia.json` con `PrimerInicio` en texto plano (`LicenseService.cs:46,98`). Borrar el archivo reinicia la prueba indefinidamente; copiarlo a otro equipo la traslada. | Aceptar explícitamente que es un umbral, no una barrera, y decirlo en el README (hoy se lee como un control real). Si se quiere endurecer: marcar el primer arranque en un lugar que no se borra con la app (HKCU con un valor opaco + una segunda copia en ProgramData con ACL propia como ya hace `SecureBackupDirectory`), y comparar contra la fecha de creación del propio binario para detectar relojes atrasados. No prometer anti-tampering: prometer que no se resetea con un `del`. |
 | F06 | Media | Accesibilidad: cero `AutomationProperties` en el repo, y cinco botones son un glifo de *Segoe Fluent Icons* sin texto —el lector de pantalla anuncia «Button» y nada—; no hay contraste alto ni tema claro. | **Paso 1 aplicado**: `AutomationProperties.Name` en los cinco botones de solo glifo (minimizar, maximizar, cerrar ×3). Pasos siguientes: honrar `SystemParameters.HighContrast` con un `Style` que suba los bordes a 2 px y lleve el texto a blanco puro; y un tema claro, que con la paleta ya tokenizada son 17 `Color` más, no una reescritura. |
 | F08 | — | **Corregido: esto no era un defecto.** Aquí afirmé que había 15 sitios creando procesos fuera de `ProcessRunner`. Al contarlo bien, los 15 golpes del grep eran `new ProcessStartInfo` para abrir una URL, un archivo o una página de `ms-settings` —el API correcto para eso, sin nada que esperar ni drenar—. `new Process` aparece **una sola vez en todo el repo**, en `Core/ProcessRunner.cs:58`. | Queda un detalle de forma: `AbrirDeviceManager_Click` (`Ui/MainWindow.xaml.cs:415`) arma el `StartInfo` con el helper del runner y luego llama a `Process.Start` a mano, que es lo correcto escrito dos veces. En vez de migrarlo, se fijó la regla con una prueba: `Core_OnlyProcessRunnerCreatesAProcess` falla si algún día aparece un `new Process` fuera del embudo. |
-| F10 | Baja | `AppEnv.LogsMaximo`, `SettingsService.Aplicar` y `AppSettings` se comunican por **estáticos mutables** leídos desde los recolectores de `Core/`. Funciona, pero ninguna prueba puede variar un umbral sin pisar al resto de la suite (el orden de ejecución importa), y un módulo puede leer un valor que otra ventana cambió a media corrida. | Pasar un `OpcionesDiagnostico` inmutable como argumento a los módulos que lo necesitan (son cuatro: muestreo, pings, ventana de días, retención). Deja de ser necesario `Aplicar` antes de usar, y las pruebas de umbrales se escriben solas. |
+| F10 | Baja | `AppEnv.LogsMaximo`, `SettingsService.Aplicar` y `AppSettings` se comunican por **estáticos mutables** leídos desde los recolectores de `Core/`. Funciona, pero ninguna prueba puede variar un umbral sin pisar al resto de la suite (el orden de ejecución importa), y un módulo puede leer un valor que otra ventana cambió a media corrida. | Pasar un `OpcionesDiagnostico` inmutable como argumento a los módulos que lo necesitan (son cuatro: muestreo, pings, ventana de días, retención). Deja de ser necesario `Aplicar` antes de usar, y las pruebas de umbrales se escriben solas. **Aplicado** (lote de 2026-10-10): `OpcionesDiagnostico` inmutable que reciben los módulos; `SettingsService.Vigentes` es la única instantánea y solo la leen textos de la interfaz e informes; `AppEnv.LogsMaximo`, `AppSettings` y los estáticos de módulos se eliminaron. |
 | F11 | Baja | El latido del punto de la barra superior es un reloj `Forever` atado a `Loaded`: sigue corriendo en reposo bajo una pastilla `Collapsed`. Es un coste menor (una animación de opacidad sobre un elemento no visible), y **no lo cambié a propósito**: gobernarlo por estado exige `StopStoryboard` sobre un `BeginStoryboard` con nombre dentro de un `Style`, que vive en otro ámbito de nombres que dentro de una plantilla y no se puede verificar aquí compilando. Queda documentado en el propio estilo. | Mover el punto a un control con plantilla (`ControlTrafico` con su `ControlTemplate`) y atar el latido al estado. Ahí el `StopStoryboard` es seguro y el reloj se apaga de verdad. |
 
 ---
@@ -136,11 +138,11 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
 **Pruebas**
 
 0. ~~El gate de `validate_tests.ps1` sigue diciendo «mínimo 114»~~ — **subido y
-   verificado**: 163 hoy (114 auditadas + 34 del sistema visual + 4 de licencia + 11 del
-   recorte de ventanas). El número se sube en el mismo commit que añade pruebas, y el
+   verificado**: 314 con el gate vigente (114 auditadas + 34 del sistema visual + 6 de licencia
+   + 11 del recorte de ventanas + el resto de los lotes). El número se sube en el mismo commit que añade pruebas, y el
    mensaje del script repite el desglose para que se sepa qué lo compone.
 
-5. Las 114 pruebas originales (163 hoy) son de lógica pura (`Exporter`, parsers, umbrales, fusiones) y son
+5. Las 114 pruebas originales (314 hoy en la suite completa) son de lógica pura (`Exporter`, parsers, umbrales, fusiones) y son
    buenas; ningún binding, conversor ni template está cubierto más allá de «la ventana
    se construye`. El hueco concreto: `Converters.cs` (seis convertidores con ramas de
    `switch` y un `Clamp`) se puede probar en 20 minutos sin WPF... pero `ScoreArc.Geometria`
@@ -154,13 +156,13 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
    dos cosas que el parseo no veía: que la propiedad animada exista en el tipo del destino
    y que ningún `Forever` de `Trigger` se quede sin `StopStoryboard`. Sigue sin haber
    disparo real de los triggers, que es lo que falta aquí.
-7. Sin cobertura medida. `coverlet.collector` + `--collect:"XPlat Code Coverage"` en el
-   `dotnet test` del CI y publicar el informe como artefacto; sin umbral al principio,
+7. ~~Sin cobertura medida.~~ **Aplicado** (lote de 2026-10-10, sin CI aún): `coverlet.collector` 6.0.2 en
+   el proyecto de pruebas y `--collect:"XPlat Code Coverage"` en `build.yml`; el artefacto
+   `test-results-*` ahora incluye `TestResults/**`. Sin umbral al principio,
    con umbral de no-regresión cuando se sepa dónde está (los números de `Core/Storage`
    y `Core/Windows` son los que importan).
-8. `validate-fixture.yml` corre la suite también en Debug. Dos ejecuciones de la misma
-   suite para un fixture JSON: se puede reducir a compilar en Debug y no repetir las
-   pruebas, o dejar un subconjunto (`--filter`).
+8. ~~`validate-fixture.yml` corre la suite también en Debug.~~ **Aplicado**: el job compila las
+   pruebas en Debug (`compile-debug`) y no las ejecuta; `build.yml` ya corre la suite en Release.
 9. ~~Prueba de contraste del tema~~ — **aplicada**: `ThemeRegressionTests` mide los
    ocho tintes de texto contra los cuatro fundos del tema leyendo `Ui/Theme.xaml`, y
    verifica además que el embudo de ejecución de procesos siga siendo uno solo. Cuesta
@@ -168,8 +170,8 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
    pasar (F05 es precisamente eso: se detectó midiendo, no con una prueba).
    ~~y esta brecha quedó cerrada en la tanda siguiente~~: `Inicializar` acepta una
    ruta, `LicenseRegressionTests` prueba el comportamiento corregido, y el umbral del
-   gate subió a 152 (163 hoy). Queda la misma limitación para `SettingsService`, que escribe el
-   registro al leer y sigue sin camino de prueba. Nano-deuda recién vista: `Activar`
+   gate subió a 152 (314 hoy). `SettingsService` ya tiene camino de prueba desde el lote de
+   2026-10-10 (`Cargar`/`Guardar` aceptan ruta; `OpcionesYAjustesTests`). Nano-deuda recién vista: `Activar`
    guarda el texto tal como se tecleó (con espacios en vez de guiones) en lugar de la
    forma canónica; la lectura lo tolera porque `Normalizar` los descarta, pero el
    archivo podría guardarse limpio.
@@ -189,9 +191,9 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
 10. Firma de código y notoriedad: sigue pendiente desde la auditoría 1 y es lo único que
     quita el «Windows protegió su PC» del README. Alternativa sin certificado de pago:
     `Azure Trusted Signing` (cuesta centavos al mes) y deja de ser un problema.
-11. El instalador no se prueba en CI (`build_installer.ps1` produce, nadie instala).
-    Un job con `innosetup` en silencio + `--self-test` contra la ruta instalada cubre
-    lo que hoy se comprueba a mano.
+11. ~~El instalador no se prueba en CI~~ **Aplicado** (lote de 2026-10-10, sin CI aún): job `instalador` en
+   `build.yml` → `build_installer.ps1`, luego `Tools/validate_installer.ps1`, que instala en silencio,
+   ejecuta el EXE instalado con `--self-test` (exige la marca `SYSDIAG_SELF_TEST_OK`) y desinstala.
 12. Reparto por `winget` (manifest en `winget-pkgs`) y `scoop`: actualiza solo, quita el
     SmartScreen por reputación de la fuente, y encaja con que la app ya use winget para
     otros paquetes.
@@ -260,7 +262,9 @@ Coste: **c** (días), **m** (semanas), **a** (meses o más). Beneficio entre cor
    del módulo cuando solo hay un paso. Cero cambios en `ScanService`: el conteo vive en
    el envoltorio por paso que la UI ya construía. Lo que sigue de aquí es marcar
    también *qué* paso está fallando cuando uno tarda (hoy el rótulo no distingue
-   «midiendo» de «colgado»), que ya no es cosmético: es un `Timeout` por módulo.
+   «midiendo» de «colgado»), que ya no es cosmético: es un `Timeout` por módulo. **Ya estaba
+   implementado** (`ScanService.LimitesPorModulo`, aviso «no se pudo medir»); lo que faltaba era probarlo:
+   el lote de 2026-10-10 inyecta los límites por constructor y añade `ScanTimeoutTests`.
 2. **Línea de base y «qué cambió desde la última vez»** [m/bajo]. Ya hay
    `Exporter.PuntajeAnterior` y un historial comparable por cobertura. Un `diff` de dos
    diagnósticos (hallazgos nuevos, desaparecidos, umbrales cruzados, drivers viejos) es
@@ -404,11 +408,11 @@ Seis lotes, cada uno compile y CI-verificable por separado.
 | 2 | F04 (`DebugType=embedded`) + F06 paso 1 (`AutomationProperties`) + F05 (contraste) + F07 (errores) | Una línea cada uno, todos visibles, ninguno toca lógica de medición. |
 | 3 | §2.1–3 (nullable por capas, analizadores, `.editorconfig` + `dotnet format` en CI) + F08/F09 | Pagar deuda con la red de seguridad puesta: los analizadores tienen que estar antes de tocar 15 sitios de `Process`, no después. |
 | 4 | Movimiento 1–3 (números de tarjetas, línea del historial, contadores del ping) + §3.5 | Terminan el sistema que esta rama empezó y requieren tocar poco: `MetricCard.Create` y dos `TextBlock`. |
-| 5 | §4.1.1 (progreso real), #3 (SMART por atributos), #4 (histórico térmico), #2 (diff con la última corrida) | El salto de «informe» a «herramienta de diagnóstico». Cuatro funciones que un usuario nota el primer día. |
+| 5 | §4.1, ítem 1 (progreso real), #3 (SMART por atributos), #4 (histórico térmico), #2 (diff con la última corrida) | El salto de «informe» a «herramienta de diagnóstico». Cuatro funciones que un usuario nota el primer día. |
 | 6 | Firma (Trusted Signing), #11 instalador en CI, #12 winget, #13 notas desde el CHANGELOG | Distribución: es lo que hace que todo lo anterior llegue a otra máquina sin el aviso de SmartScreen. |
 
 **Estado al 2026-10-10.** El lote 2 está cerrado (F04, F06 paso 1, F05, F07, y además
-F03, F09, F13 y las pruebas de licencia). Del lote 5 entró §4.1.1 completo —progreso real
+F03, F09, F13 y las pruebas de licencia). Del lote 5 entró §4.1, ítem 1 completo —progreso real
 por módulo, con cronómetro y aviso a los 90 s—, que no era lo que ese lote prometía: se
 adelantó porque era verificable desde la rama. Siguen abiertos el 1 (F01 y F02, que son
 decisiones de negocio y no técnicas), el 3 (`.editorconfig`, analizadores, nullable por
@@ -437,7 +441,7 @@ se cerró «a medias sin decir»: el punto 0 de §2 y esta línea son el estado 
 ## 7. Cómo verificar esto
 
 La parte de compilación y pruebas corre en el CI de esta rama en cada empujón; la última
-foto es `0a0a0a9`: build Release verde, **163/163**, puerta de XAML, `--self-test` sobre el
+foto con CI verde registrada es `0a0a0a9`: build Release verde, **163/163** en ese commit, puerta de XAML, `--self-test` sobre el
 EXE publicado y validación del paquete. En una máquina propia, lo mismo:
 
 ```powershell
@@ -582,7 +586,7 @@ hechas y se concentra en lo que apareció al tocar esas cuatro cosas. Coste:
   estabilidad de un equipo ajeno. El registro local y el informe redactable
   (§4.3 punto 22) cubren la necesidad sin sacar nada del equipo.
 - **Activación que no sea por un canal oficial**. Ver
-  `docs/HERRAMIENTAS_NUEVAS.md §1.9`.
+  `docs/HERRAMIENTAS_NUEVAS.md §1, ítem 1`.
 
 ---
 
@@ -596,22 +600,22 @@ superficie de daño a la misma velocidad que el valor.
 ### 9.1 Aplicado
 
 **Infraestructura de medición**
-- **§8.2.3 Caché WMI con vigencia.** Inventario que no cambia en segundos se
+- **Caché WMI con vigencia.** (§8.2, ítem 3). Inventario que no cambia en segundos se
   consulta una vez por corrida. Nunca se cachean contadores de rendimiento: el
   módulo de rendimiento mide por diferencia entre dos muestras, y servirle dos
   veces la misma fila congelada no da un valor viejo, da un cero. Tampoco se
   cachean las consultas que fallaron.
-- **§8.2.2 Límite de tiempo por módulo.** Cada paso tiene su plazo (4 min para
+- **Límite de tiempo por módulo.** (§8.2, ítem 2). Cada paso tiene su plazo (4 min para
   red, que hace traceroute; 1 min para térmicas). Al vencer, el módulo se marca
   y la corrida sigue. Lo que el módulo traiga a medias no se fusiona: se
   descarta y queda la corrida anterior de ese módulo, que es más útil que un
   «Red y latencia» vacío. El módulo omitido es un hallazgo propio, no una nota
   al pie. Se distingue la cancelación del usuario (propaga) del vencimiento
   (avisa y continúa).
-- **§8.2.8 Presupuesto de medición propio.** Tiempo de CPU del proceso y pico
+- **Presupuesto de medición propio.** (§8.2, ítem 8). Tiempo de CPU del proceso y pico
   de memoria de la corrida, en el pie y en el informe archivado. Una
   herramienta que mide perturba aquello que mide.
-- **§8.2.10 Puerta de XAML ampliada.** Comprobación 6: todo `{Binding X}` tiene
+- **Puerta de XAML ampliada.** (§8.2, ítem 10). Comprobación 6: todo `{Binding X}` tiene
   que corresponder a un miembro de su clase de datos. Un binding a un nombre
   que no existe no rompe la compilación: rompe en tiempo de ejecución y en
   silencio.
