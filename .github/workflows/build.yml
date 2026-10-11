@@ -54,6 +54,7 @@ jobs:
         shell: pwsh
         env:
           PR: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           # La puerta corre en un proceso hijo y su salida se vuelca a un archivo:
           # mezclar la salida de error de un proceso nativo en la canalización de
@@ -80,7 +81,7 @@ jobs:
           if ($env:PR) {
             $sha = $env:GITHUB_SHA.Substring(0, 7)
             $uri = "$env:GITHUB_API_URL/repos/$env:GITHUB_REPOSITORY/issues/$env:PR/comments"
-            $cabeceras = @{ Authorization = "Bearer $env:GITHUB_TOKEN"; Accept = 'application/vnd.github+json' }
+            $cabeceras = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' }
             $grave = [string][char]0x60
             $cercado = $grave + $grave + $grave
             $primeraLinea = "La puerta de documentación falló en $sha"
@@ -100,15 +101,6 @@ jobs:
             }
           }
           exit 1
-
-      - name: (temporal) Comprobar el canal de anotaciones
-        # Control positivo mientras se depura la puerta de documentación: si esta
-        # anotación no aparece en la corrida, el canal no sirve y hay que buscar
-        # otro. Se borra en cuanto el CI esté verde.
-        if: always()
-        shell: pwsh
-        run: |
-          Write-Output '::notice title=DiagnosticoCI::el canal de anotaciones funciona'
 
       - name: Restaurar dependencias
         run: dotnet restore SysDiag.sln

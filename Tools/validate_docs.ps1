@@ -105,7 +105,12 @@ try {
             $doc = $m.Groups[1].Value
             $seccion = $m.Groups[2].Value
             if (($seccion -split '\.').Count -gt 2) {
-                $errores.Add("$relativo cita $simboloSeccion$seccion de $doc: usa $simboloSeccion" + (($seccion -split '\.')[0..1] -join '.') + ', item N en lugar de tres niveles')
+                # ${doc} y no $doc: dentro de comillas dobles, un signo de dos puntos pegado
+                # al nombre se lee como variable con ambito y Windows PowerShell 5.1 lo
+                # tolera mientras que PowerShell 7 lo rechaza en el analisis sintactico,
+                # que es ANTES de ejecutar la primera comprobacion. Ese detalle dejo esta
+                # puerta en rojo en el CI tres corridas seguidas con un simple "exit code 1".
+                $errores.Add("$relativo cita $simboloSeccion$seccion de ${doc}: usa $simboloSeccion" + (($seccion -split '\.')[0..1] -join '.') + ', item N en lugar de tres niveles')
             } elseif (-not $encabezados[$doc].Contains($seccion)) {
                 $errores.Add("$relativo cita $simboloSeccion$seccion de $doc, que no tiene ese encabezado")
             }
