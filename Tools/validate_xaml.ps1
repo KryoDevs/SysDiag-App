@@ -1,4 +1,4 @@
-# validate_xaml.ps1
+﻿# validate_xaml.ps1
 #
 # Comprobaciones estáticas sobre el XAML. No sustituyen al autotest del EXE
 # publicado (--self-test): lo complementan. Ese construye las ventanas, pero

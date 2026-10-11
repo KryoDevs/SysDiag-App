@@ -1,4 +1,4 @@
-param([string]$Root = (Join-Path $PSScriptRoot '..\publish'), [string]$Tag = '')
+﻿param([string]$Root = (Join-Path $PSScriptRoot '..\publish'), [string]$Tag = '')
 $ErrorActionPreference = 'Stop'
 [xml]$project = Get-Content (Join-Path $PSScriptRoot '..\SysDiag.csproj') -Raw
 $version = @($project.Project.PropertyGroup.Version | Where-Object { $_ })[0]

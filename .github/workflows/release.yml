@@ -82,12 +82,43 @@ jobs:
           name: tests-release-${{ github.run_id }}
           path: TestResults/*.trx
           if-no-files-found: ignore
+      - name: Tomar las notas de la sección del CHANGELOG
+        # docs/MEJORAS.md §2.13: las notas salen de `## [X.Y.Z]` y no se escriben a mano.
+        # Si esa sección no existe, se conserva lo que ya hacía el flujo (notas generadas
+        # por GitHub) y queda un aviso visible en lugar de un borrador silenciosamente pobre.
+        id: notas
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release | Out-Null
+          $version = $env:RELEASE_TAG.Substring(1)
+          $patron = '^## \[' + [regex]::Escape($version) + '\]'
+          $lineas = @(Get-Content CHANGELOG.md -Encoding UTF8)
+          $inicio = -1
+          for ($i = 0; $i -lt $lineas.Count; $i++) {
+            if ($lineas[$i] -match $patron) { $inicio = $i; break }
+          }
+          if ($inicio -lt 0) {
+            Write-Output "::warning title=Notas de release::CHANGELOG.md no tiene una sección ## [$version]; se usan las notas generadas por GitHub."
+            'encontradas=false' | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          } else {
+            $fin = $lineas.Count
+            for ($j = $inicio + 1; $j -lt $lineas.Count; $j++) {
+              if ($lineas[$j] -match '^## ') { $fin = $j; break }
+            }
+            # Un rango de PowerShell se invierte si el final es menor que el principio:
+            # una sección sin texto no puede tomar la línea del título por accidente.
+            $cuerpo = ''
+            if ($fin -gt ($inicio + 1)) { $cuerpo = $lineas[($inicio + 1)..($fin - 1)] -join "`n" }
+            Set-Content -Path release\NOTAS.md -Value $cuerpo.Trim() -Encoding utf8
+            'encontradas=true' | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
       - name: Crear solo un borrador para revisión humana
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           draft: true
-          generate_release_notes: true
+          body_path: ${{ steps.notas.outputs.encontradas == 'true' && 'release/NOTAS.md' || '' }}
+          generate_release_notes: ${{ steps.notas.outputs.encontradas != 'true' }}
           files: |
             release/*.zip
             release/SHA256SUMS.txt

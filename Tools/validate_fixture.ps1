@@ -1,4 +1,4 @@
-$path = Join-Path $PSScriptRoot "fixtures\diagnostico_fixture.json"
+﻿$path = Join-Path $PSScriptRoot "fixtures\diagnostico_fixture.json"
 if (-not (Test-Path $path)) { Write-Error "Fixture not found: $path"; exit 2 }
 $json = Get-Content $path -Raw | ConvertFrom-Json
 $bad = $json.Hallazgos | Where-Object { $_.Severity -eq 'Bad' }

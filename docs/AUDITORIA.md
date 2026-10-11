@@ -11,7 +11,7 @@ El proyecto es una aplicación WPF/.NET 8 para Windows x64. Se revisaron motor, 
 - **101/101 pruebas aprobadas, sin omisiones ni fallos** (annotation del job `110763312092`). Pasaron ACL administrativa de carpeta/archivo temporal, lectura nativa de energía, firma válida/PE alterado, rollback tipado, procesos, JSON/culturas, clasificación de eventos, CSV/historial y cancelación. No se instalaron drivers ni se aplicaron cambios de red/registro/energía.
 > **Estado posterior (2026-10-10).** Este informe quedó superado en parte por
 > `docs/AUDITORIA_2026-10-09.md` y por las tandas de `arena/e864cf80-sysdiag-app`, que
-> cerraron varios de sus puntos y subieron el umbral de pruebas a 163. Se conserva sin
+> cerraron varios de sus puntos y subieron el umbral de pruebas a 163 (después 282, y en el lote de 2026-10-10, 284). Se conserva sin
 > reescribir, con la evidencia de CI que le corresponde: un CI anterior no certifica
 > cambios posteriores. Lo que sigue abierto está listado en `docs/MEJORAS.md §1`.
 

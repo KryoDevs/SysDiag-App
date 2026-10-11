@@ -679,7 +679,6 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
     /// de la ventana; el ViewModel solo expone dónde guardar el valor.</summary>
     public string HoraSistema { get => _horaSistema; set => Set(ref _horaSistema, value); }
 
-    public bool EsAdmin => AppEnv.IsAdmin;
     public Visibility AvisoAdmin => AppEnv.IsAdmin ? Visibility.Collapsed : Visibility.Visible;
     public string Version => AppEnv.Version;
 
@@ -798,7 +797,8 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
                 var history = await Task.Run(() =>
                 {
                     int previous = Exporter.PuntajeAnterior(Report.Inicio, modulos: ejecutados);
-                    bool saved = Exporter.Archivar(Report.ParaArchivo(ejecutados));
+                    bool saved = Exporter.Archivar(Report.ParaArchivo(ejecutados),
+                        historialMaximo: SysDiag.Core.Windows.SettingsService.Vigentes.HistorialMaximo);
                     return (previous, saved, series: Exporter.Historial(modulos: ejecutados));
                 });
                 _previousScore = history.previous;
@@ -905,7 +905,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         // dejar que se calculen solos pondría «media 2,4» donde va «40 000».
         var eventos = Report.EventosResumen.Take(6).ToList();
         GraficoEventos = BarChart.Crear("Eventos críticos por tipo",
-            $"Repeticiones en los últimos {StabilityModule.EventDays} días, en escala logarítmica: cada guía multiplica por diez. " +
+            $"Repeticiones en los últimos {SysDiag.Core.Windows.SettingsService.Vigentes.DiasEventos} días, en escala logarítmica: cada guía multiplica por diez. " +
             "Un tipo que se repite miles de veces señala un problema persistente, no un incidente aislado.",
             eventos.Select(x => ($"ID {x.Id}", Math.Log10(Math.Max(x.Ocurrencias, 1)),
                               x.Ocurrencias.ToString("N0"),
@@ -1081,7 +1081,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         if (Report.Whea.Count > 0)
         {
             Tarjetas.Add(MetricCard.Create("Errores WHEA", Report.Whea.Count.ToString(),
-                $"últimos {StabilityModule.WheaDays} días",
+                $"últimos {SysDiag.Core.Windows.SettingsService.Vigentes.DiasWhea} días",
                 Pincel(Report.Whea.Count >= 20 ? Severity.Bad : Severity.Warn),
                 Math.Min(Report.Whea.Count / 50.0, 1.0), "estabilidad"));
         }
@@ -1090,7 +1090,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             int total = Report.EventosResumen.Sum(x => x.Ocurrencias);
             Tarjetas.Add(MetricCard.Create("Eventos críticos", total.ToString(),
-                $"últimos {StabilityModule.EventDays} días", Pincel(Severity.Warn),
+                $"últimos {SysDiag.Core.Windows.SettingsService.Vigentes.DiasEventos} días", Pincel(Severity.Warn),
                 Math.Min(total / 200.0, 1.0), "estabilidad"));
         }
 

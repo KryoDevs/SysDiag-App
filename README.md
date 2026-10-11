@@ -14,6 +14,10 @@ El proyecto se entrega como código fuente. Para compilarlo:
 2. Doble clic en **`build.bat`**.
 3. El ejecutable queda en `publish\SysDiag.exe`.
 
+Para comprobar el código sin publicar nada, `build.bat test` ejecuta la suite y el mismo
+umbral de regresiones que el CI (`Tools\validate_tests.ps1`). Es lo que conviene adjuntar
+cuando se reporta un fallo.
+
 Instala primero el **SDK .NET 8** desde <https://dotnet.microsoft.com/download/dotnet/8.0>.
 El script usa `global.json` para seleccionar ese SDK y puede reutilizar una copia propia
 ya instalada en `%LOCALAPPDATA%\SysDiag\dotnet-sdk`. No descarga ni ejecuta scripts
@@ -35,7 +39,7 @@ SysDiag/
 ├─ App.xaml / App.xaml.cs        Arranque, cultura, instancia única, captura de errores
 │
 ├─ Models/                       DTOs y reglas de fusión/normalización. Namespace SysDiag.Models
-│  ├─ DiagnosticModels.cs        Severity, Finding, DiagnosticReport (+ MergeFrom)
+│  ├─ DiagnosticModels.cs        Severity, Finding, DiagnosticReport (+ ReplaceModuleFrom)
 │  ├─ HardwareModels.cs          KeyValueRow, DiskRow, MemoryRow, GpuInfo
 │  ├─ NetworkModels.cs           LatencyResult, TraceHop, WifiNetworkRow
 │  ├─ StorageModels.cs           StorageRow, CleanupRow
@@ -58,10 +62,10 @@ SysDiag/
 │  └─ Diagnostics/               HealthScore, Remediation, ReportBuilder, Exporter, StabilityModule
 │
 ├─ Services/                     Contrato hacia la UI. Namespace SysDiag.Services
-│  ├─ Interfaces.cs               IDiagnosticService y las 8 interfaces de dominio
+│  ├─ Interfaces.cs               IDiagnosticService, sus cinco especializaciones e IScanService
 │  ├─ HardwareService, NetworkService, SecurityService, DriverService, StorageService
 │  ├─ PerformanceService, StabilityService, StartupService   (sin interfaz dedicada)
-│  └─ ScanService, RepairService, ReportService, HistoryService
+│  └─ CleanupService, UpdateService, ScanService (orquesta los pasos y fusiona el reporte)
 │
 ├─ Diagnostics/                  Motor de reglas. Namespace SysDiag.Diagnostics
 │  ├─ DiagnosticRule.cs           Interfaz IDiagnosticRule
@@ -153,6 +157,12 @@ piden un **código de activación**.
 - El emisor de códigos es `Tools/New-ActivationCode.ps1` (para quien vende las
   licencias): `-Dias 365 -Cantidad 10` emite; `-Verificar <código>` comprueba
   y muestra vigencia, serial y si está vinculado al equipo.
+
+**Qué protege y qué no.** La prueba y el código viven en `%LocalAppData%\SysDiag\licencia.json`.
+Es un **umbral, no una barrera**: borrar ese archivo reinicia la prueba de 14 días, y quien tenga
+acceso al equipo puede editarlo o cambiar el reloj. Lo que sí se verifica sin conexión es la firma
+del código: un código cambiado o inventado no pasa. Esa firma usa una clave que hoy está en el
+repositorio público, así que su rotación es una decisión pendiente (`docs/MEJORAS.md §1`, F01).
 
 ## Activación de Windows 10 y 11
 
@@ -269,7 +279,7 @@ lista lo accionable sin instalar nada.
 
 - Windows compila la solución, ejecuta regresiones y conserva TRX. Se incluyen ramas
   `arena/**`; no se publica un release por trabajar en una rama.
-- `Tools/validate_tests.ps1` exige ≥282 pruebas (114 de la suite auditada + 34 que miden el sistema visual + 4 de licencia + 11 del recorte de ventanas + 40 sobre funciones puras del lote 5.9 + 15 del lote «Confiar» + 14 del diff entre diagnósticos + 21 de SMART + 13 de consumo por proceso + 16 de pérdida por salto), todas aprobadas y sin omisiones.
+- `Tools/validate_tests.ps1` exige ≥314 pruebas (114 de la suite auditada + 34 que miden el sistema visual + 6 de licencia + 11 del recorte de ventanas + 40 sobre funciones puras del lote 5.9 + 15 del lote «Confiar» + 14 del diff entre diagnósticos + 21 de SMART + 13 de consumo por proceso + 16 de pérdida por salto + 5 de tiempo de espera por módulo + 5 de ajustes y opciones + 20 de convertidores), todas aprobadas y sin omisiones.
 - `Tools/validate_xaml.ps1` comprueba seis cosas sobre los XAML: bien formado, resolución de
   `{StaticResource}`, ámbito de cada `TargetName` dentro de su plantilla, que la propiedad animada exista
   en el tipo del elemento destino, que todo `RepeatBehavior="Forever"` nacido en un `Trigger` tenga su

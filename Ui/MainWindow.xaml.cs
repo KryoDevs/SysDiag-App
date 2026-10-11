@@ -302,16 +302,16 @@ public partial class MainWindow : Window
     // y la que pide tu arquitectura. Los módulos de Core/ siguen siendo
     // donde vive la lógica real; los servicios son el contrato hacia la UI.
     private static Task PasoRed(DiagnosticReport r, CancellationToken t) =>
-        new NetworkService().EjecutarAsync(r, t);
+        new NetworkService(SettingsService.Vigentes).EjecutarAsync(r, t);
 
     private static Task PasoRendimiento(DiagnosticReport r, CancellationToken t) =>
-        new PerformanceService().EjecutarAsync(r, t);
+        new PerformanceService(SettingsService.Vigentes).EjecutarAsync(r, t);
 
     private static Task PasoTermicas(DiagnosticReport r, CancellationToken t) =>
         new HardwareService().EjecutarAsync(r, t);
 
     private static Task PasoEstabilidad(DiagnosticReport r, CancellationToken t) =>
-        new StabilityService().EjecutarAsync(r, t);
+        new StabilityService(SettingsService.Vigentes).EjecutarAsync(r, t);
 
     private static Task PasoDrivers(DiagnosticReport r, CancellationToken t) =>
         new DriverService().EjecutarAsync(r, t);

@@ -16,9 +16,24 @@ public class CodigoInfo
     public DateTime? Expira { get; init; }
     public uint Serial { get; init; }
 
-    public bool EsPerpetua => Expira == null;
+    /// <summary>Forma canónica del código (mayúsculas, con guiones, sin espacios). Es la que se guarda.</summary>
+    public string Canonico { get; init; } = "";
 
-    public bool Vigente(DateTime ahora) => Expira == null || ahora <= Expira.Value;
+    public bool EsPerpetua => Expira == null;
+}
+
+/// <summary>Por qué un código no se acepta. Lo usa la ventana para decir algo cierto.</summary>
+public enum MotivoRechazo
+{
+    Ninguno,
+    /// <summary>No tiene la forma de un código (caracteres, longitud, vacío).</summary>
+    Formato,
+    /// <summary>Formato de otra versión de la aplicación.</summary>
+    Version,
+    /// <summary>La firma no coincide: mal escrito, editado, o vinculado a otro equipo.</summary>
+    NoCoincide,
+    /// <summary>La firma es válida, pero la fecha de vigencia ya pasó.</summary>
+    Vencido
 }
 
 /// <summary>
@@ -124,9 +139,18 @@ public static class LicenseCrypto
     /// minúsculas y el prefijo SDG7 opcional.
     /// </summary>
     public static bool Verificar(string codigo, out CodigoInfo info, out string error)
+        => Verificar(codigo, out info, out error, out _);
+
+    /// <summary>
+    /// Igual que <see cref="Verificar(string, out CodigoInfo, out string)"/>, y además dice por qué falla.
+    /// <paramref name="hoy"/> fija el día de referencia para la vigencia; sin valor, es hoy. Existe para
+    /// que la prueba de un código vencido no tenga que esperar días reales.
+    /// </summary>
+    public static bool Verificar(string codigo, out CodigoInfo info, out string error, out MotivoRechazo motivo, DateTime? hoy = null)
     {
         info = null;
         error = null;
+        motivo = MotivoRechazo.Ninguno;
         try
         {
             string limpio = Normalizar(codigo);
@@ -140,6 +164,7 @@ public static class LicenseCrypto
             if (carga[0] != VersionFormato)
             {
                 error = "Código de una versión no compatible con esta aplicación.";
+                motivo = MotivoRechazo.Version;
                 return false;
             }
 
@@ -149,7 +174,12 @@ public static class LicenseCrypto
             byte[] esperado = CalcularMac(carga, vinculada);
             if (!CryptographicOperations.FixedTimeEquals(mac, esperado))
             {
-                error = "El código no es válido. Revisa que esté completo y bien escrito.";
+                // Un código vinculado y uno mal escrito dan la misma firma inválida: no
+                // hay forma de distinguirlos sin la clave del equipo. La frase lo dice.
+                error = vinculada
+                    ? "Este código es para otro equipo, o está mal escrito. Revisa que esté completo."
+                    : "El código no es válido. Revisa que esté completo y bien escrito.";
+                motivo = MotivoRechazo.NoCoincide;
                 return false;
             }
 
@@ -160,9 +190,11 @@ public static class LicenseCrypto
             if (!perpetua && dias != 0)
             {
                 expira = Origen.AddDays(dias);
-                if (expira.Value < DateTime.Today)
+                DateTime referencia = (hoy ?? DateTime.Today).Date;
+                if (expira.Value < referencia)
                 {
                     error = "El código existe pero ya venció.";
+                    motivo = MotivoRechazo.Vencido;
                     return false;
                 }
             }
@@ -172,29 +204,17 @@ public static class LicenseCrypto
                 Version = carga[0],
                 VinculadaEquipo = vinculada,
                 Expira = expira,
-                Serial = ser
+                Serial = ser,
+                Canonico = Formatear(Codificar(paquete))
             };
             return true;
         }
         catch (FormatException ex)
         {
             error = ex.Message;
+            motivo = MotivoRechazo.Formato;
             return false;
         }
-    }
-
-    /// <summary>True si el código es válido y corresponde a este equipo cuando está vinculado.</summary>
-    public static bool VerificarParaEsteEquipo(string codigo, out CodigoInfo info, out string error)
-    {
-        if (!Verificar(codigo, out info, out error)) return false;
-        if (info.VinculadaEquipo)
-        {
-            // Verificar ya solo acepta la MAC si coincide la etiqueta de este
-            // equipo: un código vinculado emitido en otro equipo falla antes.
-            // La rama queda explícita por si el formato cambia más adelante.
-            return true;
-        }
-        return true;
     }
 
     // ---- Codificación ------------------------------------------------------

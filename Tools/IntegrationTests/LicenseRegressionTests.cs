@@ -114,5 +114,44 @@ public class LicenseRegressionTests : IDisposable
         Assert.True(LicenseService.Activar(escrito), LicenseService.UltimoError);
         Assert.True(LicenseCrypto.Verificar(limpio, out CodigoInfo info, out _));
         Assert.True(info.EsPerpetua);
+        // Se guarda la forma canónica, no lo tecleado: el archivo no arrastra espacios ni minúsculas.
+        Assert.Equal(limpio, LicenseService.CodigoActivo);
+    }
+
+    /// <summary>
+    /// Un código con la firma correcta pero fuera de vigencia no es un código mal escrito. La ventana
+    /// tiene que poder decir «venció», así que el motivo viaja aparte del texto.
+    /// </summary>
+    [Fact]
+    public void Verificar_UnCodigoVencidoDeclaraElMotivoVencido()
+    {
+        string codigo = LicenseCrypto.Generar(dias: 1);
+
+        Assert.True(LicenseCrypto.Verificar(codigo, out CodigoInfo vigente, out _, out MotivoRechazo motivoVigente, DateTime.Today));
+        Assert.Equal(MotivoRechazo.Ninguno, motivoVigente);
+        Assert.Equal(DateTime.Today.AddDays(1), vigente.Expira.Value.Date);
+
+        Assert.False(LicenseCrypto.Verificar(codigo, out _, out string error, out MotivoRechazo motivo, DateTime.Today.AddDays(3)));
+        Assert.Equal(MotivoRechazo.Vencido, motivo);
+        Assert.Contains("venció", error);
+    }
+
+    /// <summary>
+    /// Un código vinculado con un carácter cambiado no verifica, y el mensaje dice que puede ser de otro
+    /// equipo. Antes esa frase era inalcanzable: la rama «emitido para otro equipo» nunca se ejecutaba.
+    /// </summary>
+    [Fact]
+    public void Verificar_UnCodigoVinculadoAlteradoNoCoincideYNombraElEquipo()
+    {
+        string codigo = LicenseCrypto.Generar(dias: 0, vinculadaEquipo: true);
+
+        // Posición 12: carácter del cuerpo de la carga, no el prefijo, ni el guion, ni el relleno final.
+        char[] letras = codigo.ToCharArray();
+        letras[12] = letras[12] == '0' ? '1' : '0';
+        string alterado = new string(letras);
+
+        Assert.False(LicenseCrypto.Verificar(alterado, out _, out string error, out MotivoRechazo motivo));
+        Assert.Equal(MotivoRechazo.NoCoincide, motivo);
+        Assert.Contains("otro equipo", error);
     }
 }

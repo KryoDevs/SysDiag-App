@@ -10,12 +10,10 @@ namespace SysDiag.Core.Performance;
 
 public static class PerformanceModule
 {
-    public static int SampleSeconds = 5;
-
-    public static void Run(DiagnosticReport r, CancellationToken token)
+    public static void Run(DiagnosticReport r, CancellationToken token, OpcionesDiagnostico? opciones = null)
     {
         token.ThrowIfCancellationRequested();
-        int sampleSeconds = Math.Clamp(SampleSeconds, 2, 30);
+        int sampleSeconds = Math.Clamp((opciones ?? OpcionesDiagnostico.PorDefecto).MuestreoSegundos, 2, 30);
         AppLog.Write($"Rendimiento (muestreo de {sampleSeconds} s)", "STEP");
 
         int nucleos = Environment.ProcessorCount;

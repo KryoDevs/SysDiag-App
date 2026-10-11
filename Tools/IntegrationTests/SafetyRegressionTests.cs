@@ -211,13 +211,13 @@ public class SafetyRegressionTests
     }
 
     [Fact]
-    public void Merge_RefreshesRecommendationsAfterEveryNewModule()
+    public void Replace_RefreshesRecommendationsAfterEveryNewModule()
     {
         var accumulated = new DiagnosticReport();
-        accumulated.MergeFrom(new DiagnosticReport { WiFi = new() { new("SSID", "Prueba") } });
+        accumulated.ReplaceModuleFrom(new DiagnosticReport { WiFi = new() { new("SSID", "Prueba") } }, "red");
         var network = new DiagnosticReport();
         network.Add(Severity.Bad, "Red", "Problema de red");
-        accumulated.MergeFrom(network);
+        accumulated.ReplaceModuleFrom(network, "red");
         Assert.Contains(accumulated.Recomendaciones, r => r.Titulo == "Revisar la red");
     }
 

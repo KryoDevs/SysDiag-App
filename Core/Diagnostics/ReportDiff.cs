@@ -17,7 +17,6 @@ public sealed class HallazgoComparado
     /// <summary>La severidad que tenía antes, o `null` si el hallazgo es nuevo.</summary>
     public Severity? SeveridadAnterior { get; init; }
 
-    public bool EsNuevo => SeveridadAnterior == null;
     public string Etiqueta => Severity switch
     {
         Severity.Bad => "Crítico",
@@ -54,7 +53,7 @@ public sealed class MedicionComparada
 ///     dentro de un texto («12 %») y recuperarlo exige parsear una cadena ya
 ///     formateada; si el formato cambia, la comparación deja de encontrar nada
 ///     y no hay forma de darse cuenta. Hasta que exista el contrato de medición
-///     de `docs/MEJORAS.md §8.2.1`, esto compara lo que es número y no texto.
+///     de `docs/MEJORAS.md §8.2, ítem 1`, esto compara lo que es número y no texto.
 /// </summary>
 public sealed class ReportDiff
 {

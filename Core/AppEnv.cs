@@ -15,7 +15,6 @@ public static class AppEnv
     public static string OutputPath { get; } = ResolveOutputPath();
     public static string LogPath { get; } = Path.Combine(OutputPath, "logs");
     public static string BackupFile => Windows.SecureBackupDirectory.BackupFile;
-    public static int LogsMaximo = 30;
 
     static AppEnv() => Directory.CreateDirectory(LogPath);
 
@@ -35,11 +34,11 @@ public static class AppEnv
     }
 
     /// <summary>Se llama DESPUÉS de cargar los ajustes y nunca elimina el registro de la sesión activa.</summary>
-    public static void RotarLogs()
+    public static void RotarLogs(int logsMaximo = SysDiag.Models.OpcionesDiagnostico.LogsPorDefecto)
     {
         try
         {
-            int keep = Math.Clamp(LogsMaximo, 5, 200);
+            int keep = Math.Clamp(logsMaximo, 5, 200);
             foreach (var file in new DirectoryInfo(LogPath).GetFiles("sysdiag_*.log")
                          .Where(f => !string.Equals(f.FullName, AppLog.File, StringComparison.OrdinalIgnoreCase))
                          .OrderByDescending(f => f.LastWriteTimeUtc).Skip(keep - 1))

@@ -222,7 +222,7 @@ archivados. Es la pantalla de un técnico.
   SSD viaja dentro de un texto («12 %») y recuperarlo exige parsear una cadena
   ya formateada: si el formato cambia, la comparación deja de encontrar nada y
   no hay forma de darse cuenta. Queda pendiente hasta el contrato de medición
-  de `docs/MEJORAS.md §8.2.1`.
+  de `docs/MEJORAS.md §8.2, ítem 1`.
 
 La cobertura se declara antes del puntaje: comparar un «Red» suelto con un
 diagnóstico completo da un puntaje que bajó sin que nada empeorara.
@@ -266,7 +266,7 @@ superior. Un atajo de teclado que nadie ve no existe.
 El puntaje y las reglas tienen números fijos que hoy son un juicio del autor. Un panel
 «qué considero alto consumo de disco», con valores por defecto y exportables, convierte
 una opinión en una preferencia. Requiere el contrato de medición de
-`docs/MEJORAS.md §8.2.1`.
+`docs/MEJORAS.md §8.2, ítem 1`.
 
 ### 5.3 Perfiles editables — [m / medio]
 `ProfilesWindow` tiene tres perfiles fijos que no cubren a nadie. Un perfil editable
