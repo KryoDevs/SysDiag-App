@@ -8,7 +8,7 @@ registra lo de esta tanda.
 
 **Estado de verificación.** El sandbox donde se escribió esto no tiene SDK de .NET ni PowerShell:
 nada de esta tanda se compiló ni ejecutó localmente, todo lo certifica el CI de Windows. **Corrida
-verde que valida esto: `f7a7ae8`** — job `build` completo (puerta de scripts, XAML, documentación,
+verde que valida esto: `8155229`** (la primera verde, `f7a7ae8`, confirmó las causas 1 a 3; el commit final agrega la puerta nueva) — job `build` completo (puerta de scripts, XAML, documentación,
 compilación Release, **345/345 pruebas**, umbral del gate, autotest del EXE publicado) y job
 `instalador` (publicar, compilar el setup, instalar en silencio, autotestear y desinstalar), más
 `validate-fixture` y `compile-debug` en verde. El detalle de lo que se pudo comprobar —y de cómo—
@@ -151,7 +151,8 @@ agregó.
 ## Lo que no se pudo verificar
 
 - **Compilación y pruebas.** No hay SDK de .NET ni PowerShell en el entorno de escritura: la
-  compilación, las pruebas y las puertas las certifica el CI de Windows (corrida `f7a7ae8`), no este
+  compilación, las pruebas y las puertas las certifica el CI de Windows (corridas `f7a7ae8` y
+  `8155229`), no este
   análisis. Antes de esa corrida todo lo de arriba era una hipótesis con evidencia, y las dos
   hipótesis grandes —la lista de `using` y la ruta del instalador— las confirmó el resultado, no el
   razonamiento.

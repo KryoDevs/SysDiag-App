@@ -20,7 +20,7 @@ pasada honesta del trabajo:
   `--self-test` del EXE publicado, que construye las diez ventanas) también. Es
   decir: el tema reescrito, los adjuntos `ui:Motion.*` en las diez ventanas y el
   recorte de tamaño por área de trabajo se cargan en WPF de verdad.
-- Suite de regresión: **345/345** en el CI verde de 5.15.0 (corrida `f7a7ae8`: «345/345 pruebas
+- Suite de regresión: **345/345** en el CI verde de 5.15.0 (corridas `f7a7ae8` y `8155229`: «345/345 pruebas
   aprobadas, sin omisiones ni fallos»), tras la serie 114 → 148 → 152 → 160 → 163 → 314 → 345. El umbral de
   `validate_tests.ps1` se subió en cada tanda
   para que siga apretando: que la cuenta sea exacta es lo que impide que se cuele una
@@ -60,7 +60,7 @@ en el CI de Windows de esta rama antes de dar nada por cerrado.
 
 **Estado al cerrar 5.15.0:** eso ya corrió. El job `build` (puertas, Release, 345/345
 pruebas, umbral, autotest del EXE publicado) y el job `instalador` (compilar, instalar,
-autotestear y desinstalar) están en verde sobre `f7a7ae8`, junto con `validate-fixture` y
+autotestear y desinstalar) están en verde sobre `8155229`, junto con `validate-fixture` y
 `compile-debug`.
 
 ---
