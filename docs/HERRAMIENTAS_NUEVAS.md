@@ -1,15 +1,15 @@
 # Catálogo de herramientas nuevas — SysDiag
 
 **Fecha:** 2026-10-10 · **Base:** lote 5.9 (gráficos, mediciones, interfaz por sección,
-activación de Windows) · **Actualizado:** lote 5.10.
+activación de Windows) · **Actualizado:** lote 5.15.
 
-> **Estado al 5.10.** Ya están implementados **2.7** (decodificador de
-> pantallazos), **3.1 a 3.4** (ensayo, deshacer por paso, verificación
-> post-cambio, restauración selectiva), **4.2** (informe redactado), **4.3**
-> (Markdown) y **5.1** (paleta de comandos). El resto del catálogo sigue
-> abierto y en el orden de §6. Cada entrada implementada conserva su texto
-> original, que explica por qué entró; al final de cada una se agregó una nota
-> con lo que finalmente se hizo.
+> **Estado al 5.15.** Ya están implementados **2.5** (mapa de canales Wi-Fi),
+> **2.7** (decodificador de pantallazos), **3.1 a 3.4** (ensayo, deshacer por
+> paso, verificación post-cambio, restauración selectiva), **4.2** (informe
+> redactado), **4.3** (Markdown) y **5.1** (paleta de comandos). El resto del
+> catálogo sigue abierto y en el orden de §6. Cada entrada implementada
+> conserva su texto original, que explica por qué entró; al final de cada una
+> se agregó una nota con lo que finalmente se hizo.
 
 Este documento responde a una pregunta concreta: *qué herramientas nuevas harían que
 SysDiag se sintiera profesional y no un script con ventanas*. Está escrito para poder
@@ -120,6 +120,22 @@ El escaneo ya trae BSSID, canal, banda y señal. Dibujar el histograma de canale
 los puntos de acceso del vecino encima y recomendar uno libre **explicando por qué**
 (superposición, ancho de 40 MHz, banda) es un diagnóstico con respuesta, no con datos.
 **Riesgo:** el escaneo depende del adaptador; en algunos no hay señal de vecinos.
+
+**Hecho en 5.15.** `Core/Network/WifiChannelModule.cs` (análisis puro, sin
+adaptador) + `Ui/CanalesWindow`, detrás de la entrada «Canales Wi-Fi» del rail.
+Se dibuja la ocupación de cada canal —cuántas redes vecinas lo tocan y con qué
+señal— y la recomendación explica el porqué: en 2.4 GHz se cuentan los
+solapamientos (los canales distan 5 MHz y cada red ocupa unos 22, así que
+interfiere todo lo que esté a menos de cinco canales), y la sugerencia sale de
+los tres canales que no se pisan (1, 6 y 11); en 5 GHz se compara por número
+exacto. Tres correcciones sobre lo previsto: el escaneo de Windows **no** trae
+el ancho de canal, así que en 5 GHz dos redes de 80 MHz pueden compartir
+espectro sin compartir número y la ventana lo advierte en vez de fingir que lo
+sabe; el BSSID no se muestra (una MAC de un vecino no es un dato que el usuario
+necesite ver para elegir canal); y la red propia, o un repetidor de la propia,
+aparece en el escaneo pero no cuenta como interferencia, porque mudarse de canal
+no la evita. La ventana está en `--self-test` y el aviso de congestión del
+diagnóstico completo usa la misma regla.
 
 ### 2.6 Quién está usando el disco y la red — [m / medio]
 CPU por proceso ya existe. Añadir I/O de disco y de red por proceso contesta «quién

@@ -83,7 +83,7 @@ jobs:
           path: TestResults/*.trx
           if-no-files-found: ignore
       - name: Tomar las notas de la sección del CHANGELOG
-        # docs/MEJORAS.md §2.13: las notas salen de `## [X.Y.Z]` y no se escriben a mano.
+        # docs/MEJORAS.md §2, ítem 13: las notas salen de `## [X.Y.Z]` y no se escriben a mano.
         # Si esa sección no existe, se conserva lo que ya hacía el flujo (notas generadas
         # por GitHub) y queda un aviso visible en lugar de un borrador silenciosamente pobre.
         id: notas

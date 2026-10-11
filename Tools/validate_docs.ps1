@@ -52,6 +52,7 @@ if (-not $mencionChangelog.Success -or [int]$mencionChangelog.Groups[1].Value -n
 #    escribe "N.M, item K", que si se puede comprobar.
 $documentos = @{
     'MEJORAS'               = 'docs\MEJORAS.md'
+    'AUDITORIA_2026-10-11'  = 'docs\AUDITORIA_2026-10-11.md'
     'AUDITORIA_2026-10-09'  = 'docs\AUDITORIA_2026-10-09.md'
     'AUDITORIA'             = 'docs\AUDITORIA.md'
     'HERRAMIENTAS_NUEVAS'   = 'docs\HERRAMIENTAS_NUEVAS.md'
@@ -66,7 +67,7 @@ foreach ($nombre in $documentos.Keys) {
     }
     $encabezados[$nombre] = $conjunto
 }
-$patronRef = '(MEJORAS|AUDITORIA_2026-10-09|AUDITORIA|HERRAMIENTAS_NUEVAS|DISENO)(?:\.md)?`?\s*\u00A7\s*(\d+(?:\.\d+)*)'
+$patronRef = '(MEJORAS|AUDITORIA_2026-10-11|AUDITORIA_2026-10-09|AUDITORIA|HERRAMIENTAS_NUEVAS|DISENO)(?:\.md)?`?\s*\u00A7\s*(\d+(?:\.\d+)*)'
 $fuentes = Get-ChildItem -LiteralPath $Root -Recurse -File |
     Where-Object { $_.Extension -in '.cs', '.md', '.xaml', '.ps1', '.yml', '.iss', '.bat' -and
                    $_.FullName -notmatch '\\(\.git|obj|bin|publish|TestResults)\\' }
@@ -101,6 +102,31 @@ foreach ($m in [regex]::Matches($readme, '\b(\w+(?:Service|Module|Window|Engine|
     if (-not $vistos.Add($nombre)) { continue }
     if (-not $declarados.Contains($nombre) -and $nombresDeArchivo -notcontains $nombre) {
         $errores.Add("README.md menciona $nombre, que no existe en el codigo")
+    }
+}
+
+# 5. El instalador y su puerta buscan lo mismo. installer\SysDiag.iss declara
+#    donde deja el setup y Tools\validate_installer.ps1 donde lo busca: si uno
+#    cambia sin el otro, la puerta falla DESPUES de compilar el setup. Paso:
+#    Inno escribia en Output\ (su valor por defecto) y la puerta miraba la
+#    carpeta del .iss, asi que el job del instalador fallaba con "se esperaba
+#    un instalador y hay 0" sobre una compilacion correcta.
+$iss = Leer 'installer\SysDiag.iss'
+$puertaInstalador = Leer 'Tools\validate_installer.ps1'
+$salida = [regex]::Match($iss, '(?m)^\s*OutputDir\s*=\s*(.+?)\s*$')
+if (-not $salida.Success) {
+    $errores.Add('installer\SysDiag.iss no declara OutputDir: la puerta del instalador no tiene ruta que comprobar')
+} else {
+    $valor = $salida.Groups[1].Value.Trim()
+    $conSourcePath = [regex]::Match($valor, '^\s*\{#SourcePath\}\s*(.*)$')
+    if (-not $conSourcePath.Success) {
+        $errores.Add("installer\SysDiag.iss usa OutputDir=$valor, que esta comprobacion no sabe leer: usa {#SourcePath}\<carpeta>")
+    } else {
+        $cola = ($conSourcePath.Groups[1].Value -replace '^[\\/]+', '').Trim()
+        $carpetaSalida = if ($cola.Length -gt 0) { "installer\$cola" } else { 'installer' }
+        if ($puertaInstalador -notmatch [regex]::Escape("$carpetaSalida\SysDiag-Setup")) {
+            $errores.Add("Tools\validate_installer.ps1 no busca el setup en $carpetaSalida, que es el OutputDir de installer\SysDiag.iss")
+        }
     }
 }
 

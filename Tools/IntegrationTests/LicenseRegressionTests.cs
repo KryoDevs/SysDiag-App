@@ -1,3 +1,4 @@
+﻿using System.IO;
 using SysDiag.Core.Licensing;
 using Xunit;
 

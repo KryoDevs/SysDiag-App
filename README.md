@@ -1,4 +1,4 @@
-# SysDiag 5.14.0
+# SysDiag 5.15.0
 
 [![Compilar y probar](https://github.com/KryoDevs/SysDiag-App/actions/workflows/build.yml/badge.svg)](https://github.com/KryoDevs/SysDiag-App/actions/workflows/build.yml) [![Validar fixture](https://github.com/KryoDevs/SysDiag-App/actions/workflows/validate-fixture.yml/badge.svg)](https://github.com/KryoDevs/SysDiag-App/actions/workflows/validate-fixture.yml)
 
@@ -103,6 +103,7 @@ SysDiag/
 | Optimizar | DNS, reparación de WLAN, plan de energía, reinicio de pila TCP/IP | sí |
 | Restaurar | Revierte los valores capturados antes del primer ajuste pendiente; no TCP/IP/IP fija/VPN | sí |
 | Monitor de ping | Latencia en vivo hacia el router o internet: último valor, promedio, máximo y pérdida | no |
+| Canales Wi-Fi | Mapa de ocupación por canal: cuántas redes vecinas tocan cada uno, cuánto se solapan y a cuál conviene moverse, con el motivo | no |
 | SMART del disco | Atributos SMART: sectores reasignados y pendientes, errores de la interfaz, vida útil restante del SSD | recomendado |
 | Comparar | Diferencia entre dos diagnósticos: hallazgos nuevos, resueltos, los que empeoraron y los que mejoraron | no |
 | Perfiles | Combinaciones de optimización (universidad, trabajo, juego) con respaldo previo | sí |
@@ -279,7 +280,7 @@ lista lo accionable sin instalar nada.
 
 - Windows compila la solución, ejecuta regresiones y conserva TRX. Se incluyen ramas
   `arena/**`; no se publica un release por trabajar en una rama.
-- `Tools/validate_tests.ps1` exige ≥314 pruebas (114 de la suite auditada + 34 que miden el sistema visual + 6 de licencia + 11 del recorte de ventanas + 40 sobre funciones puras del lote 5.9 + 15 del lote «Confiar» + 14 del diff entre diagnósticos + 21 de SMART + 13 de consumo por proceso + 16 de pérdida por salto + 5 de tiempo de espera por módulo + 5 de ajustes y opciones + 20 de convertidores), todas aprobadas y sin omisiones.
+- `Tools/validate_tests.ps1` exige ≥345 pruebas (114 de la suite auditada + 34 que miden el sistema visual + 6 de licencia + 11 del recorte de ventanas + 40 sobre funciones puras del lote 5.9 + 15 del lote «Confiar» + 14 del diff entre diagnósticos + 21 de SMART + 13 de consumo por proceso + 16 de pérdida por salto + 5 de tiempo de espera por módulo + 5 de ajustes y opciones + 20 de convertidores + 31 del mapa de canales Wi-Fi y el estado de la ventana), todas aprobadas y sin omisiones.
 - `Tools/validate_xaml.ps1` comprueba seis cosas sobre los XAML: bien formado, resolución de
   `{StaticResource}`, ámbito de cada `TargetName` dentro de su plantilla, que la propiedad animada exista
   en el tipo del elemento destino, que todo `RepeatBehavior="Forever"` nacido en un `Trigger` tenga su
@@ -291,6 +292,10 @@ lista lo accionable sin instalar nada.
   inexistente no rompe la compilación, rompe en tiempo de ejecución y en silencio.
 - Headless está en la solución y comparte `ScanService`; `--self-test` usa un doble
   sintético explícito, nunca sustituye mediciones de un diagnóstico real.
+- `Tools/validate_docs.ps1` comprueba además que la ruta donde Inno Setup deja el setup
+  (`OutputDir` de `installer\SysDiag.iss`) sea la misma que busca
+  `Tools/validate_installer.ps1`: cuando no coincidían, el job `instalador` fallaba
+  *después* de compilar el setup sin errores.
 - `Tools/validate_release.ps1` arranca el **EXE publicado** con `--self-test` y comprueba
   recursos WPF, reglas y JSON, y construye todas las ventanas sin mostrarlas; no modifica hardware, red ni ajustes.
 - Solo `release.yml` gestiona etiquetas existentes coincidentes con la versión del
@@ -318,9 +323,10 @@ dotnet publish SysDiag.csproj -c Release -o publish
 > política del sistema.
 
 Consulta [la auditoría y sus tres listas de diez](docs/AUDITORIA.md) para los fallos,
-correcciones, evidencia de CI y límites pendientes, y [la segunda auditoría](docs/AUDITORIA_2026-10-09.md)
-para la tanda posterior con su propia evidencia. Un CI anterior no certifica cambios posteriores;
-cada informe identifica expresamente el SHA que validó.
+correcciones, evidencia de CI y límites pendientes, [la segunda auditoría](docs/AUDITORIA_2026-10-09.md)
+y [la tercera](docs/AUDITORIA_2026-10-10.md) para las tandas posteriores, y
+[la del lote 5.15](docs/AUDITORIA_2026-10-11.md) para esta. Un CI anterior no certifica cambios
+posteriores; cada informe identifica expresamente el SHA que validó.
 
 El resto del conocimiento vive en tres archivos: [el análisis y el plan](docs/MEJORAS.md),
 que es donde está qué se arregló, qué no y por qué; [la guía de diseño](docs/DISENO.md)
@@ -403,6 +409,10 @@ Decisiones de diseño:
   es un botón arriba porque es lo que se hace al abrir la aplicación; el resto son
   módulos sueltos agrupados por lo que hacen, dentro de una lista con selección
   (el módulo activo queda marcado sin estado que sincronizar a mano).
+- **La ventana se abre donde se dejó**: tamaño, posición, si estaba maximizada, y la
+  vista y el filtro del registro que estaban puestos. Una posición guardada en un
+  monitor que ya no existe se recentra en el principal en vez de aparecer fuera del
+  escritorio, donde no habría forma de agarrarla con el mouse.
 
 El sistema completo —paleta, escalas, sombras, plantillas de control y reglas de
 uso del color— está documentado en `docs/DISENO.md`.

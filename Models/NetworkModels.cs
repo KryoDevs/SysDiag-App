@@ -65,3 +65,42 @@ public class WifiNetworkRow
     [DisplayName("Señal")] public string Senal { get; set; } = "";
     [Browsable(false)] public int SenalPct { get; set; }
 }
+
+/// <summary>
+/// Un canal del mapa: cuántas redes lo tocan y con qué señal. «Tocan» incluye
+/// las que se solapan, no solo las que comparten el número: en 2.4 GHz una red
+/// en el canal 2 interfiere al 1 y al 3 aunque no coincida con ninguno.
+/// </summary>
+public class CanalOcupacion
+{
+    [DisplayName("Canal")] public int Canal { get; set; }
+    [DisplayName("Banda")] public string Banda { get; set; } = "";
+
+    /// <summary>Redes vecinas cuyo espectro toca este canal.</summary>
+    [DisplayName("Redes")] public int PuntosDeAcceso { get; set; }
+
+    /// <summary>Cuántas de esas están exactamente en este número de canal.</summary>
+    [Browsable(false)] public int MismoCanal { get; set; }
+
+    [DisplayName("Señal")] public string Senal { get; set; } = "n/d";
+    [Browsable(false)] public int SenalPct { get; set; }
+    [Browsable(false)] public bool Propio { get; set; }
+    [Browsable(false)] public Severity Estado { get; set; }
+}
+
+/// <summary>Resultado del mapa de canales: ocupación por canal y qué conviene hacer.</summary>
+public class AnalisisCanales
+{
+    public List<CanalOcupacion> Canales24 { get; set; } = new();
+    public List<CanalOcupacion> Canales5 { get; set; } = new();
+    public int CanalPropio { get; set; }
+    public string SsidPropio { get; set; } = "";
+    /// <summary>Canal sugerido, o 0 si no hay nada que recomendar (sin canal propio o sin escaneo).</summary>
+    public int Recomendado { get; set; }
+    public string Motivo { get; set; } = "";
+    /// <summary>Lo que no se pudo medir o no se puede saber, dicho antes de mirar las barras.</summary>
+    public string Nota { get; set; } = "";
+    public int RedesDetectadas { get; set; }
+    public int VecinasDetectadas { get; set; }
+    public bool HayDatos => RedesDetectadas > 0;
+}

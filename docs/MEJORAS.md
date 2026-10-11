@@ -1,4 +1,4 @@
-# Análisis y plan de mejoras — SysDiag 5.14.0
+# Análisis y plan de mejoras — SysDiag 5.15.0
 
 Fecha: 2026-10-10 · Rama: `arena/e864cf80-sysdiag-app` · Base: `34a2aa1`
 Continúa [AUDITORIA.md](AUDITORIA.md) y [AUDITORIA_2026-10-09.md](AUDITORIA_2026-10-09.md).
@@ -21,7 +21,7 @@ pasada honesta del trabajo:
   decir: el tema reescrito, los adjuntos `ui:Motion.*` en las diez ventanas y el
   recorte de tamaño por área de trabajo se cargan en WPF de verdad.
 - Suite de regresión: **163/163** en el último CI verde registrado, tras la serie
-  114 → 148 → 152 → 160 → 163; el gate vigente es **314** (ver el lote de auditoría de
+  114 → 148 → 152 → 160 → 163; el gate vigente es **345** (ver el lote de auditoría de
   2026-10-10 en el CHANGELOG, sin publicar y aún sin CI en esta rama). El umbral de
   `validate_tests.ps1` se subió en cada tanda
   para que siga apretando: que la cuenta sea exacta es lo que impide que se cuele una
@@ -138,11 +138,11 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
 **Pruebas**
 
 0. ~~El gate de `validate_tests.ps1` sigue diciendo «mínimo 114»~~ — **subido y
-   verificado**: 314 con el gate vigente (114 auditadas + 34 del sistema visual + 6 de licencia
-   + 11 del recorte de ventanas + el resto de los lotes). El número se sube en el mismo commit que añade pruebas, y el
+   verificado**: 345 con el gate vigente (114 auditadas + 34 del sistema visual + 6 de licencia
+   + 11 del recorte de ventanas + el resto de los lotes, 31 en el lote 5.15). El número se sube en el mismo commit que añade pruebas, y el
    mensaje del script repite el desglose para que se sepa qué lo compone.
 
-5. Las 114 pruebas originales (314 hoy en la suite completa) son de lógica pura (`Exporter`, parsers, umbrales, fusiones) y son
+5. Las 114 pruebas originales (345 hoy en la suite completa) son de lógica pura (`Exporter`, parsers, umbrales, fusiones) y son
    buenas; ningún binding, conversor ni template está cubierto más allá de «la ventana
    se construye`. El hueco concreto: `Converters.cs` (seis convertidores con ramas de
    `switch` y un `Clamp`) se puede probar en 20 minutos sin WPF... pero `ScoreArc.Geometria`
@@ -170,7 +170,7 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
    pasar (F05 es precisamente eso: se detectó midiendo, no con una prueba).
    ~~y esta brecha quedó cerrada en la tanda siguiente~~: `Inicializar` acepta una
    ruta, `LicenseRegressionTests` prueba el comportamiento corregido, y el umbral del
-   gate subió a 152 (314 hoy). `SettingsService` ya tiene camino de prueba desde el lote de
+   gate subió a 152 (345 hoy). `SettingsService` ya tiene camino de prueba desde el lote de
    2026-10-10 (`Cargar`/`Guardar` aceptan ruta; `OpcionesYAjustesTests`). Nano-deuda recién vista: `Activar`
    guarda el texto tal como se tecleó (con espacios en vez de guiones) en lugar de la
    forma canónica; la lectura lo tolera porque `Normalizar` los descarta, pero el
@@ -575,6 +575,16 @@ hechas y se concentra en lo que apareció al tocar esas cuatro cosas. Coste:
 15. **Persistencia de la ventana y del estado de la interfaz** [c/bajo]. Tamaño,
     posición, última pestaña y último filtro entre sesiones. Es de las cosas que
     nadie pide y todos notan cuando faltan.
+
+    **Hecho en 5.15.** `Ui/EstadoVentana.cs` guarda tamaño, posición, si estaba
+    maximizada, la vista abierta y el filtro del registro en `settings.json`, y
+    los aplica al abrir. Tres decisiones: la posición se valida contra el
+    escritorio virtual completo, así que una guardada en un monitor que ya no
+    está se recentra en vez de quedar fuera de la pantalla; lo que se guarda es
+    el tamaño de reposo (`RestoreBounds`), no el de la ventana maximizada; y los
+    cuatro valores son anulables —un `NaN` no es JSON válido y habría roto la
+    escritura de los ajustes—. La regla de ubicación es una función pura y tiene
+    16 pruebas.
 
 ### 8.3 Lo que sigue sin convenir
 

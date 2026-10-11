@@ -127,4 +127,15 @@ jobs:
 
       - name: Instalar, autotestear y desinstalar
         shell: pwsh
-        run: .\Tools\validate_installer.ps1
+        run: |
+          # El motivo del fallo tiene que verse sin abrir el log: se emite como
+          # anotación de error (con el escape que piden los comandos de Actions)
+          # y el paso igual termina en 1.
+          try {
+            .\Tools\validate_installer.ps1
+          } catch {
+            $mensaje = (($_ | Out-String).Trim() -replace "\r?\n", " ") -replace '%', '%25'
+            if ($mensaje.Length -gt 900) { $mensaje = $mensaje.Substring(0, 900) + '...' }
+            Write-Output "::error title=Instalador::$mensaje"
+            exit 1
+          }

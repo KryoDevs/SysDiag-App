@@ -3,13 +3,29 @@
 #
 # Solo ASCII: Windows PowerShell 5.1 lee un .ps1 sin BOM como ANSI.
 param(
-    [string]$Setup = (Join-Path $PSScriptRoot '..\installer\SysDiag-Setup-*.exe'),
+    [string]$Setup = '',
     [int]$TimeoutSeconds = 300
 )
 $ErrorActionPreference = 'Stop'
 
-$instalador = @(Get-ChildItem -Path $Setup -ErrorAction SilentlyContinue)
-if ($instalador.Count -ne 1) { throw "Se esperaba un instalador en $Setup y hay $($instalador.Count)." }
+# La ubicación del setup no se adivina: installer\SysDiag.iss declara
+# OutputDir={#SourcePath}\Output, y Tools\validate_docs.ps1 comprueba que esta
+# puerta siga mirando ahí. El archivo junto al .iss se acepta como segunda
+# opción porque un ISCC invocado a mano con otro OutputDir deja el setup ahí.
+# (Antes se buscaba solo junto al .iss, mientras Inno escribía en Output\: la
+# puerta fallaba después de compilar, que es la peor forma de fallar.)
+if ([string]::IsNullOrWhiteSpace($Setup)) {
+    $candidatos = @(
+        (Join-Path $PSScriptRoot '..\installer\Output\SysDiag-Setup-*.exe'),
+        (Join-Path $PSScriptRoot '..\installer\SysDiag-Setup-*.exe')
+    )
+} else {
+    $candidatos = @($Setup)
+}
+$instalador = @($candidatos | ForEach-Object { Get-ChildItem -Path $_ -ErrorAction SilentlyContinue })
+if ($instalador.Count -ne 1) {
+    throw "Se esperaba un instalador y hay $($instalador.Count). Rutas buscadas: $($candidatos -join '; ')."
+}
 $instalador = $instalador[0].FullName
 
 $destino = Join-Path $env:ProgramFiles 'SysDiag'

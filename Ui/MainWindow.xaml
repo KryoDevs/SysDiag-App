@@ -148,6 +148,12 @@
                     <TextBlock Text="Red y latencia" Style="{StaticResource NavLabel}"/>
                   </StackPanel>
                 </ListBoxItem>
+                <ListBoxItem Tag="canales" ToolTip="Mapa de canales Wi-Fi: qué canal está ocupado por las redes vecinas y a cuál conviene moverse">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE701;" Style="{StaticResource NavIcon}"/>
+                    <TextBlock Text="Canales Wi-Fi" Style="{StaticResource NavLabel}"/>
+                  </StackPanel>
+                </ListBoxItem>
                 <ListBoxItem Tag="traza" ToolTip="Pérdida y jitter por salto: localiza en qué tramo se pierden los paquetes">
                   <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE81E;" Style="{StaticResource NavIcon}"/>
@@ -1059,13 +1065,13 @@
                       BorderThickness="0,0,0,1">
                 <Grid>
                   <StackPanel Orientation="Horizontal">
-                    <RadioButton Content="Todo" Style="{StaticResource FilterChip}" Tag="todo"
+                    <RadioButton x:Name="FTodo" Content="Todo" Style="{StaticResource FilterChip}" Tag="todo"
                                  IsChecked="True" GroupName="FiltroRegistro"
                                  Checked="FiltroRegistro_Checked"/>
-                    <RadioButton Content="Avisos y errores" Style="{StaticResource FilterChip}" Tag="avisos"
+                    <RadioButton x:Name="FAvisos" Content="Avisos y errores" Style="{StaticResource FilterChip}" Tag="avisos"
                                  Margin="6,0,0,0" GroupName="FiltroRegistro"
                                  Checked="FiltroRegistro_Checked"/>
-                    <RadioButton Content="Solo errores" Style="{StaticResource FilterChip}" Tag="errores"
+                    <RadioButton x:Name="FErrores" Content="Solo errores" Style="{StaticResource FilterChip}" Tag="errores"
                                  Margin="6,0,0,0" GroupName="FiltroRegistro"
                                  Checked="FiltroRegistro_Checked"/>
                   </StackPanel>
