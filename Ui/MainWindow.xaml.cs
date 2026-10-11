@@ -36,6 +36,9 @@ public partial class MainWindow : Window
         // que el alto declarado en el XAML, el pie de la ventana quedaría fuera
         // del área de trabajo y no habría cómo arrastrarla de vuelta.
         Ventana.AjustarAPantalla(this);
+        // Después del ajuste a pantalla: el ajuste elige un tamaño que quepa en
+        // el monitor actual, y lo guardado manda si sigue siendo válido.
+        AplicarEstadoGuardado();
         DataContext = _vm;
 
         // El ícono se carga acá, no como atributo XAML: un .ico mal formado
@@ -60,6 +63,12 @@ public partial class MainWindow : Window
                     _vm.Cancelar();
             }
             else Dialog.Info("Operación no interrumpible", "Espera a que termine. Cerrar durante una instalación o restauración puede dejar el sistema en un estado parcial.");
+        };
+        // Se guarda al cerrar de verdad, no cuando el cierre se cancela por una
+        // operación en curso: ahí la ventana sigue abierta.
+        Closing += (_, e) =>
+        {
+            if (!e.Cancel) GuardarEstadoVentana();
         };
 
         StateChanged += (_, _) =>
@@ -177,6 +186,10 @@ public partial class MainWindow : Window
 
             case "rendimiento":
                 await _vm.RunAsync("Rendimiento", ("rendimiento", PasoRendimiento));
+                break;
+
+            case "canales":
+                new CanalesWindow { Owner = this }.ShowDialog();
                 break;
 
             case "consumo":
@@ -657,6 +670,7 @@ public partial class MainWindow : Window
         switch (id)
         {
             case "ping-monitor": new PingMonitorWindow { Owner = this }.ShowDialog(); break;
+            case "canales": new CanalesWindow { Owner = this }.ShowDialog(); break;
             case "historial": new HistoryWindow { Owner = this }.ShowDialog(); break;
             case "informe": Informe_Click(this, new RoutedEventArgs()); break;
             case "export-json": ExportarJson_Click(this, new RoutedEventArgs()); break;
@@ -858,6 +872,68 @@ public partial class MainWindow : Window
         return panel.Children.OfType<TextBlock>()
             .Select(t => t.Text)
             .LastOrDefault(t => !string.IsNullOrWhiteSpace(t)) ?? "";
+    }
+
+    // ---- Estado de la ventana (MEJORAS §8.2, ítem 15) ----------------------
+
+    /// <summary>
+    /// Reabre la ventana donde se dejó: tamaño, posición, si estaba maximizada
+    /// y qué vista y filtro estaban puestos. La regla de qué posición es válida
+    /// vive en <see cref="EstadoVentana"/>, que se prueba sin abrir ventanas.
+    /// </summary>
+    private void AplicarEstadoGuardado()
+    {
+        var estado = EstadoVentana.Desde(SettingsService.Cargar());
+        var destino = EstadoVentana.Ubicar(estado, MinWidth, MinHeight,
+            SystemParameters.WorkArea, EstadoVentana.PantallaVirtual());
+        if (destino is { } caja)
+        {
+            // Solo con posición guardada: sin esto, Windows centraría la
+            // ventana e ignoraría Left/Top.
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Left = caja.Left;
+            Top = caja.Top;
+            Width = caja.Width;
+            Height = caja.Height;
+        }
+        if (estado.Maximizada) WindowState = WindowState.Maximized;
+        if (estado.Vista.Length > 0) AplicarVista(estado.Vista);
+        if (estado.Filtro.Length > 0) AplicarFiltroRegistro(estado.Filtro);
+    }
+
+    private void AplicarVista(string vista)
+    {
+        switch (vista)
+        {
+            case "Hallazgos": VHallazgos.IsChecked = true; break;
+            case "Datos": VDatos.IsChecked = true; break;
+            case "Registro": VRegistro.IsChecked = true; break;
+            default: VResumen.IsChecked = true; break;
+        }
+    }
+
+    private void AplicarFiltroRegistro(string filtro)
+    {
+        switch (filtro)
+        {
+            case "avisos": FAvisos.IsChecked = true; break;
+            case "errores": FErrores.IsChecked = true; break;
+            default: FTodo.IsChecked = true; break;
+        }
+    }
+
+    /// <summary>Qué vista está puesta ahora, con el mismo nombre con el que se guarda.</summary>
+    private string VistaActual() =>
+        VHallazgos.IsChecked == true ? "Hallazgos"
+        : VDatos.IsChecked == true ? "Datos"
+        : VRegistro.IsChecked == true ? "Registro"
+        : "Resumen";
+
+    private void GuardarEstadoVentana()
+    {
+        var ajustes = SettingsService.Cargar();
+        EstadoVentana.Volcar(ajustes, this, VistaActual(), _vm.FiltroRegistro);
+        SettingsService.Guardar(ajustes);
     }
 
     // ---- Filtros de las vistas --------------------------------------------

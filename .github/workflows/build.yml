@@ -19,6 +19,11 @@ concurrency:
 jobs:
   build:
     runs-on: windows-latest
+    # El gate de documentación deja el motivo del fallo como comentario del PR:
+    # los logs de una corrida fallida no siempre se pueden abrir desde la API.
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - name: Descargar el código
@@ -29,21 +34,40 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Comprobar los scripts (sintaxis y codificación)
+        # Un error de análisis mata un script entero antes de ejecutar la primera
+        # comprobación, y hasta hoy el CI solo decía "exit code 1": esta puerta lo
+        # dice con archivo, línea y motivo. Ver la cabecera de Tools/validate_scripts.ps1.
+        # Va antes que las demás puertas a propósito: comprueba que las otras puedan
+        # siquiera ejecutarse. Y no pasa por run_gate.ps1 justamente por eso: es la
+        # comprobación más básica y tiene que tener la menor cantidad de piezas.
+        shell: pwsh
+        run: |
+          .\Tools\validate_scripts.ps1 -Root .
+
       - name: Comprobar el XAML (recursos y ámbitos de nombres)
-        # Puerta desde la primera corrida verde sobre el tema reescrito. Es la
-        # comprobación que ve lo que el autotest no puede ver: los triggers de una
-        # plantilla solo se materializan al pasar el cursor, y un TargetName mal
+        # Cada {StaticResource} existe, cada TargetName vive en su plantilla, la
+        # propiedad animada está en el tipo del destino, cada Forever nacido en un
+        # Trigger tiene su StopStoryboard, y cada {Binding X} es un miembro real:
+        # WPF no avisa de nada de eso (no anima, no enlaza y sigue), así que la
+        # plantilla solo se materializa al pasar el cursor, y un TargetName mal
         # escrito no rompe la construcción de la ventana — rompe el primer hover.
         shell: pwsh
         run: |
-          .\Tools\validate_xaml.ps1 -Root .
+          .\Tools\run_gate.ps1 -Script .\Tools\validate_xaml.ps1
 
       - name: Comprobar la coherencia de la documentación
-        # Versión, umbral de pruebas, referencias «§» y nombres del README contra el código.
-        # Ver el encabezado de Tools/validate_docs.ps1 para el porqué.
+        # Versión, umbral de pruebas, referencias a secciones y nombres del README
+        # contra el código. Ver la cabecera de Tools/validate_docs.ps1.
+        # El lanzador publica la salida de la puerta como anotaciones (y como
+        # comentario del PR): los logs de una corrida fallida no siempre se pueden
+        # abrir, y un diagnóstico que solo vive ahí es un diagnóstico que nadie lee.
         shell: pwsh
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          .\Tools\validate_docs.ps1 -Root .
+          .\Tools\run_gate.ps1 -Script .\Tools\validate_docs.ps1 -Comentar
 
       - name: Restaurar dependencias
         run: dotnet restore SysDiag.sln
@@ -127,4 +151,15 @@ jobs:
 
       - name: Instalar, autotestear y desinstalar
         shell: pwsh
-        run: .\Tools\validate_installer.ps1
+        run: |
+          # El motivo del fallo tiene que verse sin abrir el log: se emite como
+          # anotación de error (con el escape que piden los comandos de Actions)
+          # y el paso igual termina en 1.
+          try {
+            .\Tools\validate_installer.ps1
+          } catch {
+            $mensaje = (($_ | Out-String).Trim() -replace "\r?\n", " ") -replace '%', '%25'
+            if ($mensaje.Length -gt 900) { $mensaje = $mensaje.Substring(0, 900) + '...' }
+            Write-Output "::error title=Instalador::$mensaje"
+            exit 1
+          }

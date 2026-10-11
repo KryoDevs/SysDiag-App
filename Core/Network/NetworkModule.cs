@@ -4,7 +4,6 @@ using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using SysDiag.Models;
@@ -516,19 +515,28 @@ public static class NetworkModule
         int propio = ParseInt(r.WiFi.FirstOrDefault(x => x.Clave == "Canal")?.Valor);
         if (propio <= 0) return;
 
-        var comparten = redes.Where(x => x.Canal == propio).ToList();
         // La red propia también aparece en el escaneo: no cuenta como vecina.
         string miSsid = r.WiFi.FirstOrDefault(x => x.Clave == "SSID")?.Valor;
-        int vecinas = comparten.Count(x => x.Ssid != miSsid);
+        var vecinas = redes.Where(x => x.Ssid != miSsid).ToList();
 
-        AppLog.Write($"Canal {propio}: {vecinas} red(es) vecina(s) compartiendo");
+        // En 2.4 GHz se cuenta toda red cuyo espectro toque el canal propio, no
+        // solo la que comparte el número: una red en el canal 3 interfiere al 2
+        // aunque no coincida con él, y el comentario de arriba lo decía mientras
+        // el código contaba coincidencias exactas. En 5 GHz los canales no se
+        // solapan y esto equivale a contar el mismo canal. La regla vive en
+        // WifiChannelModule para que el hallazgo y la ventana de canales digan
+        // lo mismo.
+        int enMismoCanal = vecinas.Count(x => x.Canal == propio);
+        int enEspectro = vecinas.Count(x => WifiChannelModule.SeSolapan(x.Canal, propio));
 
-        if (vecinas >= 4)
-            r.Add(Severity.Bad, "Wi-Fi", $"{vecinas} redes comparten tu canal ({propio}).",
-                "Todas se turnan para transmitir en el mismo espectro, y eso se traduce en picos de latencia. Cambia el canal del router a uno libre — en Datos ▸ Redes cercanas puedes ver cuáles están menos ocupados.");
-        else if (vecinas >= 2)
-            r.Add(Severity.Warn, "Wi-Fi", $"{vecinas} redes comparten tu canal ({propio}).",
-                "Congestión moderada. Si notas picos de ping, probar otro canal es lo más barato que puedes hacer.");
+        AppLog.Write($"Canal {propio}: {enEspectro} red(es) vecina(s) en el mismo espectro ({enMismoCanal} en el mismo canal)");
+
+        if (enEspectro >= 4)
+            r.Add(Severity.Bad, "Wi-Fi", $"{enEspectro} redes se solapan con tu canal ({propio}).",
+                "Todas se turnan para transmitir en el mismo espectro, y eso se traduce en picos de latencia. Abre Canales Wi-Fi: dice qué canal está libre y a cuál conviene mover el router (en 2.4 GHz solo el 1, el 6 y el 11 no se pisan entre sí).");
+        else if (enEspectro >= 2)
+            r.Add(Severity.Warn, "Wi-Fi", $"{enEspectro} redes se solapan con tu canal ({propio}).",
+                "Congestión moderada. Si notas picos de ping, probar otro canal es lo más barato que puedes hacer; Canales Wi-Fi dice a cuál conviene moverse.");
     }
 
     /// <summary>
@@ -596,18 +604,10 @@ public static class NetworkModule
         return redes;
     }
 
-    private static int ParseInt(string s)
-    {
-        if (string.IsNullOrEmpty(s)) return 0;
-        var m = Regex.Match(s, @"\d+");
-        return m.Success && int.TryParse(m.Value, out int v) ? v : 0;
-    }
+    // Las etiquetas de netsh y sus números se normalizan en Core/Network/NetworkText.cs:
+    // el mapa de canales Wi-Fi lee la misma salida y dos copias de la misma regla
+    // terminan divergiendo.
+    private static int ParseInt(string s) => NetworkText.Entero(s);
 
-    private static string Normalize(string s)
-    {
-        s = s.Trim().ToLowerInvariant();
-        s = s.Replace('á', 'a').Replace('é', 'e').Replace('í', 'i')
-             .Replace('ó', 'o').Replace('ú', 'u').Replace('ñ', 'n');
-        return s;
-    }
+    private static string Normalize(string s) => NetworkText.Normalizar(s);
 }

@@ -189,6 +189,17 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
                 new AccionRapida { Id = "ir-red", Texto = "Medir red completa", Icono = "\uEC05" }
             }
         },
+        ["canales"] = new ContextoModulo
+        {
+            Nombre = "Canales Wi-Fi", Icono = "\uE701", ColorClave = "BAccent2",
+            Descripcion = "Qué canal está ocupado, cuánto se solapan las redes vecinas y a cuál conviene moverse.",
+            Acciones = new()
+            {
+                new AccionRapida { Id = "canales", Texto = "Abrir mapa de canales", Icono = "\uE701", EsPrimario = true },
+                new AccionRapida { Id = "ir-red", Texto = "Medir red completa", Icono = "\uEC05" },
+                new AccionRapida { Id = "ping-monitor", Texto = "Monitor de ping", Icono = "\uE9D9" }
+            }
+        },
         ["rendimiento"] = new ContextoModulo
         {
             Nombre = "Rendimiento", Icono = "\uE9D2", ColorClave = "BOk",

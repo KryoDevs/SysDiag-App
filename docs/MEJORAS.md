@@ -1,4 +1,4 @@
-# Análisis y plan de mejoras — SysDiag 5.14.0
+# Análisis y plan de mejoras — SysDiag 5.15.0
 
 Fecha: 2026-10-10 · Rama: `arena/e864cf80-sysdiag-app` · Base: `34a2aa1`
 Continúa [AUDITORIA.md](AUDITORIA.md) y [AUDITORIA_2026-10-09.md](AUDITORIA_2026-10-09.md).
@@ -7,7 +7,7 @@ Continúa [AUDITORIA.md](AUDITORIA.md) y [AUDITORIA_2026-10-09.md](AUDITORIA_202
 
 Se leyó el proyecto completo: los 93 archivos `.cs`, los doce XAML, el proyecto de
 prueba (siete archivos en `Tools/IntegrationTests`) y el `HeadlessRunner`, los tres
-workflows, los cinco `validate_*.ps1`, `build.bat`, el instalador y el manifiesto. Los
+workflows, los ocho `validate_*.ps1` y `run_gate.ps1`, `build.bat`, el instalador y el manifiesto. Los
 recuentos de esta sección se volvieron a tomar sobre el árbol de hoy: los de la primera
 lectura ya estaban desfasados. Cada afirmación de abajo tiene su evidencia al lado.
 
@@ -20,9 +20,8 @@ pasada honesta del trabajo:
   `--self-test` del EXE publicado, que construye las diez ventanas) también. Es
   decir: el tema reescrito, los adjuntos `ui:Motion.*` en las diez ventanas y el
   recorte de tamaño por área de trabajo se cargan en WPF de verdad.
-- Suite de regresión: **163/163** en el último CI verde registrado, tras la serie
-  114 → 148 → 152 → 160 → 163; el gate vigente es **314** (ver el lote de auditoría de
-  2026-10-10 en el CHANGELOG, sin publicar y aún sin CI en esta rama). El umbral de
+- Suite de regresión: **345/345** en el CI verde de 5.15.0 (corridas `f7a7ae8` y `8155229`: «345/345 pruebas
+  aprobadas, sin omisiones ni fallos»), tras la serie 114 → 148 → 152 → 160 → 163 → 314 → 345. El umbral de
   `validate_tests.ps1` se subió en cada tanda
   para que siga apretando: que la cuenta sea exacta es lo que impide que se cuele una
   prueba eliminada sin reemplazo.
@@ -58,6 +57,11 @@ Las verificaciones mecánicas que sí corrieron en el sandbox:
 
 La compilación real, las pruebas y el autotest del EXE publicado tienen que correr
 en el CI de Windows de esta rama antes de dar nada por cerrado.
+
+**Estado al cerrar 5.15.0:** eso ya corrió. El job `build` (puertas, Release, 345/345
+pruebas, umbral, autotest del EXE publicado) y el job `instalador` (compilar, instalar,
+autotestear y desinstalar) están en verde sobre `8155229`, junto con `validate-fixture` y
+`compile-debug`.
 
 ---
 
@@ -138,11 +142,11 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
 **Pruebas**
 
 0. ~~El gate de `validate_tests.ps1` sigue diciendo «mínimo 114»~~ — **subido y
-   verificado**: 314 con el gate vigente (114 auditadas + 34 del sistema visual + 6 de licencia
-   + 11 del recorte de ventanas + el resto de los lotes). El número se sube en el mismo commit que añade pruebas, y el
+   verificado**: 345 con el gate vigente (114 auditadas + 34 del sistema visual + 6 de licencia
+   + 11 del recorte de ventanas + el resto de los lotes, 31 en el lote 5.15). El número se sube en el mismo commit que añade pruebas, y el
    mensaje del script repite el desglose para que se sepa qué lo compone.
 
-5. Las 114 pruebas originales (314 hoy en la suite completa) son de lógica pura (`Exporter`, parsers, umbrales, fusiones) y son
+5. Las 114 pruebas originales (345 hoy en la suite completa) son de lógica pura (`Exporter`, parsers, umbrales, fusiones) y son
    buenas; ningún binding, conversor ni template está cubierto más allá de «la ventana
    se construye`. El hueco concreto: `Converters.cs` (seis convertidores con ramas de
    `switch` y un `Clamp`) se puede probar en 20 minutos sin WPF... pero `ScoreArc.Geometria`
@@ -156,7 +160,7 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
    dos cosas que el parseo no veía: que la propiedad animada exista en el tipo del destino
    y que ningún `Forever` de `Trigger` se quede sin `StopStoryboard`. Sigue sin haber
    disparo real de los triggers, que es lo que falta aquí.
-7. ~~Sin cobertura medida.~~ **Aplicado** (lote de 2026-10-10, sin CI aún): `coverlet.collector` 6.0.2 en
+7. ~~Sin cobertura medida.~~ **Aplicado** (lote de 2026-10-10; el CI verde de 5.15.0 lo corre en cada empujón): `coverlet.collector` 6.0.2 en
    el proyecto de pruebas y `--collect:"XPlat Code Coverage"` en `build.yml`; el artefacto
    `test-results-*` ahora incluye `TestResults/**`. Sin umbral al principio,
    con umbral de no-regresión cuando se sepa dónde está (los números de `Core/Storage`
@@ -170,7 +174,7 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
    pasar (F05 es precisamente eso: se detectó midiendo, no con una prueba).
    ~~y esta brecha quedó cerrada en la tanda siguiente~~: `Inicializar` acepta una
    ruta, `LicenseRegressionTests` prueba el comportamiento corregido, y el umbral del
-   gate subió a 152 (314 hoy). `SettingsService` ya tiene camino de prueba desde el lote de
+   gate subió a 152 (345 hoy). `SettingsService` ya tiene camino de prueba desde el lote de
    2026-10-10 (`Cargar`/`Guardar` aceptan ruta; `OpcionesYAjustesTests`). Nano-deuda recién vista: `Activar`
    guarda el texto tal como se tecleó (con espacios en vez de guiones) en lugar de la
    forma canónica; la lectura lo tolera porque `Normalizar` los descarta, pero el
@@ -191,7 +195,7 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
 10. Firma de código y notoriedad: sigue pendiente desde la auditoría 1 y es lo único que
     quita el «Windows protegió su PC» del README. Alternativa sin certificado de pago:
     `Azure Trusted Signing` (cuesta centavos al mes) y deja de ser un problema.
-11. ~~El instalador no se prueba en CI~~ **Aplicado** (lote de 2026-10-10, sin CI aún): job `instalador` en
+11. ~~El instalador no se prueba en CI~~ **Aplicado** (lote de 2026-10-10; verificado en el CI de 5.15.0, que instala, autotestea y desinstala en cada empujón): job `instalador` en
    `build.yml` → `build_installer.ps1`, luego `Tools/validate_installer.ps1`, que instala en silencio,
    ejecuta el EXE instalado con `--self-test` (exige la marca `SYSDIAG_SELF_TEST_OK`) y desinstala.
 12. Reparto por `winget` (manifest en `winget-pkgs`) y `scoop`: actualiza solo, quita el
@@ -203,6 +207,15 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
 14. `build.bat` sigue siendo el camino de entrada del README, pero no corre `dotnet test`:
     compila y publica. Para alguien que reporta un fallo, `build.bat test` (un
     `dotnet test` con el validador al final) es más útil que un .exe.
+
+15. ~~Ninguna puerta comprobaba que las puertas pudieran ejecutarse.~~ **Aplicado (5.15)**:
+    `Tools/validate_scripts.ps1` analiza cada `.ps1` con el analizador real de PowerShell 7 y exige que
+    cada script sea ASCII sin BOM o lleve BOM (lo que Windows PowerShell 5.1 necesita para leer
+    acentos), y `Tools/run_gate.ps1` publica la salida de una puerta como anotaciones de la corrida y
+    como comentario del PR. Motivo, con nombre y apellido: `Tools/validate_docs.ps1` tenía un `$doc:`
+    dentro de comillas dobles que PowerShell 7 rechaza al analizar; el archivo entero no cargaba, la
+    puerta no comprobaba nada y el CI estuvo rojo tres corridas diciendo solo «exit code 1». La lección
+    está en §5 y en `docs/AUDITORIA_2026-10-11.md`.
 
 ---
 
@@ -575,6 +588,16 @@ hechas y se concentra en lo que apareció al tocar esas cuatro cosas. Coste:
 15. **Persistencia de la ventana y del estado de la interfaz** [c/bajo]. Tamaño,
     posición, última pestaña y último filtro entre sesiones. Es de las cosas que
     nadie pide y todos notan cuando faltan.
+
+    **Hecho en 5.15.** `Ui/EstadoVentana.cs` guarda tamaño, posición, si estaba
+    maximizada, la vista abierta y el filtro del registro en `settings.json`, y
+    los aplica al abrir. Tres decisiones: la posición se valida contra el
+    escritorio virtual completo, así que una guardada en un monitor que ya no
+    está se recentra en vez de quedar fuera de la pantalla; lo que se guarda es
+    el tamaño de reposo (`RestoreBounds`), no el de la ventana maximizada; y los
+    cuatro valores son anulables —un `NaN` no es JSON válido y habría roto la
+    escritura de los ajustes—. La regla de ubicación es una función pura y tiene
+    16 pruebas.
 
 ### 8.3 Lo que sigue sin convenir
 

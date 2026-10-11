@@ -3,6 +3,73 @@
 Los cambios notables de este proyecto se documentan en este archivo. Las secciones
 `[Sin publicar]` son lotes de una rama: se consolidan al cortar el siguiente release.
 
+## [5.15.0] - 2026-10-11 (CI en verde: canales Wi-Fi y la ventana donde se dejó)
+
+Sube la versión a **5.15.0**. Incluye los lotes `[Sin publicar]` de arriba (5.14.0), cierra el 2.5
+de `docs/HERRAMIENTAS_NUEVAS.md` y el punto 15 de `docs/MEJORAS.md §8.2`, y arregla los cuatro fallos
+que dejaban el CI en rojo desde el merge del lote anterior —incluido el que impedía ver los otros
+tres—. Análisis y evidencia en `docs/AUDITORIA_2026-10-11.md`.
+
+- **CI: `System.IO` no es un `using` implícito con `UseWPF` (job `compile-debug`).** El proyecto de
+  pruebas se compila en Debug en un job propio justo para cazar esto. Con `UseWPF` —necesario para
+  `ConvertersTests`— el conjunto de `using` implícitos del SDK de escritorio ya no trae `System.IO`,
+  y cuatro archivos de pruebas usan `Path`, `File` y `Directory` a secas: 11 errores CS0103/CS0246.
+  Se declara `<Using Include="System.IO" />` para el proyecto entero y cada archivo afectado lo
+  importa explícitamente, como hacen los archivos de la aplicación.
+- **CI: una cita de sección que no existe (`release.yml`).** `Tools/validate_docs.ps1` comprueba que
+  cada cita «§» apunte a un encabezado real, y su propio mensaje pide la forma «N.M, ítem K» para lo
+  que no tiene encabezado. `release.yml` citaba la sección 2 de `docs/MEJORAS.md` con tres niveles
+  (`§2.13`), que no existe: esa sección es una lista y el ítem 13 es el que describe. Ahora se cita
+  como `MEJORAS §2, ítem 13`. Este defecto era real, pero no era el motivo del paso rojo: la puerta no
+  llegaba a ejecutarse (siguiente viñeta).
+- **CI: la puerta de documentación no analizaba, y el CI no podía decirlo.** Un signo de dos puntos
+  pegado a un nombre de variable dentro de comillas dobles (`"$doc: usa…"`) se lee como variable con
+  ámbito: PowerShell 7 lo rechaza al analizar la sintaxis y el archivo entero no carga, así que la
+  puerta no ejecutaba ni la primera comprobación y su `try/catch` no podía atrapar lo que impide
+  cargarla. El paso estuvo rojo en las cuatro corridas con «Process completed with exit code 1» y
+  ninguna anotación, y el mensaje del analizador vivía en un log que no se pudo abrir ni descargar. Se
+  corrige con `${doc}` —el delimitador explícito— y, sobre todo, con la puerta nueva de la viñeta
+  siguiente. Los scripts del repo viven en dos PowerShell (5.1 en `build.bat`, 7 en el CI) y eso es
+  justamente lo que hace que un archivo pueda estar roto para uno y no para el otro.
+- **Puerta nueva: los scripts se analizan antes de correr (`Tools/validate_scripts.ps1`).** Analiza
+  cada `.ps1` con el analizador real de PowerShell 7 y falla con archivo, línea y motivo, más la línea
+  culpable; exige además ASCII sin BOM o BOM, que es lo que necesita Windows PowerShell 5.1 para leer
+  acentos (`Tools/validate_installer.ps1` tenía acentos y no llevaba BOM: se le agregó). Corre como
+  primer paso del job `build`, porque comprueba que las demás puertas puedan siquiera ejecutarse, y no
+  pasa por el lanzador a propósito: la comprobación más básica tiene que tener la menor cantidad de
+  piezas.
+- **CI: lo que falla, se explica (`Tools/run_gate.ps1`).** Las puertas de `build.yml` corren por este
+  lanzador: ejecuta la puerta en un proceso hijo, guarda su salida —la normal y la de error—, la
+  imprime, la publica como anotaciones de la corrida (que se leen desde la API, sin abrir el log) y, en
+  las corridas de PR, deja el motivo como comentario; si el comentario no se puede publicar, lo dice en
+  una anotación. Costó caro aprenderlo: el diagnóstico de la viñeta anterior apareció recién cuando la
+  puerta empezó a hablar por anotaciones.
+- **CI: el job `instalador` buscaba el setup donde no estaba.** Inno Setup deja el resultado en
+  `Output\` —relativo al `.iss`— cuando no se declara `OutputDir`, y `Tools/validate_installer.ps1`
+  lo buscaba junto al `.iss`: fallaba con «se esperaba un instalador y hay 0» sobre una compilación
+  correcta. `installer/SysDiag.iss` declara ahora la ruta de salida, la puerta busca ahí (y acepta la
+  otra ubicación), y `Tools/validate_docs.ps1` comprueba que las dos rutas sigan coincidiendo, para
+  que este desajuste no pueda volver.
+- **Mapa de canales Wi-Fi (HERRAMIENTAS_NUEVAS §2.5).** `Core/Network/WifiChannelModule.cs` (análisis
+  puro) + `Ui/CanalesWindow`, detrás de la entrada «Canales Wi-Fi» del rail. Cuenta las redes vecinas
+  que tocan cada canal —en 2.4 GHz los canales se solapan: dos redes se interfieren si distan menos de
+  cinco— y recomienda entre los tres que no se pisan (1, 6 y 11) explicando por qué, o dice que no hay
+  nada que ganar cambiando. En 5 GHz compara por número exacto y lo aclara, porque el escaneo de
+  Windows no informa el ancho de canal. La red propia no cuenta como interferencia, y un adaptador que
+  no ve vecinos recibe una nota que lo explica en vez de un gráfico vacío.
+- **Estado de la ventana (MEJORAS §8.2, ítem 15).** `Ui/EstadoVentana.cs` guarda tamaño, posición, si
+  estaba maximizada, la vista abierta y el filtro del registro en `settings.json`, y los aplica al
+  abrir. Una posición guardada en un monitor que ya no existe se recentra en el principal en vez de
+  aparecer fuera del escritorio. La posición se guarda como valor anulable y no con un centinela
+  numérico: un `NaN` no es JSON válido y habría hecho fallar la escritura de los ajustes.
+- **El aviso de congestión Wi-Fi ahora cuenta el espectro, no el número de canal.** El comentario de
+  `ScanChannels` decía que en 2.4 GHz cualquier vecino interfiere, mientras el código contaba solo
+  coincidencias exactas de número. La regla vive en `WifiChannelModule.SeSolapan` y la usan el hallazgo
+  del diagnóstico y la ventana de canales: un criterio, un lugar.
+- **Pruebas:** 31 nuevas (`CanalesWifiTests` y `EstadoVentanaTests`) sobre las partes puras de las dos
+  funciones nuevas; el umbral del CI sube con ellas y no se baja nunca. **Estimación:** el número se
+  calculó sumando las pruebas nuevas, no contando una ejecución. Umbral de pruebas del CI: 345.
+
 ## [Sin publicar] - 2026-10-10 (auditoría: código muerto, licencia y coherencia)
 
 Sigue en 5.14.0: no hay cambio de versión, solo limpieza y correcciones. Análisis y
