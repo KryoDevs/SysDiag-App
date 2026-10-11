@@ -1,4 +1,4 @@
-# Instala el setup de Inno Setup en silencio, comprueba que el EXE instalado arranca
+﻿# Instala el setup de Inno Setup en silencio, comprueba que el EXE instalado arranca
 # con --self-test y lo desinstala. Cubre lo que antes se comprobaba a mano (MEJORAS, seccion 2, item 11).
 #
 # Solo ASCII: Windows PowerShell 5.1 lee un .ps1 sin BOM como ANSI.

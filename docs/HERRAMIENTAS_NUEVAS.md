@@ -347,6 +347,7 @@ En Windows, sobre una máquina propia:
 dotnet restore SysDiag.sln
 dotnet build SysDiag.sln -c Release --no-restore
 dotnet test  SysDiag.sln -c Release --no-build --logger "trx;LogFileName=tests.trx" --results-directory TestResults
+.\Tools\validate_scripts.ps1 -Root .
 .\Tools\validate_tests.ps1
 .\Tools\validate_xaml.ps1 -Root .
 .\Tools\validate_fixture.ps1

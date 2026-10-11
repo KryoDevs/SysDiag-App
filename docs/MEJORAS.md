@@ -7,7 +7,7 @@ Continúa [AUDITORIA.md](AUDITORIA.md) y [AUDITORIA_2026-10-09.md](AUDITORIA_202
 
 Se leyó el proyecto completo: los 93 archivos `.cs`, los doce XAML, el proyecto de
 prueba (siete archivos en `Tools/IntegrationTests`) y el `HeadlessRunner`, los tres
-workflows, los cinco `validate_*.ps1`, `build.bat`, el instalador y el manifiesto. Los
+workflows, los ocho `validate_*.ps1` y `run_gate.ps1`, `build.bat`, el instalador y el manifiesto. Los
 recuentos de esta sección se volvieron a tomar sobre el árbol de hoy: los de la primera
 lectura ya estaban desfasados. Cada afirmación de abajo tiene su evidencia al lado.
 
@@ -20,9 +20,8 @@ pasada honesta del trabajo:
   `--self-test` del EXE publicado, que construye las diez ventanas) también. Es
   decir: el tema reescrito, los adjuntos `ui:Motion.*` en las diez ventanas y el
   recorte de tamaño por área de trabajo se cargan en WPF de verdad.
-- Suite de regresión: **163/163** en el último CI verde registrado, tras la serie
-  114 → 148 → 152 → 160 → 163; el gate vigente es **345** (ver el lote de auditoría de
-  2026-10-10 en el CHANGELOG, sin publicar y aún sin CI en esta rama). El umbral de
+- Suite de regresión: **345/345** en el CI verde de 5.15.0 (corrida `f7a7ae8`: «345/345 pruebas
+  aprobadas, sin omisiones ni fallos»), tras la serie 114 → 148 → 152 → 160 → 163 → 314 → 345. El umbral de
   `validate_tests.ps1` se subió en cada tanda
   para que siga apretando: que la cuenta sea exacta es lo que impide que se cuele una
   prueba eliminada sin reemplazo.
@@ -58,6 +57,11 @@ Las verificaciones mecánicas que sí corrieron en el sandbox:
 
 La compilación real, las pruebas y el autotest del EXE publicado tienen que correr
 en el CI de Windows de esta rama antes de dar nada por cerrado.
+
+**Estado al cerrar 5.15.0:** eso ya corrió. El job `build` (puertas, Release, 345/345
+pruebas, umbral, autotest del EXE publicado) y el job `instalador` (compilar, instalar,
+autotestear y desinstalar) están en verde sobre `f7a7ae8`, junto con `validate-fixture` y
+`compile-debug`.
 
 ---
 
@@ -156,7 +160,7 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
    dos cosas que el parseo no veía: que la propiedad animada exista en el tipo del destino
    y que ningún `Forever` de `Trigger` se quede sin `StopStoryboard`. Sigue sin haber
    disparo real de los triggers, que es lo que falta aquí.
-7. ~~Sin cobertura medida.~~ **Aplicado** (lote de 2026-10-10, sin CI aún): `coverlet.collector` 6.0.2 en
+7. ~~Sin cobertura medida.~~ **Aplicado** (lote de 2026-10-10; el CI verde de 5.15.0 lo corre en cada empujón): `coverlet.collector` 6.0.2 en
    el proyecto de pruebas y `--collect:"XPlat Code Coverage"` en `build.yml`; el artefacto
    `test-results-*` ahora incluye `TestResults/**`. Sin umbral al principio,
    con umbral de no-regresión cuando se sepa dónde está (los números de `Core/Storage`
@@ -191,7 +195,7 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
 10. Firma de código y notoriedad: sigue pendiente desde la auditoría 1 y es lo único que
     quita el «Windows protegió su PC» del README. Alternativa sin certificado de pago:
     `Azure Trusted Signing` (cuesta centavos al mes) y deja de ser un problema.
-11. ~~El instalador no se prueba en CI~~ **Aplicado** (lote de 2026-10-10, sin CI aún): job `instalador` en
+11. ~~El instalador no se prueba en CI~~ **Aplicado** (lote de 2026-10-10; verificado en el CI de 5.15.0, que instala, autotestea y desinstala en cada empujón): job `instalador` en
    `build.yml` → `build_installer.ps1`, luego `Tools/validate_installer.ps1`, que instala en silencio,
    ejecuta el EXE instalado con `--self-test` (exige la marca `SYSDIAG_SELF_TEST_OK`) y desinstala.
 12. Reparto por `winget` (manifest en `winget-pkgs`) y `scoop`: actualiza solo, quita el
@@ -203,6 +207,15 @@ presenta como cierto; **media** = falla en condiciones reales pero se ve;
 14. `build.bat` sigue siendo el camino de entrada del README, pero no corre `dotnet test`:
     compila y publica. Para alguien que reporta un fallo, `build.bat test` (un
     `dotnet test` con el validador al final) es más útil que un .exe.
+
+15. ~~Ninguna puerta comprobaba que las puertas pudieran ejecutarse.~~ **Aplicado (5.15)**:
+    `Tools/validate_scripts.ps1` analiza cada `.ps1` con el analizador real de PowerShell 7 y exige que
+    cada script sea ASCII sin BOM o lleve BOM (lo que Windows PowerShell 5.1 necesita para leer
+    acentos), y `Tools/run_gate.ps1` publica la salida de una puerta como anotaciones de la corrida y
+    como comentario del PR. Motivo, con nombre y apellido: `Tools/validate_docs.ps1` tenía un `$doc:`
+    dentro de comillas dobles que PowerShell 7 rechaza al analizar; el archivo entero no cargaba, la
+    puerta no comprobaba nada y el CI estuvo rojo tres corridas diciendo solo «exit code 1». La lección
+    está en §5 y en `docs/AUDITORIA_2026-10-11.md`.
 
 ---
 

@@ -34,73 +34,40 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Comprobar los scripts (sintaxis y codificación)
+        # Un error de análisis mata un script entero antes de ejecutar la primera
+        # comprobación, y hasta hoy el CI solo decía "exit code 1": esta puerta lo
+        # dice con archivo, línea y motivo. Ver la cabecera de Tools/validate_scripts.ps1.
+        # Va antes que las demás puertas a propósito: comprueba que las otras puedan
+        # siquiera ejecutarse. Y no pasa por run_gate.ps1 justamente por eso: es la
+        # comprobación más básica y tiene que tener la menor cantidad de piezas.
+        shell: pwsh
+        run: |
+          .\Tools\validate_scripts.ps1 -Root .
+
       - name: Comprobar el XAML (recursos y ámbitos de nombres)
-        # Puerta desde la primera corrida verde sobre el tema reescrito. Es la
-        # comprobación que ve lo que el autotest no puede ver: los triggers de una
-        # plantilla solo se materializan al pasar el cursor, y un TargetName mal
+        # Cada {StaticResource} existe, cada TargetName vive en su plantilla, la
+        # propiedad animada está en el tipo del destino, cada Forever nacido en un
+        # Trigger tiene su StopStoryboard, y cada {Binding X} es un miembro real:
+        # WPF no avisa de nada de eso (no anima, no enlaza y sigue), así que la
+        # plantilla solo se materializa al pasar el cursor, y un TargetName mal
         # escrito no rompe la construcción de la ventana — rompe el primer hover.
         shell: pwsh
         run: |
-          .\Tools\validate_xaml.ps1 -Root .
+          .\Tools\run_gate.ps1 -Script .\Tools\validate_xaml.ps1
 
       - name: Comprobar la coherencia de la documentación
         # Versión, umbral de pruebas, referencias a secciones y nombres del README
         # contra el código. Ver la cabecera de Tools/validate_docs.ps1.
-        # La puerta publica avisos y errores de workflow y el runner los convierte en
-        # anotaciones: se leen desde la API sin abrir (ni descargar) el log de la
-        # corrida. El mismo texto queda como comentario del PR, y si el comentario no
-        # se puede publicar, el motivo también se anota. Un diagnóstico que solo vive
-        # en el log de una corrida fallida es un diagnóstico que nadie lee.
+        # El lanzador publica la salida de la puerta como anotaciones (y como
+        # comentario del PR): los logs de una corrida fallida no siempre se pueden
+        # abrir, y un diagnóstico que solo vive ahí es un diagnóstico que nadie lee.
         shell: pwsh
         env:
           PR: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          # La puerta corre en un proceso hijo y su salida se vuelca a un archivo:
-          # mezclar la salida de error de un proceso nativo en la canalización de
-          # PowerShell es la clase de detalle que hace caer un paso por un motivo
-          # distinto del que se está depurando.
-          $ErrorActionPreference = 'Continue'
-          $registro = Join-Path $env:RUNNER_TEMP 'gate-docs.log'
-          & pwsh -NoProfile -File .\Tools\validate_docs.ps1 -Root . *> $registro
-          $codigo = $LASTEXITCODE
-          $salida = if (Test-Path -LiteralPath $registro) { (Get-Content -LiteralPath $registro -Raw) } else { '' }
-          $salida = ($salida -replace "`r", '').Trim()
-          if ($salida.Length -gt 6000) { $salida = $salida.Substring(0, 6000) + ' ...' }
-          Write-Output $salida
-          if ($codigo -eq 0) { exit 0 }
-          if ($salida.Length -eq 0) {
-            Write-Output "::error title=DocGate::la puerta terminó con código $codigo sin escribir nada: el problema es anterior a la puerta"
-          }
-          # Una anotación por línea del diagnóstico, para no depender del log. Las
-          # líneas que ya son comandos de workflow las procesó el runner al imprimir.
-          foreach ($linea in @($salida -split "`n" | Where-Object { $_.Trim().Length -gt 0 } | Select-Object -First 8)) {
-            if ($linea.Trim().StartsWith('::')) { continue }
-            Write-Output "::error title=DocGate::$($linea.Trim())"
-          }
-          if ($env:PR) {
-            $sha = $env:GITHUB_SHA.Substring(0, 7)
-            $uri = "$env:GITHUB_API_URL/repos/$env:GITHUB_REPOSITORY/issues/$env:PR/comments"
-            $cabeceras = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' }
-            $grave = [string][char]0x60
-            $cercado = $grave + $grave + $grave
-            $primeraLinea = "La puerta de documentación falló en $sha"
-            try {
-              $previos = Invoke-RestMethod -Uri $uri -Headers $cabeceras
-              if (@($previos | Where-Object { $_.body -like "$primeraLinea*" }).Count -gt 0) {
-                Write-Output '::notice title=DocGate::ya hay un comentario de esta revisión; no se duplica'
-              } else {
-                $cuerpo = $primeraLinea + " (código $codigo).`n`n$cercado" + "text`n$salida`n$cercado"
-                $json = @{ body = $cuerpo } | ConvertTo-Json -Depth 2
-                Invoke-RestMethod -Method Post -Uri $uri -Headers $cabeceras -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($json)) | Out-Null
-                Write-Output '::notice title=DocGate::el motivo quedó como comentario del PR'
-              }
-            } catch {
-              $motivo = ($_.Exception.Message -replace "`r?`n", ' ')
-              Write-Output "::error title=Comentario::no se pudo publicar el comentario del PR: $motivo"
-            }
-          }
-          exit 1
+          .\Tools\run_gate.ps1 -Script .\Tools\validate_docs.ps1 -Comentar
 
       - name: Restaurar dependencias
         run: dotnet restore SysDiag.sln

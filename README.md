@@ -280,6 +280,12 @@ lista lo accionable sin instalar nada.
 
 - Windows compila la solución, ejecuta regresiones y conserva TRX. Se incluyen ramas
   `arena/**`; no se publica un release por trabajar en una rama.
+- `Tools/validate_scripts.ps1` analiza cada `.ps1` con el analizador de PowerShell 7 —el que ejecuta el
+  CI— antes de que corran las demás puertas, porque un error de análisis invalida el archivo entero: no
+  ejecuta ni la primera comprobación. Exige además que los scripts sean ASCII sin BOM o lleven BOM, que
+  es lo que necesita Windows PowerShell 5.1 —el de `build.bat`— para leer los acentos. Existe por un
+  caso real: la puerta de documentación estuvo roja tres corridas sin ejecutarse nunca, por un `$doc:`
+  dentro de comillas dobles que PowerShell 7 rechaza al analizar.
 - `Tools/validate_tests.ps1` exige ≥345 pruebas (114 de la suite auditada + 34 que miden el sistema visual + 6 de licencia + 11 del recorte de ventanas + 40 sobre funciones puras del lote 5.9 + 15 del lote «Confiar» + 14 del diff entre diagnósticos + 21 de SMART + 13 de consumo por proceso + 16 de pérdida por salto + 5 de tiempo de espera por módulo + 5 de ajustes y opciones + 20 de convertidores + 31 del mapa de canales Wi-Fi y el estado de la ventana), todas aprobadas y sin omisiones.
 - `Tools/validate_xaml.ps1` comprueba seis cosas sobre los XAML: bien formado, resolución de
   `{StaticResource}`, ámbito de cada `TargetName` dentro de su plantilla, que la propiedad animada exista
@@ -292,6 +298,10 @@ lista lo accionable sin instalar nada.
   inexistente no rompe la compilación, rompe en tiempo de ejecución y en silencio.
 - Headless está en la solución y comparte `ScanService`; `--self-test` usa un doble
   sintético explícito, nunca sustituye mediciones de un diagnóstico real.
+- Las puertas de `build.yml` se ejecutan con `Tools/run_gate.ps1`, que corre la puerta en un proceso
+  hijo, imprime su salida, la publica como **anotaciones** de la corrida —se leen desde la API, sin
+  abrir el log— y, si la corrida es de un pull request, deja el motivo como comentario. El log de una
+  corrida fallida no siempre se puede abrir ni descargar, y el diagnóstico no puede depender de eso.
 - `Tools/validate_docs.ps1` comprueba además que la ruta donde Inno Setup deja el setup
   (`OutputDir` de `installer\SysDiag.iss`) sea la misma que busca
   `Tools/validate_installer.ps1`: cuando no coincidían, el job `instalador` fallaba
